@@ -36,7 +36,7 @@ export const LiveDriverMapModal: React.FC<LiveDriverMapModalProps> = ({ isOpen, 
 
   const handleCallDriver = () => {
     playSound('pop');
-    window.location.href = `tel:${BILLO_INFO.directLineClean}`;
+    window.location.href = `tel:${BILLO_INFO.whatsappClean}`;
   };
 
   const handleWhatsAppDriver = () => {

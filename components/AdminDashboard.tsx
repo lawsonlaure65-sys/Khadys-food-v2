@@ -40,6 +40,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [aiStrategy, setAiStrategy] = useState('');
   const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
   const adminPhotoInputRef = useRef<HTMLInputElement>(null);
+  const dishPhotoInputRef = useRef<HTMLInputElement>(null);
+  const articlePhotoInputRef = useRef<HTMLInputElement>(null);
   const [adminAvatar, setAdminAvatar] = useState(() => localStorage.getItem('khadys_admin_avatar') || '');
 
   const handleAdminPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,6 +52,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const base64String = reader.result as string;
         setAdminAvatar(base64String);
         localStorage.setItem('khadys_admin_avatar', base64String);
+        playSound('success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleDishPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setEditingItem(prev => prev ? { ...prev, image: base64String } : null);
+        playSound('success');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleArticlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setEditingArticle(prev => prev ? { ...prev, image: base64String } : null);
         playSound('success');
       };
       reader.readAsDataURL(file);
@@ -544,9 +572,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        </select>
                     </div>
                  </div>
-                 <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Image (Lien Unsplash)</label>
-                    <input value={editingItem.image || ''} onChange={e => setEditingItem({...editingItem, image: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] border border-white/10" placeholder="https://..." />
+                 <div className="space-y-2">
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Photo du Plat</label>
+                    <input 
+                       type="file" 
+                       ref={dishPhotoInputRef} 
+                       accept="image/*" 
+                       className="hidden" 
+                       onChange={handleDishPhotoChange} 
+                    />
+                    
+                    {editingItem.image && (
+                       <div className="relative w-full h-28 rounded-2xl overflow-hidden border border-white/20 mb-2 group">
+                          <img src={editingItem.image} alt="Aperçu plat" className="w-full h-full object-cover" />
+                          <button 
+                             type="button" 
+                             onClick={() => setEditingItem({...editingItem, image: ''})} 
+                             className="absolute top-2 right-2 bg-black/60 text-white p-1.5 rounded-full hover:bg-red-500 transition-colors"
+                          >
+                             <X size={14} />
+                          </button>
+                       </div>
+                    )}
+
+                    <button 
+                       type="button" 
+                       onClick={() => dishPhotoInputRef.current?.click()} 
+                       className="w-full p-4 bg-brand-gold/15 border border-brand-gold/40 hover:bg-brand-gold/25 text-brand-gold rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                    >
+                       <Camera size={18} /> Importer depuis Galerie / Appareil
+                    </button>
+
+                    <div className="pt-1">
+                       <span className="text-[7px] text-white/40 uppercase font-black tracking-widest block mb-1">Ou saisir un lien URL :</span>
+                       <input value={editingItem.image || ''} onChange={e => setEditingItem({...editingItem, image: e.target.value})} className="w-full p-3 bg-white/5 rounded-xl text-white text-[10px] border border-white/10 outline-none focus:border-brand-gold" placeholder="https://..." />
+                    </div>
                  </div>
                  <div className="space-y-1">
                     <label className="text-[8px] font-black uppercase text-white/30 ml-4">Description</label>

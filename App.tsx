@@ -25,6 +25,7 @@ import Receipt from './components/Receipt';
 import Toast, { ToastType } from './components/Toast';
 import DeliveryEstimator from './components/DeliveryEstimator';
 import ReviewsSection from './components/ReviewsSection';
+import PromotionCalendar from './components/PromotionCalendar';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000 } from './constants';
 import { playSound } from './utils/audio';
@@ -384,6 +385,22 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* Interactive Weekly Promotion Calendar Component */}
+            <div className="px-4 sm:px-6">
+              <PromotionCalendar 
+                onSelectOffer={(promo) => {
+                  setToast({ 
+                    message: `🎉 Offre ${promo.dayName} activée ! Code : ${promo.code}`, 
+                    type: 'success' 
+                  });
+                }}
+                onGoToMenu={() => {
+                  setActiveMenuSection('CARTE');
+                  setCurrentPage(Page.MENU);
+                }}
+              />
+            </div>
+
             {/* Menu Grid */}
             <div className="px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-12">
               <div className="sm:col-span-3 bg-[#1A0F0D] rounded-[2.5rem] p-8 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden group active:scale-95 transition-all cursor-pointer border border-white/5 h-48 sm:h-auto" onClick={() => { setActiveMenuSection('CARTE'); setCurrentPage(Page.MENU); }}>
@@ -617,16 +634,16 @@ const App: React.FC = () => {
         onClose={() => setShowLiveDriverMapModal(false)}
         order={orders.length > 0 ? orders[0] : (lastOrder || {
           id: 'KH-2026-LIVE',
-          items: cart,
-          totalAmount: 12500,
-          status: 'DELIVERING',
-          createdAt: new Date().toISOString(),
           customerName: userProfile.name,
           phone: userProfile.phone,
+          address: 'Avenue de la Francophonie',
           district: 'Plateau / Niamey',
-          addressDetails: 'Avenue de la Francophonie',
-          paymentMethod: 'Zamany Money (ex-Orange)',
-          deliveryFee: 1000
+          items: cart,
+          total: 12500,
+          deliveryFee: 1000,
+          status: 'DELIVERING',
+          paymentMethod: 'ZAMANY',
+          timestamp: new Date().toISOString()
         })}
       />
 
