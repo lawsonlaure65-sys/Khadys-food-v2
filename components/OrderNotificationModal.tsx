@@ -11,9 +11,10 @@ interface OrderNotificationModalProps {
   order: Order | null;
   onClose: () => void;
   onTrackOrder?: () => void;
+  onOpenPushNotification?: () => void;
 }
 
-export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ order, onClose, onTrackOrder }) => {
+export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ order, onClose, onTrackOrder, onOpenPushNotification }) => {
   if (!order) return null;
 
   useEffect(() => {
@@ -240,6 +241,18 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
           >
             Suivre ma commande en direct <ArrowRight size={16} />
           </button>
+
+          {onOpenPushNotification && (
+            <button 
+              onClick={() => {
+                playSound('pop');
+                onOpenPushNotification();
+              }}
+              className="w-full bg-brand-gold/20 hover:bg-brand-gold text-brand-gold hover:text-brand-brown py-3 rounded-2xl font-black uppercase text-[9px] tracking-widest flex items-center justify-center gap-2 border border-brand-gold/30 active:scale-95 transition-all"
+            >
+              <Bell size={14} className="animate-bounce" /> S'abonner aux Notifications Push Livreur 🔔
+            </button>
+          )}
           
           <button 
             onClick={onClose}

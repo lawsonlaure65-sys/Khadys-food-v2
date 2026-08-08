@@ -31,7 +31,7 @@ import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqI
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000 } from './constants';
 import { playSound } from './utils/audio';
 import { db, isSupabaseConfigured } from './lib/supabase';
-import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, WifiOff, Database } from 'lucide-react';
+import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, Mic, WifiOff, Database } from 'lucide-react';
 import { 
   saveMenuToIDB, 
   getMenuFromIDB, 
@@ -267,25 +267,35 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                {/* Voice Order Quick Button */}
+                <button 
+                  onClick={() => { playSound('pop'); setShowVoiceModal(true); }}
+                  className="w-10 h-10 rounded-xl bg-brand-orange text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
+                  title="Commande Vocale 🎙️"
+                >
+                  <Mic size={18} className="animate-pulse" />
+                </button>
+
+                {/* Push Notification Button */}
+                <button 
+                  onClick={() => { playSound('pop'); setShowPushNotificationModal(true); }}
+                  className="w-10 h-10 rounded-xl bg-brand-gold text-brand-brown flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
+                  title="Notifications Push 🔔"
+                >
+                  <Bell size={18} className="animate-bounce" />
+                </button>
+
                 {/* Night Luxe Mode Toggle */}
                 <button 
                   onClick={toggleDarkMode}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                    isDarkMode ? 'bg-brand-gold text-brand-brown shadow-lg' : 'bg-brand-brown/5 text-brand-brown hover:bg-brand-brown/10'
+                    isDarkMode ? 'bg-white/10 text-brand-gold' : 'bg-brand-brown/5 text-brand-brown hover:bg-brand-brown/10'
                   }`}
                   title="Thème Nuit Or"
                 >
                   {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
-
-                <div className={`px-3 py-2 rounded-xl flex items-center justify-center min-w-[90px] ${
-                  isDarkMode ? 'bg-white/10 text-brand-gold' : 'bg-brand-brown/5 text-brand-brown'
-                }`}>
-                  <span className="text-[9px] font-black uppercase italic tracking-wider animate-fade-in" key={greetingIndex}>
-                    {greetings[greetingIndex]}
-                  </span>
-                </div>
 
                 <button onClick={() => { playSound('pop'); setCurrentPage(Page.COMPTE); }} className="w-10 h-10 bg-brand-brown text-brand-gold rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
                   <UserIcon size={18}/>
@@ -317,7 +327,48 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* High Tech Smart Banners & Shortcuts Grid */}
+            {/* Smart Dual Banners: Commande Vocale & Notifications Push */}
+            <div className="px-4 sm:px-6 grid grid-cols-2 gap-3 mb-6">
+              <div 
+                onClick={() => { playSound('pop'); setShowVoiceModal(true); }}
+                className="bg-gradient-to-br from-brand-orange to-brand-brown text-white p-5 rounded-[2.2rem] shadow-xl border-2 border-brand-orange/40 flex flex-col justify-between cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
+              >
+                <div className="absolute -right-4 -bottom-4 opacity-15 text-white">
+                  <Mic size={70} />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Mic size={16} className="animate-pulse" />
+                  </div>
+                  <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">IA Vocale</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-xs uppercase italic text-white leading-tight">Commande Vocale 🎙️</h3>
+                  <p className="text-[8px] font-bold text-white/70 uppercase mt-0.5">Dictez votre repas au micro</p>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => { playSound('pop'); setShowPushNotificationModal(true); }}
+                className="bg-gradient-to-br from-brand-brown to-[#1A0F0D] text-white p-5 rounded-[2.2rem] shadow-xl border-2 border-brand-gold/40 flex flex-col justify-between cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
+              >
+                <div className="absolute -right-4 -bottom-4 opacity-15 text-brand-gold">
+                  <Bell size={70} />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-xl bg-brand-gold/20 text-brand-gold flex items-center justify-center shrink-0 shadow-md border border-brand-gold/30">
+                    <Bell size={16} className="animate-bounce" />
+                  </div>
+                  <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Suivi PWA</span>
+                </div>
+                <div>
+                  <h3 className="font-black text-xs uppercase italic text-brand-gold leading-tight">Notifications Push 🔔</h3>
+                  <p className="text-[8px] font-bold text-white/70 uppercase mt-0.5">Alertes livraison en temps réel</p>
+                </div>
+              </div>
+            </div>
+
+            {/* High Tech Banners & Shortcuts Grid */}
             <div className="px-4 sm:px-6 grid grid-cols-4 gap-2 sm:gap-3 mb-8">
               <button 
                 onClick={() => { playSound('pop'); setCurrentPage(Page.WHATSAPP); }}

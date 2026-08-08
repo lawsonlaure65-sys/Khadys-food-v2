@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Order } from '../types';
-import { Bike, MapPin, Navigation, Phone, MessageSquare, Clock, ShieldCheck, X, Zap, RefreshCw } from 'lucide-react';
+import { Bike, MapPin, Navigation, Phone, MessageSquare, Clock, ShieldCheck, X, Zap, RefreshCw, Bell } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { BILLO_INFO, RESTAURANT_INFO } from '../constants';
 
@@ -8,9 +8,10 @@ interface LiveDriverMapModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: Order | null;
+  onOpenPushNotification?: () => void;
 }
 
-export const LiveDriverMapModal: React.FC<LiveDriverMapModalProps> = ({ isOpen, onClose, order }) => {
+export const LiveDriverMapModal: React.FC<LiveDriverMapModalProps> = ({ isOpen, onClose, order, onOpenPushNotification }) => {
   const [driverPos, setDriverPos] = useState(25); // percentage along route
   const [etaMinutes, setEtaMinutes] = useState(14);
   const [speed, setSpeed] = useState(38); // km/h
@@ -181,10 +182,20 @@ export const LiveDriverMapModal: React.FC<LiveDriverMapModalProps> = ({ isOpen, 
           </div>
         </div>
 
+        {/* Push Notification Subscribe Button */}
+        {onOpenPushNotification && (
+          <button
+            onClick={() => { playSound('pop'); onOpenPushNotification(); }}
+            className="w-full bg-brand-orange hover:bg-brand-gold text-white hover:text-brand-brown py-3 rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all mb-2 border border-brand-orange/40 shrink-0"
+          >
+            <Bell size={14} className="animate-bounce" /> Activer Notifications Push Delivery 🔔
+          </button>
+        )}
+
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="w-full bg-white/10 hover:bg-white/20 text-white py-3.5 rounded-2xl font-black uppercase text-[9px] tracking-widest transition-all mt-auto"
+          className="w-full bg-white/10 hover:bg-white/20 text-white py-3.5 rounded-2xl font-black uppercase text-[9px] tracking-widest transition-all mt-auto shrink-0"
         >
           Fermer le suivi carte
         </button>

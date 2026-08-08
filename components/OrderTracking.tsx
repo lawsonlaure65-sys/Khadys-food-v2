@@ -8,6 +8,7 @@ interface OrderTrackingProps {
   order: Order;
   onComplete: () => void;
   onOpenLiveDriverMap?: () => void;
+  onOpenPushNotification?: () => void;
 }
 
 const steps: { status: OrderStatus; label: string; icon: any; sound: any }[] = [
@@ -19,7 +20,7 @@ const steps: { status: OrderStatus; label: string; icon: any; sound: any }[] = [
   { status: 'DELIVERED', label: 'Livrée 🍽️', icon: Zap, sound: 'success' }
 ];
 
-const OrderTracking: React.FC<OrderTrackingProps> = ({ order, onComplete, onOpenLiveDriverMap }) => {
+const OrderTracking: React.FC<OrderTrackingProps> = ({ order, onComplete, onOpenLiveDriverMap, onOpenPushNotification }) => {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [billoPos, setBilloPos] = useState(0);
 
@@ -125,9 +126,18 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ order, onComplete, onOpen
            {onOpenLiveDriverMap && (
              <button
                onClick={() => { playSound('pop'); onOpenLiveDriverMap(); }}
-               className="w-full bg-brand-gold text-brand-brown py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all relative z-10 italic"
+               className="w-full bg-brand-gold text-brand-brown py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all relative z-10 italic mb-2"
              >
                <Navigation size={16} /> Ouvrir la Carte GPS Live 🗺️
+             </button>
+           )}
+
+           {onOpenPushNotification && (
+             <button
+               onClick={() => { playSound('pop'); onOpenPushNotification(); }}
+               className="w-full bg-brand-orange text-white py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all relative z-10 italic border border-white/20 hover:bg-brand-gold hover:text-brand-brown"
+             >
+               <Bell size={16} className="animate-bounce" /> Activer Notifications Push Delivery 🔔
              </button>
            )}
         </div>
