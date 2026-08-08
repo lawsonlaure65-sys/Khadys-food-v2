@@ -11,6 +11,7 @@ import { playSound } from '../utils/audio';
 import { PasswordInput } from './PasswordInput';
 import { PhoneInput } from './PhoneInput';
 import { ADMIN_PASSWORD, REWARDS } from '../constants';
+import { OrderHistory } from './OrderHistory';
 
 interface AccountViewProps {
   orders: Order[];
@@ -454,6 +455,15 @@ const AccountView: React.FC<AccountViewProps> = ({
                <FileText size={10} /> Exporter PDF/CSV
             </span>
          </div>
+      </div>
+
+      {/* Order History Component */}
+      <div className="mb-10">
+        <OrderHistory 
+          orders={activeOrdersList} 
+          onOpenLiveDriverMap={onOpenLiveDriverMap}
+          itemsPerPage={3}
+        />
       </div>
 
       {showRewards ? (
