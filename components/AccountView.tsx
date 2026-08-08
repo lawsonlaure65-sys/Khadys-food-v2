@@ -4,7 +4,7 @@ import { Order, UserProfile } from '../types';
 import { 
   ShoppingBag, Gift, ChevronRight, LogOut, Settings, 
   Award, QrCode, User, Mail, 
-  ArrowRight, Fingerprint, Info, CheckCircle2, Bike, Star, Bell, Mic,
+  ArrowRight, Fingerprint, Info, CheckCircle2, Bike, Star, Bell, Mic, Volume2, VolumeX,
   FileText, Download, FileSpreadsheet, Printer, X, Calendar, Clock, Sparkles
 } from 'lucide-react';
 import { playSound } from '../utils/audio';
@@ -40,8 +40,39 @@ const AccountView: React.FC<AccountViewProps> = ({
   const [adminTapCount, setAdminTapCount] = useState(0);
   const [showRewards, setShowRewards] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isSpeakingGuide, setIsSpeakingGuide] = useState(false);
+
+  const handlePlayAudioGuide = () => {
+    playSound('pop');
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert("La synthèse vocale n'est pas supportée par votre navigateur.");
+      return;
+    }
+
+    if (isSpeakingGuide) {
+      window.speechSynthesis.cancel();
+      setIsSpeakingGuide(false);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const speechText = `Bienvenue dans l'application Khady's Food et Event Niamey ! Grâce à notre application, vous pouvez commander vos spécialités préférées, grillades au feu de bois et plats africains en toute simplicité. À chaque commande passée, vous gagnez des points de fidélité. Cumulez vos points pour débloquer des cadeaux, des boissons offertes et des repas gratuits ! Vous pouvez également gagner 50 points en remplissant notre sondage de satisfaction, ou 500 points pour chaque ami parrainé grâce à votre code unique !`;
+
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = 'fr-FR';
+    utterance.rate = 0.95;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+
+    utterance.onstart = () => setIsSpeakingGuide(true);
+    utterance.onend = () => setIsSpeakingGuide(false);
+    utterance.onerror = () => setIsSpeakingGuide(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
   
   // Login States
+  const [loginPhone, setLoginPhone] = useState('');
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
 
@@ -235,7 +266,7 @@ const AccountView: React.FC<AccountViewProps> = ({
     e.preventDefault();
     
     // Authentification Admin Invisible via les champs standards
-    if (activeTab === 'login' && loginEmail.toLowerCase() === 'admin@khadys.food' && loginPass === ADMIN_PASSWORD) {
+    if (activeTab === 'login' && (loginEmail.toLowerCase() === 'admin@khadys.food' || loginPhone === 'admin@khadys.food') && loginPass === ADMIN_PASSWORD) {
       playSound('success');
       onLoginSuccess(true);
       return;
@@ -254,11 +285,15 @@ const AccountView: React.FC<AccountViewProps> = ({
       playSound('success');
       onLoginSuccess(false, generatedProfile);
     } else {
-      // Authentification Client Simulation avec son propre email saisie !
+      // Authentification Client Simulation avec son téléphone / email saisi
+      const displayName = loginEmail
+        ? loginEmail.split('@')[0].toUpperCase()
+        : (loginPhone ? `Client (${loginPhone.slice(-4)})` : 'Abdou R.');
+
       const generatedProfile: UserProfile = {
-        name: loginEmail ? loginEmail.split('@')[0].toUpperCase() : 'Abdou R.',
-        phone: userProfile.phone || '+227 90 00 00 00',
-        email: loginEmail,
+        name: displayName,
+        phone: loginPhone || userProfile.phone || '+227 90 00 00 00',
+        email: loginEmail || undefined,
         points: 1250, // default points for a returning client
         rank: 'Gold',
         referralCode: 'KHADY-GOLD'
@@ -343,14 +378,21 @@ const AccountView: React.FC<AccountViewProps> = ({
               </>
             ) : (
               <>
+                <PhoneInput 
+                  value={loginPhone} 
+                  onChange={setLoginPhone} 
+                  required={!loginEmail}
+                  className="!bg-gray-50 text-brand-brown border-2 border-transparent focus-within:border-brand-orange/20" 
+                />
+
                 <div className="relative">
                   <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                   <input 
                     type="email" 
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="Email" 
-                    required={true}
+                    placeholder="Email (Optionnel)" 
+                    required={false}
                     className="w-full p-5 pl-14 bg-gray-50 rounded-2xl text-brand-brown text-xs font-bold outline-none border-2 border-transparent focus:border-brand-orange/20 transition-all" 
                   />
                 </div>
@@ -367,7 +409,7 @@ const AccountView: React.FC<AccountViewProps> = ({
             <button type="submit" className="w-full bg-brand-brown text-brand-gold py-6 rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-6">
               {activeTab === 'register' ? "CRÉER MON ACCÈS" : "OUVRIR MA SESSION"} <ArrowRight size={22} />
             </button>
-            <p className="text-center text-[8px] font-bold text-gray-300 mt-4 uppercase tracking-widest">Paiements sécurisés par Alliza / Airtel Money</p>
+            <p className="text-center text-[8px] font-bold text-gray-300 mt-4 uppercase tracking-widest">Paiements sécurisés par Mobile Money & Espèces</p>
           </form>
         </div>
       </div>
@@ -440,6 +482,7 @@ const AccountView: React.FC<AccountViewProps> = ({
         <div className="space-y-4 mb-10">
           <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.4em] ml-6 mb-6">SERVICES ÉLITE</h3>
           {[
+            { icon: Volume2, label: isSpeakingGuide ? 'Arrêter le Guide Audio Vocale 🔇' : 'Guide Audio Vocale (Avantages & Points) 🎙️', color: isSpeakingGuide ? 'text-red-500 animate-pulse' : 'text-brand-orange', action: handlePlayAudioGuide },
             { icon: FileText, label: 'Exporter Historique Commandes (PDF / CSV) 📄', color: 'text-emerald-600', action: () => setShowExportModal(true) },
             { icon: QrCode, label: 'Mon Pass QR Fidélité 👑', color: 'text-brand-orange', action: () => onOpenQrLoyalty && onOpenQrLoyalty() },
             { icon: Bike, label: 'Suivi Trajet Livreur GPS 🏍️', color: 'text-brand-brown', action: () => onOpenLiveDriverMap && onOpenLiveDriverMap() },

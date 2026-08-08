@@ -8,7 +8,7 @@ export const INITIAL_FAQS: FaqItem[] = [
     id: 'f1',
     category: 'Paiement',
     question: 'Quels sont les modes de paiement Mobile Money acceptés ?',
-    answer: 'Nous acceptons Zamany Money (ex-Orange Money Niger), MyNita, Amanata, All-Iza, Zeynab, Airtel Money, Moov Money / Flooz, Nita et Amana Express. Pour valider votre commande en Mobile Money, effectuez simplement le dépôt sur notre numéro (+227 74 44 16 21) puis joignez la capture ou le reçu de confirmation dans le formulaire de commande.'
+    answer: 'Nous acceptons MyNita, Nita transfert, Amanata, Amana transfert, All-Iza Business, Zamany Money (+227 90 40 51 18), Airtel Money (+227 96 05 23 10), et Moov Money / Flooz (+227 74 44 16 21). Pour valider votre commande en Mobile Money, effectuez simplement le dépôt sur le numéro correspondant puis joignez la capture du reçu dans le formulaire de commande.'
   },
   {
     id: 'f2',
@@ -161,13 +161,13 @@ export const FaqView: React.FC<FaqViewProps> = ({ faqs = INITIAL_FAQS, onNavigat
             onClick={onNavigateToWhatsApp}
             className="bg-green-500 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase italic shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
-            <MessageSquare size={16} /> WhatsApp (+227 96 00 00 00)
+            <MessageSquare size={16} /> WhatsApp (+227 74 44 16 21)
           </button>
           <a 
-            href="tel:+22774441621" 
+            href="tel:+22796052310" 
             className="bg-white/10 text-white px-6 py-3.5 rounded-2xl font-black text-xs uppercase italic hover:bg-white/20 flex items-center justify-center gap-2 transition-all border border-white/20"
           >
-            <PhoneCall size={16} /> Appeler (+227 74 44 16 21)
+            <PhoneCall size={16} /> Appeler (+227 96 05 23 10)
           </a>
         </div>
       </div>

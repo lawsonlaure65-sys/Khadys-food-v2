@@ -701,7 +701,7 @@ const TraiteurView: React.FC = () => {
           </div>
           <div>
             <h4 className="text-xs font-black uppercase text-brand-brown italic">Ligne Directe Événementiel & Chef</h4>
-            <p className="text-[11px] font-bold text-brand-brown/80">+227 74 44 16 21 (Appel ou WhatsApp)</p>
+            <p className="text-[11px] font-bold text-brand-brown/80">WhatsApp : +227 74 44 16 21 | Appel : +227 96 05 23 10</p>
           </div>
         </div>
       </div>

@@ -24,11 +24,16 @@ export const BILLO_INFO = {
 export const RESTAURANT_INFO = {
   name: "Khady's Food & Event",
   slogan: "L'excellence en un clic",
-  phones: ["+227 74 44 16 21", "+227 96 05 23 10"],
+  phones: ["+227 74 44 16 21", "+227 96 05 23 10", "+227 90 40 51 18"],
   whatsapp: "+227 74 44 16 21",
   whatsappClean: "22774441621",
   directLine: "+227 96 05 23 10",
   directLineClean: "22796052310",
+  depositNumbers: {
+    group1: "+227 90 40 51 18", // MyNita, Nita transfert, Amanata, Amana transfert, All-Iza Business, Zamany Money
+    airtel: "+227 96 05 23 10", // Airtel Money
+    moov: "+227 74 44 16 21"   // Moov Money / Flooz
+  },
   location: "Plateau, Niamey",
   socials: {
     facebook: {

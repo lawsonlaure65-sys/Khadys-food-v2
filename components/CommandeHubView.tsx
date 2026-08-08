@@ -121,7 +121,7 @@ export const CommandeHubView: React.FC<CommandeHubViewProps> = ({
                 2. Commande via WhatsApp
               </h3>
               <p className="text-xs text-gray-500 font-medium mt-2 leading-relaxed">
-                Générez un message pré-rempli instantané avec le détail de votre commande et discutez en direct avec le service client Khady's Food (+227 96 00 00 00).
+                Générez un message pré-rempli instantané avec le détail de votre commande et discutez en direct avec le service client Khady's Food (+227 74 44 16 21).
               </p>
             </div>
           </div>

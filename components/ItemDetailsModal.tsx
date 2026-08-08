@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MenuItem } from '../types';
-import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check } from 'lucide-react';
+import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check, Share } from 'lucide-react';
 import Dish3DModal from './Dish3DModal';
 import { playSound } from '../utils/audio';
 
@@ -28,7 +28,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
 
   const handleShare = async () => {
     playSound('pop');
-    const shareText = `Découvrez "${item.name}" (${item.price.toLocaleString()} FCFA) chez Khady's Food & Event !\n${item.description}`;
+    const shareText = `🍽️ *${item.name}* (${item.price.toLocaleString()} F CFA)\n${item.description}\n👉 Commandez sur Khady's Food & Event :`;
     const shareUrl = window.location.href;
 
     if (navigator.share) {
@@ -47,12 +47,19 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
         await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
         setCopied(true);
         playSound('success');
-        setTimeout(() => setCopied(false), 2000);
+        setTimeout(() => setCopied(false), 2500);
       } catch (e) {
         const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${shareUrl}`)}`;
         window.open(whatsappUrl, '_blank');
       }
     }
+  };
+
+  const handleWhatsAppShare = () => {
+    playSound('pop');
+    const shareText = `🍽️ *${item.name}* (${item.price.toLocaleString()} F CFA)\n${item.description}\n👉 Découvrir chez Khady's Food : ${window.location.href}`;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -81,14 +88,14 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
                    <Sparkles size={14} /> Aperçu 3D
                  </button>
 
-                 {/* Share Button */}
+                 {/* Share Button Top Overlay */}
                  <button 
                    onClick={handleShare}
-                   className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white px-4 py-2 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xl active:scale-95 transition-all border border-white/30"
+                   className="bg-brand-orange hover:bg-orange-600 text-white px-4 py-2 rounded-full text-[11px] font-black flex items-center gap-1.5 shadow-2xl active:scale-95 transition-all border border-white"
                    title="Partager ce plat"
                  >
-                   {copied ? <Check size={14} className="text-green-400" /> : <Share2 size={14} />} 
-                   {copied ? 'Copié !' : 'Partager'}
+                   {copied ? <Check size={14} className="text-white" /> : <Share2 size={14} />} 
+                   {copied ? 'Lien Copié !' : 'Partager'}
                  </button>
               </div>
 
@@ -102,18 +109,47 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
               </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-10 bg-white rounded-t-[4rem] -mt-10 relative z-10 no-scrollbar">
-              <p className="text-gray-500 text-base mb-12 leading-relaxed italic font-medium border-l-4 border-brand-orange/30 pl-6">"{item.description}"</p>
+          <div className="flex-1 overflow-y-auto p-8 sm:p-10 bg-white rounded-t-[4rem] -mt-10 relative z-10 no-scrollbar space-y-8">
+              <p className="text-gray-500 text-base leading-relaxed italic font-medium border-l-4 border-brand-orange/30 pl-6">"{item.description}"</p>
 
-              <div className="mb-10">
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-5 flex items-center gap-3 ml-4">
+              {/* Share & Recommend Box */}
+              <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-brand-orange text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Share2 size={20} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-tight text-brand-brown">Partager ce délice avec vos proches</h4>
+                    <p className="text-[10px] text-gray-500 font-medium">Recommandez ce plat sur WhatsApp ou réseaux sociaux !</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={handleWhatsAppShare}
+                    className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  >
+                    <Share size={14} /> WhatsApp
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="flex-1 sm:flex-initial bg-brand-brown hover:bg-black text-white px-4 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  >
+                    {copied ? <Check size={14} className="text-green-400" /> : <Share2 size={14} />}
+                    {copied ? 'Copié !' : 'Partager'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-3 ml-4">
                     <MessageSquare size={18} className="text-brand-orange" /> 
                     Personnalisez votre commande
                   </label>
                   <textarea 
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-brand-orange/30 rounded-[2.5rem] p-8 text-sm text-brand-brown font-bold resize-none shadow-inner outline-none transition-all placeholder:text-gray-300" 
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-brand-orange/30 rounded-[2.5rem] p-6 text-sm text-brand-brown font-bold resize-none shadow-inner outline-none transition-all placeholder:text-gray-300" 
                     placeholder="Ex: Pas trop épicé, livraison pour 13h précise..." 
-                    rows={4} 
+                    rows={3} 
                     value={instructions} 
                     onChange={(e) => setInstructions(e.target.value)}
                   ></textarea>

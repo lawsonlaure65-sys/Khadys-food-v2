@@ -204,15 +204,15 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
   };
 
   const paymentMethods = [
-    { id: 'MYNITA', label: 'MyNita', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.whatsapp, code: 'Code Marchand: 4402' },
-    { id: 'AMANATA', label: 'Amanata', icon: Wallet, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.whatsapp, code: 'Code Khady: AMN-90' },
-    { id: 'ALLIZA', label: 'All-Iza', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.whatsapp, code: 'Compte Pro All-Iza' },
-    { id: 'ZEYNA', label: 'Zeynab', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.whatsapp, code: 'Transfert Direct' },
-    { id: 'AIRTEL_MONEY', label: 'Airtel Money', icon: Smartphone, sub: 'Paiement direct', phone: RESTAURANT_INFO.directLine, code: '*155#' },
-    { id: 'MOOV_MONEY', label: 'Moov / Flooz', icon: Smartphone, sub: 'Paiement direct', phone: RESTAURANT_INFO.directLine, code: '*145#' },
-    { id: 'ZAMANY', label: 'Zamany Money (Orange)', icon: Wallet, sub: 'Ex-Orange Money Niger (*144# / *133#)', phone: RESTAURANT_INFO.whatsapp, code: '*133# ou *144#' },
-    { id: 'NITA', label: 'Nita Transfert', icon: Smartphone, sub: 'Guichet / App', phone: RESTAURANT_INFO.whatsapp, code: 'Nita Express' },
-    { id: 'AMANA', label: 'Amana Express', icon: Wallet, sub: 'Guichet / App', phone: RESTAURANT_INFO.whatsapp, code: 'Amana Direct' },
+    { id: 'MYNITA', label: 'MyNita', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Code Marchand: 4402' },
+    { id: 'AMANATA', label: 'Amanata', icon: Wallet, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Code Khady: AMN-90' },
+    { id: 'ALLIZA', label: 'All-Iza Business', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Compte Pro All-Iza' },
+    { id: 'ZEYNA', label: 'Zeynab', icon: Smartphone, sub: 'Dépôt obligatoire', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Transfert Direct' },
+    { id: 'AIRTEL_MONEY', label: 'Airtel Money', icon: Smartphone, sub: 'Dépôt direct', phone: RESTAURANT_INFO.depositNumbers.airtel, code: '*155#' },
+    { id: 'MOOV_MONEY', label: 'Moov / Flooz', icon: Smartphone, sub: 'Dépôt direct', phone: RESTAURANT_INFO.depositNumbers.moov, code: '*145#' },
+    { id: 'ZAMANY', label: 'Zamany Money (Orange)', icon: Wallet, sub: 'Ex-Orange Money Niger (*144# / *133#)', phone: RESTAURANT_INFO.depositNumbers.group1, code: '*133# ou *144#' },
+    { id: 'NITA', label: 'Nita Transfert', icon: Smartphone, sub: 'Guichet / App', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Nita Express' },
+    { id: 'AMANA', label: 'Amana Express', icon: Wallet, sub: 'Guichet / App', phone: RESTAURANT_INFO.depositNumbers.group1, code: 'Amana Direct' },
     { id: 'CASH', label: 'Espèces', icon: Banknote, sub: 'Paiement à la livraison', phone: '', code: 'Paiement main propre' },
     { id: 'CARD', label: 'Carte Bancaire', icon: CreditCard, sub: 'Visa / MasterCard', phone: '', code: 'Terminale Sécurisé' },
   ];
@@ -455,7 +455,7 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
                        Effectuez le dépôt du montant net à payer (<span className="text-brand-gold font-black">{total} F CFA</span>) vers notre compte marchand :
                      </p>
                      <div className="bg-white/10 p-3 rounded-xl mt-3 font-mono text-[11px] text-brand-gold font-black flex justify-between items-center">
-                       <span>{selectedPaymentInfo?.phone || '+227 96 00 00 00'}</span>
+                       <span>{selectedPaymentInfo?.phone || '+227 74 44 16 21'}</span>
                        <span className="text-[9px] opacity-70">({selectedPaymentInfo?.code})</span>
                      </div>
                    </div>

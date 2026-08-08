@@ -26,6 +26,7 @@ import Toast, { ToastType } from './components/Toast';
 import DeliveryEstimator from './components/DeliveryEstimator';
 import ReviewsSection from './components/ReviewsSection';
 import PromotionCalendar from './components/PromotionCalendar';
+import FlashOffer from './components/FlashOffer';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000 } from './constants';
 import { playSound } from './utils/audio';
@@ -383,6 +384,18 @@ const App: React.FC = () => {
                 </div>
                 <Zap size={20} className="text-brand-gold shrink-0 animate-pulse" />
               </div>
+            </div>
+
+            {/* Interactive Flash Offer Component with Dynamic Countdown */}
+            <div className="px-4 sm:px-6">
+              <FlashOffer 
+                onAddToCart={handleAddToCart}
+                onSelectItem={(item) => {
+                  setSelectedItem(item);
+                  setIsItemModalOpen(true);
+                  playSound('pop');
+                }}
+              />
             </div>
 
             {/* Interactive Weekly Promotion Calendar Component */}
