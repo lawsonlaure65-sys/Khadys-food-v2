@@ -89,11 +89,38 @@ const GalleryView: React.FC<GalleryViewProps> = ({ items, onAddToCart, onNavigat
   const [selectedPhoto, setSelectedPhoto] = useState<typeof GALLERY_IMAGES[0] | null>(null);
   const [likedPhotos, setLikedPhotos] = useState<Record<string, boolean>>({});
 
-  const categories = ['TOUT', 'Spécialités', 'Plats', 'Entrées', 'Boissons Naturelles', 'Traiteur'];
+  // Map dynamic menu items into gallery photos
+  const dynamicPhotos = React.useMemo(() => {
+    const existingIds = new Set(GALLERY_IMAGES.map(g => g.id));
+    const convertedItems = items
+      .filter(item => item.image)
+      .map(item => ({
+        id: item.id,
+        title: item.name,
+        category: (item.category || 'Plats') as string,
+        image: item.image,
+        description: item.description || 'Spécialité cuisinée avec des ingrédients frais du marché de Niamey.',
+        price: item.price,
+        likes: Math.floor((item.rating || 5) * 35) + 50
+      }));
+
+    // Filter out duplicates if an item has same id as hardcoded
+    const uniqueConverted = convertedItems.filter(item => !existingIds.has(item.id));
+    return [...uniqueConverted, ...GALLERY_IMAGES];
+  }, [items]);
+
+  // Extract unique categories dynamically
+  const categories = React.useMemo(() => {
+    const set = new Set<string>(['TOUT']);
+    dynamicPhotos.forEach(p => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set);
+  }, [dynamicPhotos]);
 
   const filteredPhotos = activeCategory === 'TOUT' 
-    ? GALLERY_IMAGES 
-    : GALLERY_IMAGES.filter(p => p.category === activeCategory);
+    ? dynamicPhotos 
+    : dynamicPhotos.filter(p => p.category === activeCategory);
 
   const toggleLike = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -103,7 +130,7 @@ const GalleryView: React.FC<GalleryViewProps> = ({ items, onAddToCart, onNavigat
 
   const handleOrderPhotoDish = (photo: typeof GALLERY_IMAGES[0]) => {
     // Find matching menu item or construct synthetic
-    const match = items.find(i => i.name.toLowerCase().includes(photo.title.toLowerCase().substring(0, 5))) || {
+    const match = items.find(i => i.id === photo.id) || items.find(i => i.name.toLowerCase().includes(photo.title.toLowerCase().substring(0, 5))) || {
       id: photo.id,
       name: photo.title,
       description: photo.description,
