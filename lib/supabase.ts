@@ -31,8 +31,19 @@ export const db = {
         .from('menu_items')
         .select('*')
         .order('category', { ascending: true });
-      if (error) return null;
-      return data as MenuItem[];
+      if (error || !data) return null;
+      return data.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        price: Number(row.price),
+        image: row.image,
+        category: row.category,
+        rating: row.rating ? Number(row.rating) : 5,
+        isAvailable: row.is_available ?? row.isAvailable ?? true,
+        isSpicy: row.is_spicy ?? row.isSpicy ?? false,
+        isSpécialitéMaison: row.is_specialite_maison ?? row.isSpécialitéMaison ?? false
+      })) as MenuItem[];
     } catch {
       return null;
     }
@@ -81,8 +92,20 @@ export const db = {
         .from('orders')
         .select('*')
         .order('timestamp', { ascending: false });
-      if (error) return null;
-      return data as unknown as Order[];
+      if (error || !data) return null;
+      return data.map((row: any) => ({
+        id: row.id,
+        customerName: row.customer_name ?? row.customerName,
+        phone: row.phone,
+        items: typeof row.items === 'string' ? JSON.parse(row.items) : (row.items || []),
+        total: Number(row.total),
+        deliveryFee: Number(row.delivery_fee ?? row.deliveryFee ?? 0),
+        status: row.status,
+        paymentMethod: row.payment_method ?? row.paymentMethod,
+        timestamp: row.timestamp,
+        district: row.district,
+        address: row.address
+      })) as Order[];
     } catch {
       return null;
     }
