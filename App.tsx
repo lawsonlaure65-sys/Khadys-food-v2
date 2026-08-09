@@ -173,16 +173,30 @@ const App: React.FC = () => {
         setCart(cachedCart);
       }
 
-      // 2. Vérifier si IndexedDB possède un menu si LocalStorage n'était pas présent
-      const hasLocalStorageMenu = Boolean(localStorage.getItem('khadys_menu_items'));
-      if (!hasLocalStorageMenu) {
-        const cachedMenu = await getMenuFromIDB();
-        if (cachedMenu && cachedMenu.length > 0) {
-          setItems(cachedMenu);
-          localStorage.setItem('khadys_menu_items', JSON.stringify(cachedMenu));
-        } else {
+      // 2. Synchronisation robuste du Menu (IndexedDB + LocalStorage)
+      try {
+        const cachedMenuIDB = await getMenuFromIDB();
+        const localMenuRaw = localStorage.getItem('khadys_menu_items');
+        let localMenuParsed: MenuItem[] = [];
+        if (localMenuRaw) {
+          try {
+            localMenuParsed = JSON.parse(localMenuRaw);
+          } catch (e) {}
+        }
+
+        if (cachedMenuIDB && cachedMenuIDB.length >= localMenuParsed.length && cachedMenuIDB.length > 0) {
+          setItems(cachedMenuIDB);
+          try {
+            localStorage.setItem('khadys_menu_items', JSON.stringify(cachedMenuIDB));
+          } catch (e) {}
+        } else if (localMenuParsed && localMenuParsed.length > 0) {
+          setItems(localMenuParsed);
+          await saveMenuToIDB(localMenuParsed);
+        } else if (items && items.length > 0) {
           await saveMenuToIDB(items);
         }
+      } catch (err) {
+        console.warn('Erreur synchronisation menu hors-ligne:', err);
       }
     };
 
@@ -199,32 +213,64 @@ const App: React.FC = () => {
     saveCartToIDB(cart);
   }, [cart]);
 
-  // Sauvegarde automatique du menu dans LocalStorage & IndexedDB à chaque modification
+  // Sauvegarde automatique du menu dans IndexedDB & LocalStorage à chaque modification
   useEffect(() => {
-    if (items.length > 0) {
-      localStorage.setItem('khadys_menu_items', JSON.stringify(items));
-      saveMenuToIDB(items);
+    if (items && items.length > 0) {
+      // 1. Toujours sauvegarder dans IndexedDB en premier (capacité illimitée)
+      saveMenuToIDB(items).catch(err => console.warn('Erreur saveMenuToIDB:', err));
+
+      // 2. Sauvegarder dans LocalStorage avec sécurisation contre le dépassement de quota
+      try {
+        localStorage.setItem('khadys_menu_items', JSON.stringify(items));
+      } catch (err) {
+        console.warn('Quota LocalStorage dépassé. Sauvegarde de la version optimisée...');
+        try {
+          const lightItems = items.map(it => ({
+            ...it,
+            image: (it.image && it.image.length > 80000) ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c' : it.image
+          }));
+          localStorage.setItem('khadys_menu_items', JSON.stringify(lightItems));
+        } catch (e) {
+          console.error('Erreur secours LocalStorage:', e);
+        }
+      }
     }
   }, [items]);
 
   // Sauvegarde automatique des commandes dans LocalStorage
   useEffect(() => {
-    localStorage.setItem('khadys_orders', JSON.stringify(orders));
+    try {
+      localStorage.setItem('khadys_orders', JSON.stringify(orders));
+    } catch (e) {
+      console.warn('Erreur sauvegarde orders LocalStorage', e);
+    }
   }, [orders]);
 
   // Sauvegarde automatique des avis dans LocalStorage
   useEffect(() => {
-    localStorage.setItem('khadys_reviews', JSON.stringify(reviews));
+    try {
+      localStorage.setItem('khadys_reviews', JSON.stringify(reviews));
+    } catch (e) {
+      console.warn('Erreur sauvegarde reviews LocalStorage', e);
+    }
   }, [reviews]);
 
   // Sauvegarde automatique des articles du blog dans LocalStorage
   useEffect(() => {
-    localStorage.setItem('khadys_blog_articles', JSON.stringify(blogArticles));
+    try {
+      localStorage.setItem('khadys_blog_articles', JSON.stringify(blogArticles));
+    } catch (e) {
+      console.warn('Erreur sauvegarde blogArticles LocalStorage', e);
+    }
   }, [blogArticles]);
 
   // Sauvegarde automatique des FAQs dans LocalStorage
   useEffect(() => {
-    localStorage.setItem('khadys_faqs', JSON.stringify(faqs));
+    try {
+      localStorage.setItem('khadys_faqs', JSON.stringify(faqs));
+    } catch (e) {
+      console.warn('Erreur sauvegarde faqs LocalStorage', e);
+    }
   }, [faqs]);
 
   // Toggle Dark Mode

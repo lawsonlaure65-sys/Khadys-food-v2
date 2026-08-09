@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RESTAURANT_INFO, BILLO_INFO, LOGO_URL } from '../constants';
-import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music } from 'lucide-react';
+import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music, RefreshCw } from 'lucide-react';
 import { playSound } from '../utils/audio';
 
 interface SettingsViewProps {
@@ -80,6 +80,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       // If browser doesn't trigger prompt directly (iOS, or already installed, or browser settings)
       setShowInstructions(true);
     }
+  };
+
+  const handleForceAppUpdate = async () => {
+    playSound('pop');
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+      }
+      if ('caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(k => caches.delete(k)));
+      }
+    } catch (e) {
+      console.warn('Error clearing cache:', e);
+    }
+    window.location.reload();
   };
 
   return (
@@ -180,6 +197,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </button>
           </div>
         )}
+
+        {/* Force Update Button for Installed App */}
+        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="text-[10px] text-white/70 font-medium">
+            <span className="text-brand-gold font-bold uppercase block">🔄 Mise à jour GitHub / Server</span>
+            <p>Détecter les derniers changements publiés & rafraîchir l'application installée.</p>
+          </div>
+          <button
+            onClick={handleForceAppUpdate}
+            className="w-full sm:w-auto px-5 py-2.5 bg-white/10 hover:bg-brand-gold hover:text-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 border border-white/20 shrink-0 active:scale-95"
+          >
+            <RefreshCw size={14} className="animate-spin-slow" /> Mettre à jour l'application
+          </button>
+        </div>
 
         {/* Installation Instructions Dropdown / Card */}
         {showInstructions && (

@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'khadys-food-v3-elite';
+const CACHE_NAME = 'khadys-food-v5-live';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -9,10 +8,10 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(ASSETS_TO_CACHE))
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -26,79 +25,58 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  return self.clients.claim();
 });
 
+// Strategy: Network-First for HTML/Navigation, so new deploys from GitHub/Share load instantly!
 self.addEventListener('fetch', (event) => {
-  // Stratégie : Stale-while-revalidate pour les polices et scripts, 
-  // Network-first pour les prix et menus.
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200 && event.request.method === 'GET') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        // Fallback si hors ligne
-        return cachedResponse;
-      });
-      return cachedResponse || fetchPromise;
-    })
-  );
-});
-
-// OWA PUSH NOTIFICATION EVENT HANDLERS
-self.addEventListener('push', (event) => {
-  let data = { title: "Khady's Food Niamey 🥘", body: "Nouvelle mise à jour disponible !", icon: "/icon.png" };
-  if (event.data) {
-    try {
-      data = event.data.json();
-    } catch {
-      data.body = event.data.text();
-    }
+  const request = event.request;
+  
+  // Non-GET requests pass directly
+  if (request.method !== 'GET') {
+    return;
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=128',
-    badge: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=64',
-    vibrate: [200, 100, 200, 100, 200],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: '1'
-    },
-    actions: [
-      { action: 'open', title: 'Ouvrir l\'application' },
-      { action: 'close', title: 'Fermer' }
-    ]
-  };
+  const isHTML = request.mode === 'navigate' || (request.headers.get('accept') && request.headers.get('accept').includes('text/html'));
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
+  if (isHTML) {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(request).then(res => res || caches.match('/index.html')))
+    );
+    return;
+  }
+
+  // Network-first for dynamic resources
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+        }
+        return networkResponse;
+      })
+      .catch(() => caches.match(request))
   );
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  if (event.action === 'open' || !event.action) {
-    event.waitUntil(
-      clients.matchAll({ type: 'window' }).then((clientList) => {
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          if (client.url === '/' && 'focus' in client) {
-            return client.focus();
-          }
-        }
-        if (clients.openWindow) {
-          return clients.openWindow('/');
-        }
-      })
-    );
+// Listener to force update/clear cache from application UI
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+  if (event.data && event.data.type === 'CLEAR_CACHE') {
+    caches.keys().then((names) => {
+      return Promise.all(names.map(name => caches.delete(name)));
+    });
   }
 });

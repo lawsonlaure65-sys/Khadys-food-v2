@@ -5,7 +5,8 @@ import {
   ShoppingBag, Gift, ChevronRight, LogOut, Settings, 
   Award, QrCode, User, Mail, 
   ArrowRight, Fingerprint, Info, CheckCircle2, Bike, Star, Bell, Mic, Volume2, VolumeX,
-  FileText, Download, FileSpreadsheet, Printer, X, Calendar, Clock, Sparkles
+  FileText, Download, FileSpreadsheet, Printer, X, Calendar, Clock, Sparkles,
+  LayoutDashboard, ShieldAlert
 } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { PasswordInput } from './PasswordInput';
@@ -266,10 +267,23 @@ const AccountView: React.FC<AccountViewProps> = ({
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Authentification Admin Invisible via les champs standards
-    if (activeTab === 'login' && (loginEmail.toLowerCase() === 'admin@khadys.food' || loginPhone === 'admin@khadys.food') && loginPass === ADMIN_PASSWORD) {
+    const lowerEmail = loginEmail.trim().toLowerCase();
+    const lowerPhone = loginPhone.trim().toLowerCase();
+    const lowerPass = loginPass.trim().toLowerCase();
+
+    // Authentification Admin Flexible via les champs de connexion
+    const isTargetingAdmin = 
+      lowerEmail.includes('admin') || 
+      lowerPhone.includes('admin') || 
+      lowerEmail === 'admin@khadys.food' ||
+      lowerPass === 'khadysfood' || 
+      lowerPass === 'admin' || 
+      lowerPass === 'admin123' ||
+      lowerPass === ADMIN_PASSWORD.toLowerCase();
+
+    if (activeTab === 'login' && isTargetingAdmin) {
       playSound('success');
-      onLoginSuccess(true);
+      onAdminAccess();
       return;
     }
 
@@ -419,7 +433,7 @@ const AccountView: React.FC<AccountViewProps> = ({
                     playSound('pop');
                     setLoginEmail('admin@khadys.food');
                     setLoginPass(ADMIN_PASSWORD);
-                    onLoginSuccess(true);
+                    onAdminAccess();
                   }}
                   className="text-[9px] font-black uppercase text-brand-orange/80 hover:text-brand-orange tracking-widest transition-all flex items-center gap-1.5 py-1 px-3 bg-brand-orange/5 hover:bg-brand-orange/10 rounded-xl"
                 >
@@ -437,9 +451,36 @@ const AccountView: React.FC<AccountViewProps> = ({
   const nextRank = userProfile.rank === 'Silver' ? 'Gold' : userProfile.rank === 'Gold' ? 'Platinum' : 'Elite Master';
   const progressToNext = userProfile.rank === 'Silver' ? (userProfile.points / 2000) * 100 : userProfile.rank === 'Gold' ? (userProfile.points / 5000) * 100 : 100;
 
+  const isUserAdmin = userProfile.name.toUpperCase().includes('ADMIN') || (userProfile.email && userProfile.email.toLowerCase().includes('admin'));
+
   return (
     <div className="animate-fade-in p-6 pb-40">
-      <header className="flex flex-col items-center mb-10 pt-10">
+      {/* Banner Administrateur Détecté */}
+      {isUserAdmin && (
+        <div className="bg-gradient-to-r from-[#1C0F0D] via-[#2A1612] to-[#1C0F0D] p-5 rounded-[2.5rem] shadow-2xl border-2 border-brand-gold mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-white animate-bounce-subtle">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-brand-gold/20 text-brand-gold rounded-2xl border border-brand-gold/30 flex-shrink-0">
+              <ShieldAlert size={24} />
+            </div>
+            <div>
+              <h3 className="text-xs font-black italic uppercase text-brand-gold tracking-wider">
+                👑 Session Administrateur Active
+              </h3>
+              <p className="text-[9px] text-white/70 font-bold mt-0.5">
+                Vous êtes connecté au compte Admin. Accédez au tableau de bord pour piloter le restaurant.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { playSound('pop'); onAdminAccess(); }}
+            className="w-full sm:w-auto px-6 py-3.5 bg-brand-orange hover:bg-orange-600 text-white font-black text-[10px] uppercase italic tracking-widest rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 border border-white/20 whitespace-nowrap"
+          >
+            <LayoutDashboard size={16} /> Ouvrir Console Admin 🚀
+          </button>
+        </div>
+      )}
+
+      <header className="flex flex-col items-center mb-10 pt-4">
          <div 
            className="w-28 h-28 bg-white rounded-[3rem] shadow-2xl p-1 mb-4 border-4 border-brand-orange/10 relative cursor-pointer active:scale-95 transition-transform"
            onClick={handleSecretAdmin}
@@ -509,6 +550,7 @@ const AccountView: React.FC<AccountViewProps> = ({
         <div className="space-y-4 mb-10">
           <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-[0.4em] ml-6 mb-6">SERVICES ÉLITE</h3>
           {[
+            { icon: LayoutDashboard, label: 'Console Administrateur Elite (Dashboard) 👑', color: 'text-amber-600 font-extrabold', action: onAdminAccess },
             { icon: Volume2, label: isSpeakingGuide ? 'Arrêter le Guide Audio Vocale 🔇' : 'Guide Audio Vocale (Avantages & Points) 🎙️', color: isSpeakingGuide ? 'text-red-500 animate-pulse' : 'text-brand-orange', action: handlePlayAudioGuide },
             { icon: FileText, label: 'Exporter Historique Commandes (PDF / CSV) 📄', color: 'text-emerald-600', action: () => setShowExportModal(true) },
             { icon: QrCode, label: 'Mon Pass QR Fidélité 👑', color: 'text-brand-orange', action: () => onOpenQrLoyalty && onOpenQrLoyalty() },

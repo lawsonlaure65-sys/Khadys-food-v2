@@ -18,6 +18,7 @@ import { playSound } from '../utils/audio';
 import { GoogleGenAI } from "@google/genai";
 import { DISTRICTS, BILLO_INFO } from '../constants';
 import { db, isSupabaseConfigured } from '../lib/supabase';
+import { compressImage } from '../utils/imageCompressor';
 
 interface AdminDashboardProps {
   items: MenuItem[];
@@ -143,10 +144,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result as string;
-        setAdminAvatar(base64String);
-        localStorage.setItem('khadys_admin_avatar', base64String);
+        const compressed = await compressImage(base64String, 500, 0.7);
+        setAdminAvatar(compressed);
+        try {
+          localStorage.setItem('khadys_admin_avatar', compressed);
+        } catch (e) {}
         playSound('success');
       };
       reader.readAsDataURL(file);
@@ -157,9 +161,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result as string;
-        setEditingItem(prev => prev ? { ...prev, image: base64String } : null);
+        const compressed = await compressImage(base64String, 800, 0.75);
+        setEditingItem(prev => prev ? { ...prev, image: compressed } : null);
         playSound('success');
       };
       reader.readAsDataURL(file);
@@ -170,18 +175,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const base64String = reader.result as string;
-        setEditingArticle(prev => prev ? { ...prev, image: base64String } : null);
+        const compressed = await compressImage(base64String, 800, 0.75);
+        setEditingArticle(prev => prev ? { ...prev, image: compressed } : null);
         playSound('success');
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleSaveItem = (e: React.FormEvent) => {
+  const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem?.name || !editingItem?.price) return;
+
+    let finalImage = editingItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
+    if (finalImage.startsWith('data:image') && finalImage.length > 100000) {
+      finalImage = await compressImage(finalImage, 800, 0.75);
+    }
 
     const finalItem = {
       ...editingItem,
@@ -189,14 +200,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       rating: editingItem.rating || 5,
       isAvailable: editingItem.isAvailable ?? true,
       category: editingItem.category || 'Plat Africain',
-      image: editingItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
+      image: finalImage
     } as MenuItem;
 
-    if (items.find(i => i.id === finalItem.id)) {
-      setItems(prev => prev.map(i => i.id === finalItem.id ? finalItem : i));
-    } else {
-      setItems(prev => [finalItem, ...prev]);
-    }
+    setItems(prev => {
+      const exists = prev.some(i => i.id === finalItem.id);
+      return exists ? prev.map(i => i.id === finalItem.id ? finalItem : i) : [finalItem, ...prev];
+    });
 
     if (isSupabaseConfigured) {
       db.saveMenuItem(finalItem);

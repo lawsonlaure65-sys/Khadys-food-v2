@@ -15,10 +15,22 @@ root.render(
   </React.StrictMode>
 );
 
-/*
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.register('/sw.js').then((registration) => {
+      registration.onupdatefound = () => {
+        const installingWorker = registration.installing;
+        if (installingWorker) {
+          installingWorker.onstatechange = () => {
+            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('Nouvelle version détectée ! Mise à jour...');
+              window.location.reload();
+            }
+          };
+        }
+      };
+    }).catch((err) => {
+      console.warn('Service Worker registration failed:', err);
+    });
   });
 }
-*/
