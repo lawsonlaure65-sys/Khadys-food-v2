@@ -92,7 +92,7 @@ export const LiveDriverMapModal: React.FC<LiveDriverMapModalProps> = ({ isOpen, 
           {/* Restaurant Marker (Khady's Food - Plateau) */}
           <div className="absolute left-[12%] top-[22%] -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10">
             <div className="bg-brand-brown text-brand-gold px-2 py-0.5 rounded-full text-[7px] font-black uppercase shadow-md border border-brand-gold/40 mb-1">
-              Khady's (Plateau)
+              Khady's (Grande Mosquée Kadafi)
             </div>
             <div className="w-8 h-8 rounded-full bg-brand-gold text-brand-brown flex items-center justify-center shadow-lg border-2 border-white animate-bounce">
               <MapPin size={16} />

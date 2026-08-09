@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem, MenuCategory } from '../types';
-import { Search, SlidersHorizontal, Flame, Star, Plus, Utensils, ShoppingBag, Sparkles, WifiOff, Database, Mic } from 'lucide-react';
+import { Search, SlidersHorizontal, Flame, Leaf, Sun, Tag, Sparkles, Star, Plus, Utensils, ShoppingBag, WifiOff, Database, Mic, X, Filter } from 'lucide-react';
 import { playSound } from '../utils/audio';
 
 interface MenuViewProps {
@@ -12,6 +12,8 @@ interface MenuViewProps {
   onSectionChange: (section: string) => void;
   onOpenVoiceModal?: () => void;
 }
+
+type TagFilterType = 'ALL' | 'PLAT_DU_JOUR' | 'SPECIALITE' | 'EPICE' | 'VEGETARIEN' | 'PROMO';
 
 const MAIN_SECTIONS = [
   { id: 'CARTE', label: 'LA CARTE', icon: <Utensils size={16} /> },
@@ -23,30 +25,75 @@ const CARTE_CATEGORIES: (MenuCategory | 'TOUT')[] = [
   'TOUT', 'Petit-déjeuner', 'Déjeuner', 'Dîner', 'Boisson Naturelle', 'Entrée', 'Spécialité Maison', 'Menu du Jour', 'Plat Africain', 'Dessert'
 ];
 
+const TAG_FILTERS: { id: TagFilterType; label: string; icon: React.ReactNode; activeBg: string }[] = [
+  { id: 'ALL', label: 'Tous les plats', icon: <SlidersHorizontal size={13} />, activeBg: 'bg-brand-brown text-white shadow-brand-brown/20' },
+  { id: 'PLAT_DU_JOUR', label: 'Plat du Jour', icon: <Sun size={13} className="text-amber-400" />, activeBg: 'bg-amber-500 text-white shadow-amber-500/30' },
+  { id: 'SPECIALITE', label: 'Spécialité Maison', icon: <Sparkles size={13} className="text-purple-300" />, activeBg: 'bg-purple-600 text-white shadow-purple-600/30' },
+  { id: 'EPICE', label: 'Épicé', icon: <Flame size={13} className="text-rose-400" />, activeBg: 'bg-rose-500 text-white shadow-rose-500/30' },
+  { id: 'VEGETARIEN', label: 'Végétarien', icon: <Leaf size={13} className="text-emerald-300" />, activeBg: 'bg-emerald-600 text-white shadow-emerald-600/30' },
+  { id: 'PROMO', label: 'Promos & Éco', icon: <Tag size={13} className="text-amber-300" />, activeBg: 'bg-amber-600 text-white shadow-amber-600/30' },
+];
+
 const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection, onSectionChange, onOpenVoiceModal }) => {
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory | 'TOUT'>('TOUT');
+  const [selectedTagFilter, setSelectedTagFilter] = useState<TagFilterType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Dynamically calculate match counts for each tag filter
+  const tagCounts = useMemo(() => {
+    const counts: Record<TagFilterType, number> = {
+      ALL: items.length,
+      PLAT_DU_JOUR: 0,
+      SPECIALITE: 0,
+      EPICE: 0,
+      VEGETARIEN: 0,
+      PROMO: 0,
+    };
+
+    items.forEach(item => {
+      if (item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour') counts.PLAT_DU_JOUR++;
+      if (item.isSpécialitéMaison || item.category === 'Spécialité Maison') counts.SPECIALITE++;
+      if (item.isSpicy) counts.EPICE++;
+      if (item.isVegetarian) counts.VEGETARIEN++;
+      if (item.isPromo || item.isLowPrice) counts.PROMO++;
+    });
+
+    return counts;
+  }, [items]);
 
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            item.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      let matchesTag = true;
+      if (selectedTagFilter === 'PLAT_DU_JOUR') {
+        matchesTag = Boolean(item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour');
+      } else if (selectedTagFilter === 'SPECIALITE') {
+        matchesTag = Boolean(item.isSpécialitéMaison || item.category === 'Spécialité Maison');
+      } else if (selectedTagFilter === 'EPICE') {
+        matchesTag = Boolean(item.isSpicy);
+      } else if (selectedTagFilter === 'VEGETARIEN') {
+        matchesTag = Boolean(item.isVegetarian);
+      } else if (selectedTagFilter === 'PROMO') {
+        matchesTag = Boolean(item.isPromo || item.isLowPrice);
+      }
       
       if (activeSection === 'BOX') {
-        return item.category === 'Box Sauce' && matchesSearch;
+        return item.category === 'Box Sauce' && matchesTag && matchesSearch;
       }
       
       if (activeSection === 'PACK') {
-        return item.category === 'Pack-Buffet' && matchesSearch;
+        return item.category === 'Pack-Buffet' && matchesTag && matchesSearch;
       }
       
       // CARTE SECTION
       const isCarteItem = item.category !== 'Box Sauce' && item.category !== 'Pack-Buffet';
       const matchesCategory = selectedCategory === 'TOUT' || item.category === selectedCategory;
       
-      return isCarteItem && matchesCategory && matchesSearch;
+      return isCarteItem && matchesCategory && matchesTag && matchesSearch;
     });
-  }, [items, activeSection, selectedCategory, searchQuery]);
+  }, [items, activeSection, selectedCategory, selectedTagFilter, searchQuery]);
 
   return (
     <div className="animate-fade-in pt-6 pb-20">
@@ -69,7 +116,7 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
         </div>
 
         {/* Main Sections Tabs */}
-        <div className="flex bg-gray-100 p-1.5 rounded-[2rem] mb-8 shadow-inner">
+        <div className="flex bg-gray-100 p-1.5 rounded-[2rem] mb-6 shadow-inner">
           {MAIN_SECTIONS.map(section => (
             <motion.button
               key={section.id}
@@ -92,16 +139,22 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
           ))}
         </div>
 
-        <div className="flex gap-3 mb-8">
+        {/* Barre de Recherche & Commande Vocale */}
+        <div className="flex gap-3 mb-5">
            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center px-4 gap-3">
               <Search size={18} className="text-gray-300" />
               <input 
                 type="text" 
-                placeholder="Rechercher un délice..." 
+                placeholder="Rechercher un plat, ingrédient..." 
                 className="w-full py-4 text-xs font-bold outline-none bg-transparent"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="text-gray-400 hover:text-gray-600">
+                  <X size={16} />
+                </button>
+              )}
            </div>
            {onOpenVoiceModal && (
              <motion.button
@@ -116,8 +169,60 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
            )}
         </div>
 
+        {/* Filtres par Tags Spéciaux (Plat du jour, Spécialité, Épicé, Végétarien, Promos) */}
+        <div className="mb-6">
+           <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-black uppercase text-brand-brown/50 tracking-widest flex items-center gap-1">
+                 <Filter size={11} className="text-brand-orange" /> Filtres Rapides :
+              </span>
+              {selectedTagFilter !== 'ALL' && (
+                 <button 
+                   onClick={() => { playSound('pop'); setSelectedTagFilter('ALL'); }}
+                   className="text-[9px] font-black text-rose-600 hover:text-rose-700 flex items-center gap-1 uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200"
+                 >
+                    <X size={10} /> Réinitialiser
+                 </button>
+              )}
+           </div>
+
+           <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-6 px-6 pb-1">
+              {TAG_FILTERS.map(tag => {
+                const isSelected = selectedTagFilter === tag.id;
+                const count = tagCounts[tag.id];
+
+                return (
+                  <motion.button
+                    key={tag.id}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => {
+                      playSound('pop');
+                      setSelectedTagFilter(isSelected && tag.id !== 'ALL' ? 'ALL' : tag.id);
+                    }}
+                    className={`px-3.5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all flex items-center gap-2 border ${
+                      isSelected 
+                        ? `${tag.activeBg} shadow-md border-transparent` 
+                        : 'bg-white text-brand-brown/70 border-gray-100 hover:border-brand-brown/20'
+                    }`}
+                  >
+                    {tag.icon}
+                    <span>{tag.label}</span>
+                    {tag.id !== 'ALL' && (
+                       <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                       }`}>
+                          {count}
+                       </span>
+                    )}
+                  </motion.button>
+                );
+              })}
+           </div>
+        </div>
+
+        {/* Catégories de la Carte */}
         {activeSection === 'CARTE' && (
-          <div className="flex gap-3 overflow-x-auto no-scrollbar -mx-6 px-6 pb-2">
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar -mx-6 px-6 pb-2">
              {CARTE_CATEGORIES.map(cat => {
                const isSelected = selectedCategory === cat;
                return (
@@ -126,7 +231,7 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
                    whileHover={{ scale: 1.04 }}
                    whileTap={{ scale: 0.94 }}
                    onClick={() => { playSound('pop'); setSelectedCategory(cat); }}
-                   className={`relative px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
+                   className={`relative px-4 py-2.5 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-colors ${
                      isSelected 
                        ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/30' 
                        : 'bg-white text-gray-400 border border-gray-100 hover:text-brand-brown'
@@ -153,47 +258,83 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
         className="px-6 grid grid-cols-2 gap-5"
       >
         <AnimatePresence mode="popLayout">
-          {filteredItems.map((item, index) => (
-            <motion.div 
-              layout
-              key={item.id} 
-              initial={{ opacity: 0, scale: 0.85, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, y: -10 }}
-              transition={{ 
-                duration: 0.28, 
-                delay: Math.min(index * 0.03, 0.18),
-                ease: [0.21, 0.85, 0.35, 1] 
-              }}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => { playSound('pop'); onSelectItem(item); }}
-              className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-brand-brown/5 relative group cursor-pointer h-full flex flex-col"
-            >
-               <div className="relative h-32 w-full mb-4 overflow-hidden rounded-[1.8rem] flex-shrink-0">
-                  <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
-                  {item.isSpicy && (
-                    <div className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg border-2 border-white">
-                       <Flame size={12} fill="white" />
+          {filteredItems.map((item, index) => {
+             const isPlatDuJour = item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour';
+             const isSpecialite = item.isSpécialitéMaison || item.category === 'Spécialité Maison';
+             const isPromo = item.isPromo || item.isLowPrice;
+
+             return (
+              <motion.div 
+                layout
+                key={item.id} 
+                initial={{ opacity: 0, scale: 0.85, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.85, y: -10 }}
+                transition={{ 
+                  duration: 0.28, 
+                  delay: Math.min(index * 0.03, 0.18),
+                  ease: [0.21, 0.85, 0.35, 1] 
+                }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => { playSound('pop'); onSelectItem(item); }}
+                className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-brand-brown/5 relative group cursor-pointer h-full flex flex-col"
+              >
+                 <div className="relative h-32 w-full mb-4 overflow-hidden rounded-[1.8rem] flex-shrink-0">
+                    <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
+                    
+                    {/* Top Left Tag Badge */}
+                    <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                       {isPlatDuJour && (
+                          <span className="bg-amber-500/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
+                             <Sun size={9} /> Jour
+                          </span>
+                       )}
+                       {isSpecialite && !isPlatDuJour && (
+                          <span className="bg-purple-600/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
+                             <Sparkles size={9} /> Chef
+                          </span>
+                       )}
+                       {isPromo && !isPlatDuJour && !isSpecialite && (
+                          <span className="bg-amber-600/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
+                             <Tag size={9} /> Éco
+                          </span>
+                       )}
                     </div>
-                  )}
-                  {item.rating === 5 && (
-                    <div className="absolute bottom-2 left-2 bg-brand-gold text-brand-brown px-2 py-1 rounded-lg text-[8px] font-black flex items-center gap-1 border border-white">
-                       <Star size={8} fill="currentColor" /> BEST
+
+                    {/* Top Right Badges (Spicy & Vegetarian) */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                       {item.isSpicy && (
+                          <div className="bg-rose-500 text-white p-1.5 rounded-full shadow-lg border border-white" title="Épicé">
+                             <Flame size={11} fill="white" />
+                          </div>
+                       )}
+                       {item.isVegetarian && (
+                          <div className="bg-emerald-500 text-white p-1.5 rounded-full shadow-lg border border-white" title="Végétarien">
+                             <Leaf size={11} fill="white" />
+                          </div>
+                       )}
                     </div>
-                  )}
-               </div>
-               
-               <h4 className="text-[11px] font-black text-brand-brown uppercase italic leading-tight mb-2 line-clamp-2 flex-1">{item.name}</h4>
-               
-               <div className="flex justify-between items-center mt-2">
-                  <span className="text-xs font-black text-brand-orange">{item.price.toLocaleString()} F</span>
-                  <div className="w-8 h-8 bg-brand-brown text-brand-gold rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:bg-brand-orange group-hover:text-white">
-                     <Plus size={16} />
-                  </div>
-               </div>
-            </motion.div>
-          ))}
+
+                    {/* Rating or Best Badge */}
+                    {item.rating === 5 && (
+                      <div className="absolute bottom-2 left-2 bg-brand-gold text-brand-brown px-2 py-0.5 rounded-lg text-[8px] font-black flex items-center gap-1 border border-white shadow-md">
+                         <Star size={8} fill="currentColor" /> BEST
+                      </div>
+                    )}
+                 </div>
+                 
+                 <h4 className="text-[11px] font-black text-brand-brown uppercase italic leading-tight mb-2 line-clamp-2 flex-1">{item.name}</h4>
+                 
+                 <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs font-black text-brand-orange">{item.price.toLocaleString()} F</span>
+                    <div className="w-8 h-8 bg-brand-brown text-brand-gold rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:bg-brand-orange group-hover:text-white">
+                       <Plus size={16} />
+                    </div>
+                 </div>
+              </motion.div>
+             );
+          })}
         </AnimatePresence>
       </motion.div>
 
@@ -204,10 +345,18 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.25 }}
-            className="py-20 text-center opacity-40 italic flex flex-col items-center"
+            className="py-20 text-center opacity-60 italic flex flex-col items-center px-6"
           >
              <Search size={40} className="mb-4 text-brand-orange animate-pulse" />
-             <p className="text-xs font-bold text-brand-brown">Aucun plat trouvé dans cette catégorie.</p>
+             <p className="text-xs font-bold text-brand-brown">Aucun plat ne correspond à vos critères de recherche.</p>
+             {selectedTagFilter !== 'ALL' && (
+                <button
+                  onClick={() => setSelectedTagFilter('ALL')}
+                  className="mt-3 text-[10px] bg-brand-orange text-white px-4 py-2 rounded-full font-black uppercase tracking-wider shadow-md"
+                >
+                   Effacer le filtre "{TAG_FILTERS.find(t => t.id === selectedTagFilter)?.label}"
+                </button>
+             )}
           </motion.div>
         </AnimatePresence>
       )}

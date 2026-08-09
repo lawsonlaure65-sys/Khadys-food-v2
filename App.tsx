@@ -44,12 +44,66 @@ import {
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
-  const [items, setItems] = useState<MenuItem[]>(MENU_ITEMS);
+  
+  // Persistent items (menu dishes) initialization
+  const [items, setItems] = useState<MenuItem[]>(() => {
+    const saved = localStorage.getItem('khadys_menu_items');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {
+        console.error('Error reading khadys_menu_items from localStorage', e);
+      }
+    }
+    return MENU_ITEMS;
+  });
+
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [reviews, setReviews] = useState<Review[]>(REVIEWS);
-  const [blogArticles, setBlogArticles] = useState<BlogArticle[]>(INITIAL_BLOG_ARTICLES);
-  const [faqs, setFaqs] = useState<FaqItem[]>(INITIAL_FAQS);
+  
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('khadys_orders');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [reviews, setReviews] = useState<Review[]>(() => {
+    const saved = localStorage.getItem('khadys_reviews');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return REVIEWS;
+  });
+
+  const [blogArticles, setBlogArticles] = useState<BlogArticle[]>(() => {
+    const saved = localStorage.getItem('khadys_blog_articles');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_BLOG_ARTICLES;
+  });
+
+  const [faqs, setFaqs] = useState<FaqItem[]>(() => {
+    const saved = localStorage.getItem('khadys_faqs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return INITIAL_FAQS;
+  });
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('khady_dark_mode') === 'true';
@@ -111,7 +165,7 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Synchronisation IndexedDB au démarrage
+    // Synchronisation IndexedDB & LocalStorage au démarrage
     const initOfflineStorage = async () => {
       // 1. Charger le panier sauvegardé en local dans IndexedDB
       const cachedCart = await getCartFromIDB();
@@ -119,13 +173,16 @@ const App: React.FC = () => {
         setCart(cachedCart);
       }
 
-      // 2. Charger le menu depuis IndexedDB si disponible
-      const cachedMenu = await getMenuFromIDB();
-      if (cachedMenu && cachedMenu.length > 0) {
-        setItems(cachedMenu);
-      } else {
-        // Enregistrer le menu par défaut dans IndexedDB pour une utilisation hors-ligne ultérieure
-        await saveMenuToIDB(MENU_ITEMS);
+      // 2. Vérifier si IndexedDB possède un menu si LocalStorage n'était pas présent
+      const hasLocalStorageMenu = Boolean(localStorage.getItem('khadys_menu_items'));
+      if (!hasLocalStorageMenu) {
+        const cachedMenu = await getMenuFromIDB();
+        if (cachedMenu && cachedMenu.length > 0) {
+          setItems(cachedMenu);
+          localStorage.setItem('khadys_menu_items', JSON.stringify(cachedMenu));
+        } else {
+          await saveMenuToIDB(items);
+        }
       }
     };
 
@@ -142,12 +199,33 @@ const App: React.FC = () => {
     saveCartToIDB(cart);
   }, [cart]);
 
-  // Sauvegarde automatique du menu dans IndexedDB à chaque modification
+  // Sauvegarde automatique du menu dans LocalStorage & IndexedDB à chaque modification
   useEffect(() => {
     if (items.length > 0) {
+      localStorage.setItem('khadys_menu_items', JSON.stringify(items));
       saveMenuToIDB(items);
     }
   }, [items]);
+
+  // Sauvegarde automatique des commandes dans LocalStorage
+  useEffect(() => {
+    localStorage.setItem('khadys_orders', JSON.stringify(orders));
+  }, [orders]);
+
+  // Sauvegarde automatique des avis dans LocalStorage
+  useEffect(() => {
+    localStorage.setItem('khadys_reviews', JSON.stringify(reviews));
+  }, [reviews]);
+
+  // Sauvegarde automatique des articles du blog dans LocalStorage
+  useEffect(() => {
+    localStorage.setItem('khadys_blog_articles', JSON.stringify(blogArticles));
+  }, [blogArticles]);
+
+  // Sauvegarde automatique des FAQs dans LocalStorage
+  useEffect(() => {
+    localStorage.setItem('khadys_faqs', JSON.stringify(faqs));
+  }, [faqs]);
 
   // Toggle Dark Mode
   const toggleDarkMode = () => {
@@ -597,6 +675,7 @@ const App: React.FC = () => {
             onAdminAccess={() => setCurrentPage(Page.ADMIN)} 
             onLoginSuccess={(isAdmin, customProfile) => {
               if (isAdmin) {
+                setToast({ message: "Session Administrateur Ouverte ! Bienvenue dans la Console Elite 👑", type: 'success' });
                 setCurrentPage(Page.ADMIN);
               } else {
                 if (customProfile) {
@@ -615,19 +694,24 @@ const App: React.FC = () => {
 
       case Page.ADMIN:
         return (
-          <AdminDashboard 
-            items={items} 
-            setItems={setItems} 
-            orders={orders} 
-            setOrders={setOrders} 
-            reviews={reviews} 
-            setReviews={setReviews} 
-            blogArticles={blogArticles}
-            setBlogArticles={setBlogArticles}
-            faqs={faqs}
-            setFaqs={setFaqs}
-            onExit={() => setCurrentPage(Page.COMPTE)} 
-          />
+          <div className="w-full min-h-screen">
+            <AdminDashboard 
+              items={items} 
+              setItems={setItems} 
+              orders={orders} 
+              setOrders={setOrders} 
+              reviews={reviews} 
+              setReviews={setReviews} 
+              blogArticles={blogArticles}
+              setBlogArticles={setBlogArticles}
+              faqs={faqs}
+              setFaqs={setFaqs}
+              onExit={() => {
+                setToast({ message: "Retour à l'espace Client", type: 'info' });
+                setCurrentPage(Page.COMPTE);
+              }} 
+            />
+          </div>
         );
 
       default:

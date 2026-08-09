@@ -89,8 +89,8 @@ const AccountView: React.FC<AccountViewProps> = ({
       id: "KF-9482",
       customerName: userProfile.name || "Client Khady's",
       phone: userProfile.phone || "+227 90 00 00 00",
-      address: "Quartier Plateau, Niamey",
-      district: "Plateau",
+      address: "Grande mosquée : Muamar Kadafi, Niamey",
+      district: "Grande Mosquée / Zongo",
       items: [
         { id: "1", name: "👑 Thiéboudienne Royale au Capitaine", description: "", price: 6500, image: "", category: "Plat Africain", rating: 5, isAvailable: true, quantity: 1 },
         { id: "2", name: "Alloco Banane Aloko Croustillant", description: "", price: 2000, image: "", category: "Spécialité Maison", rating: 5, isAvailable: true, quantity: 1 },
@@ -234,7 +234,7 @@ const AccountView: React.FC<AccountViewProps> = ({
         </div>
 
         <div class="footer">
-          Khady's Food & Event • Quartier Plateau, Niamey, Niger • Téléphone: +227 74 44 16 21 / +227 96 05 23 10<br/>
+          Khady's Food & Event • Grande mosquée : Muamar Kadafi, Niamey, Niger • Téléphone: +227 74 44 16 21 / +227 96 05 23 10<br/>
           Merci de votre confiance !
         </div>
 
@@ -410,7 +410,24 @@ const AccountView: React.FC<AccountViewProps> = ({
             <button type="submit" className="w-full bg-brand-brown text-brand-gold py-6 rounded-3xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-6">
               {activeTab === 'register' ? "CRÉER MON ACCÈS" : "OUVRIR MA SESSION"} <ArrowRight size={22} />
             </button>
-            <p className="text-center text-[8px] font-bold text-gray-300 mt-4 uppercase tracking-widest">Paiements sécurisés par Mobile Money & Espèces</p>
+            
+            {activeTab === 'login' && (
+              <div className="pt-4 border-t border-gray-100 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSound('pop');
+                    setLoginEmail('admin@khadys.food');
+                    setLoginPass(ADMIN_PASSWORD);
+                    onLoginSuccess(true);
+                  }}
+                  className="text-[9px] font-black uppercase text-brand-orange/80 hover:text-brand-orange tracking-widest transition-all flex items-center gap-1.5 py-1 px-3 bg-brand-orange/5 hover:bg-brand-orange/10 rounded-xl"
+                >
+                  <Settings size={12} /> Accès Direct Console Administrateur
+                </button>
+                <p className="text-center text-[8px] font-bold text-gray-300 uppercase tracking-widest">Paiements sécurisés par Mobile Money & Espèces</p>
+              </div>
+            )}
           </form>
         </div>
       </div>

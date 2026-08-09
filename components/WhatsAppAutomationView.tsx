@@ -12,7 +12,7 @@ interface WhatsAppAutomationProps {
 }
 
 export const WhatsAppAutomationView: React.FC<WhatsAppAutomationProps> = ({ cart, userProfile }) => {
-  const [district, setDistrict] = useState('Plateau');
+  const [district, setDistrict] = useState('Grande Mosquée / Zongo');
   const [paymentType, setPaymentType] = useState('Mynita');
   const [copied, setCopied] = useState(false);
 
@@ -130,11 +130,14 @@ export const WhatsAppAutomationView: React.FC<WhatsAppAutomationProps> = ({ cart
               onChange={(e) => setDistrict(e.target.value)}
               className="w-full bg-[#1F2C34] p-4 rounded-2xl text-white font-bold text-xs outline-none border border-white/10"
             >
-              <option value="Plateau">Plateau (Centre-Ville)</option>
-              <option value="Goudel">Goudel</option>
-              <option value="Cité Caisse">Cité Caisse</option>
-              <option value="Harobanda">Harobanda</option>
-              <option value="Aéroport">Aéroport</option>
+              <option value="Grande Mosquée / Zongo">Grande Mosquée / Zongo (Quartier Proche - 1000f)</option>
+              <option value="Boukoki">Boukoki (Quartier Proche - 1000f)</option>
+              <option value="Wadata">Wadata (Quartier Proche - 1000f)</option>
+              <option value="Plateau">Plateau (Quartier Proche - 1000f)</option>
+              <option value="Kouara Kano">Kouara Kano (Périphérie / Lointain - 1500f)</option>
+              <option value="Goudel">Goudel (Périphérie / Lointain - 1500f)</option>
+              <option value="Niamey 2000">Niamey 2000 (Périphérie / Lointain - 1500f)</option>
+              <option value="Aéroport">Aéroport (Périphérie / Lointain - 1500f)</option>
             </select>
           </div>
 

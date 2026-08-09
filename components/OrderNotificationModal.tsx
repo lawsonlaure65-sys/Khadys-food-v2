@@ -59,7 +59,7 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
     waMsg += `*Nom du Client :* ${order.customerName}\n`;
     waMsg += `*Téléphone Client :* ${order.phone}\n`;
     waMsg += `*Quartier & Adresse :* ${order.district} - ${order.address || 'Plateau'}\n`;
-    waMsg += `*Point de Collecte :* Khady's Food (Plateau, Niamey)\n\n`;
+    waMsg += `*Point de Collecte :* Khady's Food (Grande mosquée : Muamar Kadafi, Niamey)\n\n`;
     waMsg += `*Total à Encaisser/Paiement :* ${order.total + order.deliveryFee} F CFA (${order.paymentMethod})\n`;
     waMsg += `\nMerci de dépêcher un coursier pour l'enlèvement du colis ! 🏍️💨`;
 

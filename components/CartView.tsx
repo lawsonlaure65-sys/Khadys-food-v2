@@ -15,7 +15,7 @@ interface CartViewProps {
 }
 
 export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace, onClose, userProfile, onConsumePoints }) => {
-  const [customer, setCustomer] = useState({ name: userProfile.name || '', phone: userProfile.phone || '', address: '', district: 'Plateau' });
+  const [customer, setCustomer] = useState({ name: userProfile.name || '', phone: userProfile.phone || '', address: '', district: 'Grande Mosquée / Zongo' });
   const [payment, setPayment] = useState<PaymentMethod>('MYNITA');
   const [usePoints, setUsePoints] = useState(false);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
@@ -398,10 +398,10 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
 
                 <div className="relative">
                   <select className="w-full p-5 bg-white/10 rounded-2xl text-white text-xs font-bold outline-none border border-white/10 appearance-none cursor-pointer" value={customer.district} onChange={e => setCustomer({...customer, district: e.target.value})}>
-                     <optgroup label="Centre-Ville (1000f)" className="bg-brand-brown">
+                     <optgroup label="Quartiers Proches - Grande Mosquée (1000f / 1500f nuit)" className="bg-brand-brown">
                         {DISTRICTS.filter(d => d.zone === 'center').map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
                      </optgroup>
-                     <optgroup label="Périphérie (1500f)" className="bg-brand-brown">
+                     <optgroup label="Quartiers Lointains - Périphérie (1500f / 2000f nuit)" className="bg-brand-brown">
                         {DISTRICTS.filter(d => d.zone === 'periphery').map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
                      </optgroup>
                   </select>

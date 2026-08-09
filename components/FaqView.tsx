@@ -20,7 +20,7 @@ export const INITIAL_FAQS: FaqItem[] = [
     id: 'f3',
     category: 'Livraison',
     question: 'Quels sont les tarifs et délais de livraison Billo Express ?',
-    answer: 'La livraison en Centre-Ville (Plateau, Yantala, Kouara Kano, Bobiel, etc.) coûte 1000 F en journée et 1500 F en soirée. En Périphérie (Goudel, Niamey 2000, Aéroport, Saga, etc.), le tarif est de 1500 F le jour et 2000 F la nuit. Les délais moyens sont de 25 à 45 minutes.'
+    answer: 'Depuis notre restaurant situé à la Grande Mosquée Muamar Kadafi, les quartiers proches (Grande Mosquée, Zongo, Boukoki, Wadata, Poudrière, Lacouroussou, Terminus, Plateau, Yantala, etc.) sont livrés à 1000 F en journée et 1500 F la nuit. Les quartiers lointains (Kouara Kano, Bobiel, Goudel, Niamey 2000, Aéroport, Saga, Kirkissoye, etc.) sont à 1500 F le jour et 2000 F la nuit. Les délais moyens sont de 25 à 45 minutes.'
   },
   {
     id: 'f4',
