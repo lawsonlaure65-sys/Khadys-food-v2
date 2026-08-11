@@ -123,7 +123,7 @@ export interface FaqItem {
   id: string;
   question: string;
   answer: string;
-  category: 'Paiement' | 'Livraison' | 'Commandes' | 'Traiteur' | 'Fidélité';
+  category: 'Paiement' | 'Livraison' | 'Commandes' | 'Traiteur' | 'Fidélité' | 'Application';
 }
 
 export enum Page {

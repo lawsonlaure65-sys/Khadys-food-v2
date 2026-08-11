@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FaqItem } from '../types';
-import { HelpCircle, ChevronDown, ChevronUp, Search, MessageSquare, PhoneCall, Sparkles, ShieldCheck } from 'lucide-react';
+import { HelpCircle, ChevronDown, ChevronUp, Search, MessageSquare, PhoneCall, Sparkles, ShieldCheck, Share2, Copy, Check } from 'lucide-react';
 import { playSound } from '../utils/audio';
 
 export const INITIAL_FAQS: FaqItem[] = [
@@ -39,6 +39,12 @@ export const INITIAL_FAQS: FaqItem[] = [
     category: 'Fidélité',
     question: 'Comment accumuler des points de fidélité et parrainer des proches ?',
     answer: 'Chaque tranche de 1000 F dépensée sur l\'application vous rapporte 100 Points de Fidélité. 100 points équivalent à 100 F de réduction directe. Vous pouvez également partager votre Code de Parrainage depuis l\'onglet "Moi" : chaque filleul inscrit avec votre code vous gagne 500 Points Bonus !'
+  },
+  {
+    id: 'f7',
+    category: 'Application',
+    question: 'Comment partager l\'application Khady\'s Food avec mes proches ?',
+    answer: 'Vous pouvez facilement partager l\'application avec vos amis en cliquant sur le bouton "Partager l\'application" dans cette rubrique. Envoyez le lien directement sur WhatsApp, Facebook, SMS ou copiez le lien pour le transmettre.'
   }
 ];
 
@@ -51,8 +57,9 @@ export const FaqView: React.FC<FaqViewProps> = ({ faqs = INITIAL_FAQS, onNavigat
   const [openId, setOpenId] = useState<string | null>('f1');
   const [activeCategory, setActiveCategory] = useState<string>('TOUT');
   const [searchQuery, setSearchQuery] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  const categories = ['TOUT', 'Paiement', 'Livraison', 'Commandes', 'Traiteur', 'Fidélité'];
+  const categories = ['TOUT', 'Application', 'Paiement', 'Livraison', 'Commandes', 'Traiteur', 'Fidélité'];
 
   const filtered = faqs.filter(item => {
     const matchesCategory = activeCategory === 'TOUT' || item.category === activeCategory;
@@ -64,6 +71,34 @@ export const FaqView: React.FC<FaqViewProps> = ({ faqs = INITIAL_FAQS, onNavigat
   const toggleItem = (id: string) => {
     playSound('pop');
     setOpenId(prev => prev === id ? null : id);
+  };
+
+  const shareData = {
+    title: "Khady's Food Niamey",
+    text: "Découvrez Khady's Food, l'application de livraison de spécialités traditionnelles et modernes à Niamey !",
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://khadysfood.com'
+  };
+
+  const handleShareApp = async () => {
+    playSound('pop');
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch {
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareData.text + ' ' + shareData.url)}`, '_blank');
+      }
+    } else {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareData.text + ' ' + shareData.url)}`, '_blank');
+    }
+  };
+
+  const handleCopyLink = () => {
+    playSound('success');
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(shareData.url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   };
 
   return (
@@ -83,12 +118,44 @@ export const FaqView: React.FC<FaqViewProps> = ({ faqs = INITIAL_FAQS, onNavigat
         </div>
       </header>
 
+      {/* Share App Interactive Banner */}
+      <div className="bg-gradient-to-br from-brand-orange to-amber-600 text-white p-6 sm:p-7 rounded-[2.5rem] shadow-xl space-y-4 relative overflow-hidden border border-amber-400/30">
+        <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shrink-0 border border-white/20">
+            <Share2 size={20} className="text-white" />
+          </div>
+          <div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-amber-200">Recommandez-nous</span>
+            <h3 className="text-lg font-black italic uppercase leading-tight text-white">Partager l'application</h3>
+          </div>
+        </div>
+        <p className="text-xs text-white/95 font-medium leading-relaxed">
+          Partagez Khady's Food avec vos amis et proches à Niamey pour leur faire découvrir nos délicieux plats cuisinés avec amour !
+        </p>
+        <div className="flex flex-wrap gap-2.5 pt-1">
+          <button
+            onClick={handleShareApp}
+            className="flex-1 bg-white text-brand-brown px-5 py-3 rounded-2xl font-black text-xs uppercase italic shadow-md hover:bg-brand-gold transition-all flex items-center justify-center gap-2 active:scale-95"
+          >
+            <Share2 size={16} /> Partager l'application
+          </button>
+          <button
+            onClick={handleCopyLink}
+            className="bg-black/20 text-white hover:bg-black/30 px-4 py-3 rounded-2xl font-black text-xs uppercase italic transition-all flex items-center justify-center gap-2 active:scale-95 border border-white/20"
+          >
+            {copied ? <Check size={16} className="text-green-300" /> : <Copy size={16} />}
+            {copied ? 'Copié !' : 'Copier le lien'}
+          </button>
+        </div>
+      </div>
+
       {/* Search Input */}
       <div className="relative">
         <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" />
         <input 
           type="text" 
-          placeholder="Rechercher une réponse (ex: MyNita, livraison, points...)" 
+          placeholder="Rechercher une réponse (ex: partage, MyNita, livraison...)" 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full bg-white pl-13 pr-5 py-4 rounded-2xl border border-gray-100 shadow-sm text-xs font-bold text-brand-brown outline-none focus:border-brand-orange transition-all"
@@ -141,6 +208,16 @@ export const FaqView: React.FC<FaqViewProps> = ({ faqs = INITIAL_FAQS, onNavigat
               {isOpen && (
                 <div className="px-6 pb-6 pt-2 text-xs text-gray-600 font-medium leading-relaxed border-t border-gray-50 animate-fade-in">
                   <p>{item.answer}</p>
+                  {item.category === 'Application' && (
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex gap-2">
+                      <button 
+                        onClick={handleShareApp}
+                        className="bg-brand-orange text-white text-[10px] font-black uppercase px-4 py-2 rounded-xl flex items-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <Share2 size={12} /> Partager maintenant
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
