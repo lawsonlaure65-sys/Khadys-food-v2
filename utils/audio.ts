@@ -14,13 +14,14 @@ const getAudioContext = () => {
   return audioCtx;
 };
 
-export const playSound = (type: 'pop' | 'success' | 'cash' | 'notification' | 'delivery' | 'error') => {
+export const playSound = (type: 'pop' | 'success' | 'cash' | 'notification' | 'delivery' | 'error' | 'orderAlert') => {
   // Vibration Android (Haptic Feedback)
   if ('vibrate' in navigator) {
     try {
       if (type === 'pop') navigator.vibrate(12);
       if (type === 'success' || type === 'cash') navigator.vibrate([25, 40, 25]);
       if (type === 'notification' || type === 'error') navigator.vibrate([50, 25, 50]);
+      if (type === 'orderAlert') navigator.vibrate([100, 50, 100, 50, 150]);
     } catch {
       // Ignore vibration errors
     }
@@ -30,12 +31,30 @@ export const playSound = (type: 'pop' | 'success' | 'cash' | 'notification' | 'd
     const ctx = getAudioContext();
     if (!ctx) return;
 
+    const now = ctx.currentTime;
+
+    if (type === 'orderAlert') {
+      // Loud Triple Chime Bell
+      [0, 0.2, 0.4].forEach((delay) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(987.77, now + delay); // B5
+        osc.frequency.exponentialRampToValueAtTime(1318.51, now + delay + 0.15); // E6
+        gain.gain.setValueAtTime(0.4, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.22);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.22);
+      });
+      return;
+    }
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
-
-    const now = ctx.currentTime;
 
     if (type === 'pop') {
       osc.type = 'sine';

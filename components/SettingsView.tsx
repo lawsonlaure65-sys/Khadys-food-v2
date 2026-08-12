@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RESTAURANT_INFO, BILLO_INFO, LOGO_URL } from '../constants';
-import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music, RefreshCw } from 'lucide-react';
+import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music, RefreshCw, Languages } from 'lucide-react';
 import { playSound } from '../utils/audio';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SettingsViewProps {
   isDarkMode: boolean;
@@ -20,6 +21,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onOpenGuide,
   onOpenWhatsApp
 }) => {
+  const { language, setLanguage, t } = useLanguage();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -259,6 +261,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </h3>
 
         <div className="space-y-3">
+          {/* Language Selector */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-brand-gold text-brand-brown">
+                <Languages size={18} />
+              </div>
+              <div>
+                <h4 className="font-black text-xs uppercase italic text-brand-brown">{t('settings.lang_selector', 'Langue de l\'application')}</h4>
+                <p className="text-[9px] text-gray-400 font-bold uppercase">{t('settings.lang_desc', 'Choisissez la langue d\'affichage')}</p>
+              </div>
+            </div>
+            <div className="flex bg-gray-200 p-1 rounded-xl gap-1">
+              <button
+                onClick={() => { playSound('pop'); setLanguage('fr'); }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                  language === 'fr' ? 'bg-brand-brown text-white shadow-md' : 'text-gray-600 hover:text-black'
+                }`}
+              >
+                FR 🇫🇷
+              </button>
+              <button
+                onClick={() => { playSound('pop'); setLanguage('en'); }}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${
+                  language === 'en' ? 'bg-brand-brown text-white shadow-md' : 'text-gray-600 hover:text-black'
+                }`}
+              >
+                EN 🇬🇧
+              </button>
+            </div>
+          </div>
+
           {/* Dark Mode Toggle */}
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
             <div className="flex items-center gap-3">
@@ -266,8 +299,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               </div>
               <div>
-                <h4 className="font-black text-xs uppercase italic text-brand-brown">Thème Nuit Or</h4>
-                <p className="text-[9px] text-gray-400 font-bold uppercase">Ajustement sombre pour la soirée</p>
+                <h4 className="font-black text-xs uppercase italic text-brand-brown">{t('settings.dark_mode_title', 'Thème Nuit Or')}</h4>
+                <p className="text-[9px] text-gray-400 font-bold uppercase">{t('settings.dark_mode_desc', 'Ajustement sombre pour la soirée')}</p>
               </div>
             </div>
             <button 
@@ -285,8 +318,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <Bell size={18} />
               </div>
               <div>
-                <h4 className="font-black text-xs uppercase italic text-brand-brown">Avis & Offres Flash</h4>
-                <p className="text-[9px] text-gray-400 font-bold uppercase">Statut de commande en direct</p>
+                <h4 className="font-black text-xs uppercase italic text-brand-brown">{t('settings.notif_title', 'Avis & Offres Flash')}</h4>
+                <p className="text-[9px] text-gray-400 font-bold uppercase">{t('settings.notif_desc', 'Statut de commande en direct')}</p>
               </div>
             </div>
             <button 

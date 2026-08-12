@@ -165,6 +165,24 @@ const App: React.FC = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // BroadcastChannel listener for real-time order alerts across tabs/windows
+    let orderChannel: BroadcastChannel | null = null;
+    if ('BroadcastChannel' in window) {
+      orderChannel = new BroadcastChannel('khadys_orders_channel');
+      orderChannel.onmessage = (event) => {
+        if (event.data && event.data.type === 'NEW_ORDER' && event.data.order) {
+          const incomingOrder = event.data.order;
+          setOrders(prev => {
+            if (prev.some(o => o.id === incomingOrder.id)) return prev;
+            return [incomingOrder, ...prev];
+          });
+          setNotificationOrder(incomingOrder);
+          playSound('orderAlert');
+          setToast({ message: `🔔 ALERTE DIRECTE : Nouvelle commande #${incomingOrder.id} (${incomingOrder.total} F CFA) !`, type: 'success' });
+        }
+      };
+    }
+
     // Synchronisation IndexedDB & LocalStorage au démarrage
     const initOfflineStorage = async () => {
       // 1. Charger le panier sauvegardé en local dans IndexedDB
@@ -325,10 +343,30 @@ const App: React.FC = () => {
     setOrders(prev => [order, ...prev]);
     setLastOrder(order);
     
-    // Trigger Double / Triple Notification System (Visual, Audio, WhatsApp, In-App)
+    // Trigger Instant Audible & Visual Order Notification Alert
     setNotificationOrder(order);
-    playSound('notification');
-    setTimeout(() => playSound('cash'), 400);
+    playSound('orderAlert');
+
+    // Broadcast order across all browser windows & tabs
+    try {
+      if ('BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('khadys_orders_channel');
+        channel.postMessage({ type: 'NEW_ORDER', order });
+        channel.close();
+      }
+    } catch (err) {
+      console.warn("BroadcastChannel error:", err);
+    }
+
+    // Trigger Browser Notification if permission granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification("🔔 Nouvelle Commande Khady's Food !", {
+          body: `Commande #${order.id} reçue (${order.total} F CFA) pour ${order.customerName}.`,
+          icon: '/manifest-icon-512.png'
+        });
+      } catch (e) {}
+    }
 
     // Attribution des points : 100 points par 1000 F
     const pointsEarned = Math.floor(order.total / 1000) * POINTS_PER_1000;
@@ -344,7 +382,7 @@ const App: React.FC = () => {
     });
 
     setCurrentPage(Page.HOME);
-    showToast(`🔔 Triple Notification transmise ! +${pointsEarned} points`, 'success');
+    showToast(`🔔 Commande #${order.id} enregistrée en direct ! +${pointsEarned} points`, 'success');
 
     // Sauvegarde Cloud ou Hors-ligne IndexedDB
     if (!navigator.onLine) {

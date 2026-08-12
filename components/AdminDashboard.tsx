@@ -809,8 +809,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  const navItems = [
+    { v: AdminView.DASHBOARD, i: LayoutDashboard, l: 'Home' },
+    { v: AdminView.MENU_MGMT, i: Utensils, l: 'Carte' },
+    { v: AdminView.BLOG_MGMT, i: BookOpen, l: 'Blog' },
+    { v: AdminView.FAQ_MGMT, i: HelpCircle, l: 'FAQ' },
+    { v: AdminView.ORDERS, i: ShoppingBag, l: 'Orders' },
+    { v: AdminView.DELIVERY, i: Bike, l: 'Livreurs' },
+    { v: AdminView.CLIENTS, i: Users, l: 'Clients' },
+    { v: AdminView.AI_MARKETING, i: Zap, l: 'Marketing' },
+    { v: AdminView.EVENT, i: Calendar, l: 'Évents' },
+    { v: AdminView.BUFFET, i: ChefHat, l: 'Buffet' },
+    { v: AdminView.SETTINGS, i: Settings, l: 'Settings' }
+  ];
+
   return (
-    <div className="min-h-screen w-full bg-[#0F0807] text-white flex overflow-hidden font-sans">
+    <div className="min-h-screen w-full bg-[#0F0807] text-white flex flex-col md:flex-row overflow-hidden font-sans">
       <input 
         type="file" 
         ref={adminPhotoInputRef} 
@@ -819,22 +833,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onChange={handleAdminPhotoChange}
       />
 
-      {/* Sidebar Admin Premium */}
-      <div className="w-20 md:w-24 bg-black/40 border-r border-white/5 flex flex-col items-center py-8 md:py-10 gap-5 md:gap-6 overflow-y-auto no-scrollbar flex-shrink-0">
-        <KhadyLogo variant="light" className="scale-75 mb-4" />
-        {[
-          { v: AdminView.DASHBOARD, i: LayoutDashboard, l: 'Home' },
-          { v: AdminView.MENU_MGMT, i: Utensils, l: 'Carte' },
-          { v: AdminView.BLOG_MGMT, i: BookOpen, l: 'Blog' },
-          { v: AdminView.FAQ_MGMT, i: HelpCircle, l: 'FAQ' },
-          { v: AdminView.ORDERS, i: ShoppingBag, l: 'Orders' },
-          { v: AdminView.DELIVERY, i: Bike, l: 'Livreurs' },
-          { v: AdminView.CLIENTS, i: Users, l: 'Clients' },
-          { v: AdminView.AI_MARKETING, i: Zap, l: 'Marketing' },
-          { v: AdminView.EVENT, i: Calendar, l: 'Évents' },
-          { v: AdminView.BUFFET, i: ChefHat, l: 'Buffet' },
-          { v: AdminView.SETTINGS, i: Settings, l: 'Settings' }
-        ].map(n => (
+      {/* Desktop Sidebar Admin (md:flex) */}
+      <div className="hidden md:flex w-24 bg-black/40 border-r border-white/5 flex-col items-center py-8 gap-5 overflow-y-auto no-scrollbar flex-shrink-0">
+        <KhadyLogo variant="light" className="scale-75 mb-2" />
+        {navItems.map(n => (
           <button key={n.l} onClick={() => { setCurrentView(n.v); playSound('pop'); }} className={`flex flex-col items-center transition-all duration-300 ${currentView === n.v ? 'scale-110 opacity-100' : 'opacity-20 hover:opacity-100'}`}>
              <div className={`p-3 rounded-2xl ${currentView === n.v ? 'bg-brand-orange text-white shadow-xl' : 'bg-white/5'}`}><n.i size={20} /></div>
              <span className="text-[6px] mt-1.5 font-black tracking-widest uppercase text-center w-20 leading-tight">{n.l}</span>
@@ -846,34 +848,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </button>
       </div>
 
+      {/* Mobile Horizontal Navigation Header (md:hidden) */}
+      <div className="flex md:hidden bg-black/60 border-b border-white/10 px-3 py-2.5 overflow-x-auto no-scrollbar flex-shrink-0 items-center gap-2 z-30">
+        <KhadyLogo variant="light" className="scale-50 shrink-0 -mr-2" />
+        {navItems.map(n => (
+          <button 
+            key={n.l} 
+            onClick={() => { setCurrentView(n.v); playSound('pop'); }} 
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shrink-0 transition-all text-[10px] font-black uppercase tracking-wider ${
+              currentView === n.v ? 'bg-brand-orange text-white shadow-lg' : 'bg-white/5 text-white/50 hover:text-white'
+            }`}
+          >
+            <n.i size={14} />
+            <span>{n.l}</span>
+          </button>
+        ))}
+        <button 
+          onClick={onExit} 
+          className="px-3 py-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0 text-[10px] font-black uppercase flex items-center gap-1 border border-rose-500/30"
+        >
+          <Power size={14} /> Quitter
+        </button>
+      </div>
+
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="p-6 md:p-8 flex justify-between items-center border-b border-white/5 bg-black/20 backdrop-blur-md relative z-20 gap-4">
+        <header className="p-4 md:p-8 flex justify-between items-center border-b border-white/5 bg-black/20 backdrop-blur-md relative z-20 gap-2">
            <div>
-              <h2 className="text-sm font-black italic uppercase text-brand-gold tracking-[0.3em] leading-none">Console Admin Elite</h2>
-              <p className="text-[8px] text-white/30 font-black uppercase mt-1 tracking-wider">Terminal de Gestion & Pilotage — Khady's Food</p>
+              <h2 className="text-xs md:text-sm font-black italic uppercase text-brand-gold tracking-[0.2em] leading-none">Console Admin Elite</h2>
+              <p className="text-[7px] md:text-[8px] text-white/40 font-black uppercase mt-1 tracking-wider">Terminal de Gestion — Khady's Food</p>
            </div>
            
-           <div className="flex items-center gap-3">
+           <div className="flex items-center gap-2 md:gap-3">
               <button 
                 onClick={onExit}
-                className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 active:scale-95 shadow-lg"
+                className="px-3 md:px-4 py-2 md:py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0"
               >
-                 <Power size={14} /> Quitter Admin
+                 <Power size={14} /> <span className="hidden sm:inline">Quitter Admin</span>
               </button>
 
               <div 
                 onClick={() => adminPhotoInputRef.current?.click()}
-                className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-2xl hover:border-brand-orange transition-all flex-shrink-0"
+                className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-2xl hover:border-brand-orange transition-all flex-shrink-0"
                 title="Changer la photo de profil Admin"
               >
-                 {adminAvatar ? <img src={adminAvatar} className="w-full h-full object-cover" alt="Admin Avatar" /> : <Camera className="text-brand-gold opacity-20" size={24} />}
+                 {adminAvatar ? <img src={adminAvatar} className="w-full h-full object-cover" alt="Admin Avatar" /> : <Camera className="text-brand-gold opacity-20" size={20} />}
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
-                    <Camera size={16} className="text-white" />
+                    <Camera size={14} className="text-white" />
                  </div>
               </div>
            </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-6 md:p-10 no-scrollbar bg-gradient-to-br from-transparent to-brand-orange/[0.02]">{renderContent()}</div>
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar bg-gradient-to-br from-transparent to-brand-orange/[0.02]">{renderContent()}</div>
       </div>
 
       {/* Modal d'édition/ajout de plat */}
