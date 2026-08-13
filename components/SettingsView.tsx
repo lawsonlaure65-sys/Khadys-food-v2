@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { RESTAURANT_INFO, BILLO_INFO, LOGO_URL } from '../constants';
-import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music, RefreshCw, Languages } from 'lucide-react';
+import { Settings, Phone, MapPin, MessageSquare, Moon, Sun, ShieldCheck, Lock, ChevronRight, HelpCircle, FileText, Bell, Sparkles, Download, Smartphone, CheckCircle2, Share2, PlusSquare, X, Instagram, Facebook, Globe, Music, RefreshCw, Languages, Save, Send } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { useLanguage } from '../context/LanguageContext';
+import { getStoredRestaurantWhatsApp, openWhatsApp, buildCustomerConfirmationMessage, buildKitchenOrderMessage } from '../utils/whatsapp';
 
 interface SettingsViewProps {
   isDarkMode: boolean;
@@ -27,6 +28,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [installSuccess, setInstallSuccess] = useState(false);
+  const [customPhone, setCustomPhone] = useState(() => getStoredRestaurantWhatsApp().display);
+  const [phoneSaved, setPhoneSaved] = useState(false);
+
+  const handleSavePhone = () => {
+    playSound('cash');
+    localStorage.setItem('khadys_custom_whatsapp', customPhone.trim());
+    setPhoneSaved(true);
+    setTimeout(() => setPhoneSaved(false), 3000);
+  };
+
+  const handleTestWhatsApp = () => {
+    playSound('pop');
+    const sampleOrder = {
+      id: 'TEST-88',
+      customerName: 'Client Test',
+      phone: '+227 70 03 25 52',
+      address: 'Plateau, Niamey',
+      district: 'Plateau',
+      items: [{ id: 'sp1', name: 'Tiep Royal Khady', price: 5500, quantity: 1, category: 'Spécialité Maison', image: '', rating: 5, isAvailable: true }],
+      total: 5500,
+      deliveryFee: 1000,
+      status: 'RECEIVED' as const,
+      paymentMethod: 'MYNITA' as const,
+      timestamp: new Date().toISOString()
+    };
+
+    const customerMsg = buildCustomerConfirmationMessage(sampleOrder);
+    openWhatsApp('+227 70 03 25 52', customerMsg);
+  };
 
   useEffect(() => {
     // Check if app is already running in standalone mode
@@ -329,6 +359,67 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${notificationsEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* WhatsApp Double Notification & Restaurant Number Configuration */}
+      <div className="bg-gradient-to-br from-[#120B09] to-[#25130D] text-white rounded-[2.5rem] p-6 shadow-2xl border-2 border-brand-gold/40 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shrink-0">
+              <MessageSquare size={20} />
+            </div>
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-widest text-brand-gold">
+                Double Notification WhatsApp 📲
+              </h3>
+              <p className="text-[9px] text-white/60 font-bold uppercase">
+                Alerte Client automatique + Transmission Cuisine
+              </p>
+            </div>
+          </div>
+          <span className="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full text-[8px] font-black uppercase border border-emerald-500/30">
+            Actif
+          </span>
+        </div>
+
+        <div className="bg-white/5 p-4 rounded-2xl border border-white/10 space-y-3">
+          <label className="text-[10px] font-black uppercase text-brand-gold block">
+            Numéro WhatsApp Officiel Khady's Food (Cuisine) :
+          </label>
+          <div className="flex gap-2">
+            <input 
+              type="text"
+              value={customPhone}
+              onChange={(e) => setCustomPhone(e.target.value)}
+              placeholder="+227 74 44 16 21 ou +227 90 20 25 25"
+              className="flex-1 bg-black/50 border border-white/20 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-brand-gold font-mono"
+            />
+            <button
+              onClick={handleSavePhone}
+              className="bg-brand-gold hover:bg-yellow-400 text-brand-brown px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-95 transition-all shrink-0 shadow-md"
+            >
+              <Save size={14} /> {phoneSaved ? 'Enregistré !' : 'Sauvegarder'}
+            </button>
+          </div>
+          {phoneSaved && (
+            <p className="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+              <CheckCircle2 size={12} /> Numéro restaurant mis à jour avec succès.
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <div className="text-[10px] text-white/70">
+            <span className="text-white font-bold block">Tester la notification client :</span>
+            <span>Simuler l'envoi de confirmation automatique vers le +227 70 03 25 52</span>
+          </div>
+          <button
+            onClick={handleTestWhatsApp}
+            className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shrink-0 border border-emerald-400/30"
+          >
+            <Send size={14} /> Tester Notification WhatsApp
+          </button>
         </div>
       </div>
 

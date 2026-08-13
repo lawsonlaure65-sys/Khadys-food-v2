@@ -1,11 +1,18 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Order } from '../types';
 import { 
   Bell, CheckCircle2, MessageSquare, Volume2, Sparkles, 
-  ChefHat, Bike, Send, ShieldCheck, X, ArrowRight, PhoneCall
+  ChefHat, Bike, Send, ShieldCheck, X, ArrowRight, PhoneCall, UserCheck
 } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { RESTAURANT_INFO, BILLO_INFO } from '../constants';
+import { 
+  buildCustomerConfirmationMessage, 
+  buildKitchenOrderMessage, 
+  buildBilloDispatchMessage, 
+  openWhatsApp,
+  getStoredRestaurantWhatsApp
+} from '../utils/whatsapp';
 
 interface OrderNotificationModalProps {
   order: Order | null;
@@ -14,12 +21,23 @@ interface OrderNotificationModalProps {
   onOpenPushNotification?: () => void;
 }
 
-export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ order, onClose, onTrackOrder, onOpenPushNotification }) => {
+export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
+  order, 
+  onClose, 
+  onTrackOrder, 
+  onOpenPushNotification 
+}) => {
+  const [customerNotified, setCustomerNotified] = useState(false);
+  const [kitchenNotified, setKitchenNotified] = useState(false);
+  const [billoNotified, setBilloNotified] = useState(false);
+
   if (!order) return null;
+
+  const currentRestaurant = getStoredRestaurantWhatsApp();
 
   useEffect(() => {
     // Play dual notification sounds on mount
-    playSound('notification');
+    playSound('orderAlert');
     const timer = setTimeout(() => {
       playSound('cash');
     }, 400);
@@ -27,44 +45,38 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
   }, [order]);
 
   const replaySound = () => {
-    playSound('notification');
-    setTimeout(() => playSound('cash'), 300);
+    playSound('orderAlert');
   };
 
-  const handleOpenRestaurantWhatsApp = () => {
+  const handleNotifyCustomer = () => {
     playSound('pop');
-    let waMsg = `*Salam Khady's Food ! NOUVELLE COMMANDE EN CUISINE (${order.id})*\n\n`;
-    waMsg += `*Client :* ${order.customerName} (${order.phone})\n`;
-    waMsg += `*Quartier / Adresse :* ${order.district} - ${order.address || 'Au restaurant'}\n\n`;
-    waMsg += `*DÉTAIL DU FESTIN :*\n`;
-    order.items.forEach(item => {
-      waMsg += `• ${item.quantity}x ${item.name} (${item.price * item.quantity} F)\n`;
-    });
-    waMsg += `\n*Sous-Total Repas :* ${order.total} F CFA\n`;
-    waMsg += `*Frais Livraison Billo :* ${order.deliveryFee} F CFA\n`;
-    waMsg += `*TOTAL NET À PAYER :* ${order.total + order.deliveryFee} F CFA\n`;
-    waMsg += `*Mode de Paiement :* ${order.paymentMethod}\n`;
-    if (order.paymentTransactionId) {
-      waMsg += `*Réf Dépôt Txn :* ${order.paymentTransactionId}\n`;
-    }
-    waMsg += `\nMerci de lancer la préparation en cuisine ! 🥘`;
-
-    const waUrl = `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${encodeURIComponent(waMsg)}`;
-    window.open(waUrl, '_blank');
+    const msg = buildCustomerConfirmationMessage(order);
+    openWhatsApp(order.phone, msg);
+    setCustomerNotified(true);
   };
 
-  const handleOpenBilloWhatsApp = () => {
+  const handleNotifyKitchen = () => {
     playSound('pop');
-    let waMsg = `*Bonjour Billo Express ! DEMANDE DE LIVRAISON (${order.id})*\n\n`;
-    waMsg += `*Nom du Client :* ${order.customerName}\n`;
-    waMsg += `*Téléphone Client :* ${order.phone}\n`;
-    waMsg += `*Quartier & Adresse :* ${order.district} - ${order.address || 'Plateau'}\n`;
-    waMsg += `*Point de Collecte :* Khady's Food (Grande mosquée : Muamar Kadafi, Niamey)\n\n`;
-    waMsg += `*Total à Encaisser/Paiement :* ${order.total + order.deliveryFee} F CFA (${order.paymentMethod})\n`;
-    waMsg += `\nMerci de dépêcher un coursier pour l'enlèvement du colis ! 🏍️💨`;
+    const msg = buildKitchenOrderMessage(order);
+    openWhatsApp(currentRestaurant.clean, msg);
+    setKitchenNotified(true);
+  };
 
-    const waUrl = `https://wa.me/${BILLO_INFO.whatsappClean}?text=${encodeURIComponent(waMsg)}`;
-    window.open(waUrl, '_blank');
+  const handleNotifyBillo = () => {
+    playSound('pop');
+    const msg = buildBilloDispatchMessage(order);
+    openWhatsApp(BILLO_INFO.whatsappClean, msg);
+    setBilloNotified(true);
+  };
+
+  const handleSendAll = () => {
+    playSound('pop');
+    // First open customer notification
+    handleNotifyCustomer();
+    // Then open kitchen notification after short delay
+    setTimeout(() => {
+      handleNotifyKitchen();
+    }, 600);
   };
 
   const handleDirectCall = () => {
@@ -74,7 +86,7 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 animate-fade-in overflow-y-auto">
-      <div className="relative w-full max-w-md bg-[#160D0A] rounded-[3.5rem] border-4 border-brand-gold/40 p-6 sm:p-8 shadow-[0_25px_60px_rgba(255,179,0,0.3)] text-white overflow-hidden">
+      <div className="relative w-full max-w-lg bg-[#160D0A] rounded-[3.5rem] border-4 border-brand-gold/40 p-6 sm:p-8 shadow-[0_25px_60px_rgba(255,179,0,0.3)] text-white overflow-hidden my-auto">
         
         {/* Animated Background Rays */}
         <div className="absolute -top-20 -left-20 w-60 h-60 bg-brand-orange/20 rounded-full blur-3xl animate-pulse"></div>
@@ -102,58 +114,76 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
           </div>
 
           <span className="bg-brand-gold/20 text-brand-gold px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.25em] inline-flex items-center gap-2 border border-brand-gold/30">
-            <Sparkles size={12} className="animate-spin" /> Commande Confirmée !
+            <Sparkles size={12} className="animate-spin" /> Double Notification Active !
           </span>
 
           <h3 className="text-2xl font-black italic uppercase text-white mt-2 leading-none">
-            Notification Active
+            Commande Confirmée
           </h3>
-          <p className="text-[10px] text-brand-gold font-mono font-bold mt-1">
-            Référence commande : #{order.id}
+          <p className="text-[11px] text-brand-gold font-mono font-bold mt-1">
+            Réf : #{order.id} • {order.customerName}
           </p>
         </div>
 
-        {/* 3 Notification Status Cards */}
+        {/* Action Rapide : Double Notification Directe */}
+        <div className="mb-5 relative z-10">
+          <button 
+            onClick={handleSendAll}
+            className="w-full bg-gradient-to-r from-emerald-600 via-green-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3.5 px-4 rounded-2xl font-black uppercase text-xs tracking-wider shadow-[0_10px_25px_rgba(16,185,129,0.35)] flex items-center justify-center gap-2.5 active:scale-95 transition-all border border-emerald-400/40"
+          >
+            <MessageSquare size={18} />
+            <span>Envoyer la Double Notification WhatsApp 📲</span>
+          </button>
+        </div>
+
+        {/* 3 Notification Cards */}
         <div className="space-y-3 relative z-10 mb-6">
           
-          {/* 1. NOTIFICATION VISUELLE ANIMÉE ET SONORE */}
-          <div className="bg-gradient-to-r from-brand-orange/20 to-brand-gold/10 p-4 rounded-3xl border border-brand-orange/40 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-brand-orange text-white flex items-center justify-center shadow-lg shrink-0 animate-pulse">
-                <Bell size={20} />
-              </div>
-              <div>
-                <h4 className="font-black text-xs text-white uppercase italic flex items-center gap-1.5">
-                  Alerte Sonore & Visuelle
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
-                </h4>
-                <p className="text-[8px] text-white/70 font-bold">Signal sonore émis • Animation active</p>
-              </div>
-            </div>
-            <button 
-              onClick={replaySound}
-              className="p-2.5 bg-white/10 hover:bg-white/20 text-brand-gold rounded-xl transition-all active:scale-90"
-              title="Rejouer le son"
-            >
-              <Volume2 size={18} />
-            </button>
-          </div>
-
-          {/* 2. NOTIFICATION RESTAURANT KHADY'S FOOD */}
-          <div className="bg-green-950/60 p-4 rounded-3xl border border-green-500/40 space-y-2">
+          {/* 1. NOTIFICATION CLIENT WHATSAPP AUTOMATIQUE */}
+          <div className="bg-emerald-950/60 p-4 rounded-3xl border border-emerald-500/40 space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-green-500 text-white flex items-center justify-center shadow-lg shrink-0">
-                  <ChefHat size={20} />
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shrink-0">
+                  <UserCheck size={20} />
                 </div>
                 <div>
-                  <h4 className="font-black text-xs text-green-300 uppercase italic">1. Restaurant Khady's Food</h4>
-                  <p className="text-[8px] text-green-200/80 font-mono font-bold">{RESTAURANT_INFO.whatsapp}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="font-black text-xs text-emerald-300 uppercase italic">1. Notification WhatsApp Client</h4>
+                    {customerNotified && <span className="text-[8px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold">Envoyé</span>}
+                  </div>
+                  <p className="text-[9px] text-emerald-100 font-mono font-bold">{order.phone} ({order.customerName})</p>
                 </div>
               </div>
               <button 
-                onClick={handleOpenRestaurantWhatsApp}
-                className="bg-green-500 hover:bg-green-400 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                onClick={handleNotifyCustomer}
+                className="bg-emerald-500 hover:bg-emerald-400 text-white px-3.5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+              >
+                <Send size={12} /> Confirmer au Client
+              </button>
+            </div>
+            <p className="text-[9px] text-emerald-200/80 italic pl-13 border-t border-emerald-500/20 pt-1.5">
+              💬 Message : « Vos Cheffes s'activent pour la préparation... »
+            </p>
+          </div>
+
+          {/* 2. NOTIFICATION CUISINE / RESTAURANT */}
+          <div className="bg-green-950/60 p-4 rounded-3xl border border-green-500/40 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-green-600 text-white flex items-center justify-center shadow-lg shrink-0">
+                  <ChefHat size={20} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="font-black text-xs text-green-300 uppercase italic">2. Transmettre à la Cuisine</h4>
+                    {kitchenNotified && <span className="text-[8px] bg-green-500 text-white px-2 py-0.5 rounded-full font-bold">Envoyé</span>}
+                  </div>
+                  <p className="text-[9px] text-green-200/90 font-mono font-bold">{currentRestaurant.display}</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleNotifyKitchen}
+                className="bg-green-600 hover:bg-green-500 text-white px-3.5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
                 <Send size={12} /> Cuisine
               </button>
@@ -168,48 +198,46 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
                   <Bike size={20} />
                 </div>
                 <div>
-                  <h4 className="font-black text-xs text-brand-gold uppercase italic">2. Livreur Billo Express</h4>
-                  <p className="text-[8px] text-brand-gold/80 font-mono font-bold">{BILLO_INFO.whatsapp}</p>
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="font-black text-xs text-brand-gold uppercase italic">3. Livreur Billo Express</h4>
+                    {billoNotified && <span className="text-[8px] bg-brand-orange text-white px-2 py-0.5 rounded-full font-bold">Envoyé</span>}
+                  </div>
+                  <p className="text-[9px] text-brand-gold/90 font-mono font-bold">{BILLO_INFO.whatsapp}</p>
                 </div>
               </div>
               <button 
-                onClick={handleOpenBilloWhatsApp}
-                className="bg-brand-orange hover:bg-brand-orange/80 text-white px-3 py-2 rounded-xl text-[8px] font-black uppercase flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                onClick={handleNotifyBillo}
+                className="bg-brand-orange hover:bg-brand-orange/80 text-white px-3.5 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
               >
                 <Send size={12} /> Livreur
               </button>
             </div>
           </div>
 
-          {/* 4. LIGNE DIRECTE APPEL VOCAL */}
-          <div className="bg-white/5 p-4 rounded-3xl border border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-brand-gold/20 text-brand-gold flex items-center justify-center shadow-lg shrink-0 border border-brand-gold/30">
-                <PhoneCall size={20} />
-              </div>
-              <div>
-                <h4 className="font-black text-xs text-brand-gold uppercase italic">Ligne Directe Appels</h4>
-                <p className="text-[8px] text-white/60 font-mono font-bold">{RESTAURANT_INFO.directLine}</p>
-              </div>
+          {/* 4. ALERTE SONORE & VOCAL */}
+          <div className="bg-white/5 p-3 rounded-2xl border border-white/10 flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-2">
+              <Volume2 size={16} className="text-brand-gold" />
+              <span className="text-white/80 font-bold">Sonnette carillon & vibreur activés</span>
             </div>
             <button
-              onClick={handleDirectCall}
-              className="bg-brand-gold text-brand-brown px-3 py-2 rounded-xl text-[8px] font-black uppercase flex items-center gap-1 shadow-md active:scale-95 transition-all"
+              onClick={replaySound}
+              className="text-brand-gold hover:underline font-black uppercase text-[9px]"
             >
-              Appeler
+              Rejouer son
             </button>
           </div>
 
         </div>
 
         {/* Order Details Preview */}
-        <div className="bg-black/40 p-4 sm:p-5 rounded-3xl border border-white/10 space-y-2 mb-6 relative z-10 text-[10px]">
+        <div className="bg-black/40 p-4 rounded-3xl border border-white/10 space-y-2 mb-6 relative z-10 text-[10px]">
           <div className="flex justify-between text-white/50 uppercase font-black text-[8px]">
             <span>Client : {order.customerName}</span>
             <span>Tél : {order.phone}</span>
           </div>
           <div className="flex justify-between text-white font-bold border-b border-white/5 pb-2">
-            <span>Adresse ({order.district}) :</span>
+            <span>Destination ({order.district}) :</span>
             <span className="text-white/70 truncate max-w-[180px]">{order.address || 'Au restaurant'}</span>
           </div>
           <div className="pt-1">
@@ -218,7 +246,7 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
               {order.items.map((it, idx) => (
                 <div key={idx} className="flex justify-between text-white/80 font-mono text-[9px]">
                   <span>• {it.quantity}x {it.name}</span>
-                  <span>{it.price * it.quantity} F</span>
+                  <span>{it.price * it.quantity} F CFA</span>
                 </div>
               ))}
             </div>
@@ -258,7 +286,7 @@ export const OrderNotificationModal: React.FC<OrderNotificationModalProps> = ({ 
             onClick={onClose}
             className="w-full bg-white/10 text-white/60 hover:text-white py-3 rounded-2xl font-black uppercase text-[9px] tracking-widest transition-colors"
           >
-            Fermer l'alerte
+            Fermer la fenêtre
           </button>
         </div>
 

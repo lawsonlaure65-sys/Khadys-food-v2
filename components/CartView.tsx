@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { CartItem, Order, PaymentMethod, UserProfile } from '../types';
-import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send } from 'lucide-react';
+import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send, MessageSquare } from 'lucide-react';
 import { PhoneInput } from './PhoneInput';
 import { playSound } from '../utils/audio';
 import { BILLO_INFO, RESTAURANT_INFO, DISTRICTS, DISCOUNT_PER_100_POINTS } from '../constants';
+import { getStoredRestaurantWhatsApp, buildKitchenOrderMessage, openWhatsApp } from '../utils/whatsapp';
 
 interface CartViewProps {
   cart: CartItem[];
@@ -176,27 +177,11 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
 
     onOrderPlace(newOrder);
 
-    // Forward receipt to WhatsApp if selected
+    // Forward receipt to Restaurant WhatsApp if selected
     if (sendWhatsApp) {
-      let waMsg = `*Salam Khady's Food ! NOUVELLE COMMANDE EN LIGNE (${orderId})*\n\n`;
-      waMsg += `*Client :* ${customer.name} (${customer.phone})\n`;
-      waMsg += `*Quartier :* ${customer.district} - ${customer.address}\n\n`;
-      waMsg += `*DÉTAIL DU FESTIN :*\n`;
-      cart.forEach(item => {
-        waMsg += `• ${item.quantity}x ${item.name} (${item.price * item.quantity} F)\n`;
-      });
-      waMsg += `\n*Total Net à Payer :* ${total} F CFA\n`;
-      waMsg += `*Mode de Paiement :* ${payment}\n`;
-      if (transactionId) {
-        waMsg += `*Réf Dépôt Txn :* ${transactionId}\n`;
-      }
-      if (proofImage) {
-        waMsg += `*Preuve de dépôt :* [Capture d'écran jointe à la commande]\n`;
-      }
-      waMsg += `\nMerci de valider ma commande et ma livraison Billo Express ! 🥘`;
-
-      const waUrl = `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${encodeURIComponent(waMsg)}`;
-      window.open(waUrl, '_blank');
+      const rest = getStoredRestaurantWhatsApp();
+      const waMsg = buildKitchenOrderMessage(newOrder);
+      openWhatsApp(rest.clean, waMsg);
     }
 
     setCart([]);
@@ -531,21 +516,21 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
           </div>
 
           {/* WhatsApp Dual Order Checkbox */}
-          <div className="bg-green-50 p-6 rounded-[2.5rem] border-2 border-green-500/30 flex items-center justify-between">
+          <div className="bg-emerald-50 p-6 rounded-[2.5rem] border-2 border-emerald-500/40 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500 text-white rounded-xl flex items-center justify-center shadow-md">
-                <Send size={20} />
+              <div className="w-10 h-10 bg-emerald-600 text-white rounded-xl flex items-center justify-center shadow-md shrink-0">
+                <MessageSquare size={20} />
               </div>
               <div>
-                <h4 className="font-black text-xs text-brand-brown uppercase italic">Envoi Automatique WhatsApp</h4>
-                <p className="text-[8px] font-bold text-gray-500">Ouvre le reçu pré-rempli vers Khady's Food ({RESTAURANT_INFO.whatsapp})</p>
+                <h4 className="font-black text-xs text-brand-brown uppercase italic">Double Notification WhatsApp 📲</h4>
+                <p className="text-[8px] font-bold text-gray-600">Reçu & confirmation automatique client + alerte cuisine directe</p>
               </div>
             </div>
             <input 
               type="checkbox" 
               checked={sendWhatsApp} 
               onChange={(e) => setSendWhatsApp(e.target.checked)}
-              className="w-6 h-6 accent-green-600 rounded-lg cursor-pointer"
+              className="w-6 h-6 accent-emerald-600 rounded-lg cursor-pointer"
             />
           </div>
 
