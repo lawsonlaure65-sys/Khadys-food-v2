@@ -4,16 +4,21 @@ import {
   CheckCircle2, Copy, Share2, MessageSquare, Flame, Clock, 
   Users, Gift, ShoppingBag, ArrowRight, RefreshCw, Smartphone, 
   Layers, Sliders, Check, ShieldCheck, AlertCircle, Percent, DollarSign,
-  Eye, ToggleLeft, ToggleRight, Info
+  Eye, ToggleLeft, ToggleRight, Info, Utensils, Award, ChefHat, Globe, Save,
+  Moon, Sun, Music, Facebook, Instagram
 } from 'lucide-react';
 import { MenuItem, Order } from '../types';
 import { playSound } from '../utils/audio';
 import { GoogleGenAI } from '@google/genai';
+import { PlatDuJourPosterStudio } from './PlatDuJourPosterStudio';
 import { 
-  PromoCode, AnnouncementBanner, FlashDealConfig,
+  PromoCode, AnnouncementBanner, FlashDealConfig, PlatDuJourConfig,
   getStoredPromoCodes, saveStoredPromoCodes,
   getStoredBanner, saveStoredBanner,
   getStoredFlashDeal, saveStoredFlashDeal,
+  getStoredPlatDuJour, saveStoredPlatDuJour,
+  PLAT_DU_JOUR_PRESETS, generatePlatDuJourMarketingTexts, PlatDuJourStyle,
+  shareToSocialPlatform,
   MARKETING_TEMPLATES, broadcastToWhatsApp
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
@@ -30,7 +35,17 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
   onItemsChange 
 }) => {
   // Active sub-tab inside Marketing
-  const [activeTab, setActiveTab] = useState<'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY'>('CAMPAIGNS');
+  const [activeTab, setActiveTab] = useState<'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY'>('PLAT_DU_JOUR');
+
+  // Plat du Jour State
+  const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
+  const [platSubView, setPlatSubView] = useState<'POSTER' | 'RECIPE_CHANNELS'>('POSTER');
+  const [platSaved, setPlatSaved] = useState(false);
+  const [selectedPlatStyle, setSelectedPlatStyle] = useState<PlatDuJourStyle>('GOURMAND');
+  const [activePlatChannel, setActivePlatChannel] = useState<'EVENING' | 'STATUS' | 'GROUPS' | 'CLIENT' | 'SOCIAL' | 'FLYER'>('EVENING');
+  const [selectedVipClient, setSelectedVipClient] = useState<string>('');
+  const [copiedPlatText, setCopiedPlatText] = useState(false);
+  const [isAiGeneratingPlat, setIsAiGeneratingPlat] = useState(false);
 
   // Promo Codes State
   const [promoCodes, setPromoCodes] = useState<PromoCode[]>(() => getStoredPromoCodes());
@@ -166,6 +181,127 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
     saveStoredFlashDeal(flashDeal);
     setFlashSaved(true);
     setTimeout(() => setFlashSaved(false), 3000);
+  };
+
+  // Handle Plat du Jour Presets Selection
+  const handleSelectPresetPlat = (preset: typeof PLAT_DU_JOUR_PRESETS[0]) => {
+    playSound('pop');
+    const texts = generatePlatDuJourMarketingTexts({
+      dishName: preset.name,
+      description: preset.description,
+      accompaniments: preset.accompaniments,
+      price: preset.price,
+      promoPrice: preset.promoPrice,
+      chefQuote: preset.chefQuote,
+      date: platDuJour.date,
+      targetDayLabel: platDuJour.targetDayLabel || 'Demain Midi',
+      remainingStock: platDuJour.remainingStock
+    }, selectedPlatStyle);
+
+    const updated: PlatDuJourConfig = {
+      ...platDuJour,
+      dishName: preset.name,
+      tagline: preset.tagline,
+      description: preset.description,
+      accompaniments: preset.accompaniments,
+      price: preset.price,
+      promoPrice: preset.promoPrice,
+      dishImage: preset.image,
+      chefQuote: preset.chefQuote,
+      marketingTextWhatsApp: texts.whatsapp,
+      marketingTextGroups: texts.groups,
+      marketingTextSocial: texts.social,
+      marketingTextEveningTeaser: texts.eveningTeaser,
+      hashtags: texts.hashtags
+    };
+
+    setPlatDuJour(updated);
+    saveStoredPlatDuJour(updated);
+    setPlatSaved(true);
+    setTimeout(() => setPlatSaved(false), 2500);
+  };
+
+  // Regenerate marketing texts when style changes
+  const handleSwitchPlatStyle = (style: PlatDuJourStyle) => {
+    playSound('pop');
+    setSelectedPlatStyle(style);
+    const texts = generatePlatDuJourMarketingTexts(platDuJour, style);
+    setPlatDuJour(prev => ({
+      ...prev,
+      marketingTextWhatsApp: texts.whatsapp,
+      marketingTextGroups: texts.groups,
+      marketingTextSocial: texts.social,
+      marketingTextEveningTeaser: texts.eveningTeaser,
+      hashtags: texts.hashtags
+    }));
+  };
+
+  // Save Plat du Jour
+  const handleSavePlat = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    playSound('cash');
+    saveStoredPlatDuJour(platDuJour);
+    setPlatSaved(true);
+    setTimeout(() => setPlatSaved(false), 3000);
+
+    // If items callback exists, ensure menu is synced
+    if (onItemsChange && items && items.length > 0) {
+      const existingMatch = items.find(i => i.name.toLowerCase().includes(platDuJour.dishName.toLowerCase()));
+      if (existingMatch) {
+        const updatedItems = items.map(i => i.id === existingMatch.id ? { ...i, isPlatDuJour: platDuJour.isActive, price: platDuJour.promoPrice || platDuJour.price } : i);
+        onItemsChange(updatedItems);
+      }
+    }
+  };
+
+  // AI Generation of Plat du Jour Copy
+  const handleGenerateAiPlatCopy = async () => {
+    setIsAiGeneratingPlat(true);
+    playSound('pop');
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const prompt = `Tu es le Chef et Responsable Marketing de « Khady's Food & Event » à Niamey (Niger).
+Rédige 3 versions alléchantes et irrésistibles pour le Plat du Jour : "${platDuJour.dishName}".
+Détails :
+- Ingrédients / Description : ${platDuJour.description}
+- Accompagnements : ${platDuJour.accompaniments}
+- Prix du jour : ${platDuJour.promoPrice || platDuJour.price} F CFA (au lieu de ${platDuJour.price} F CFA)
+- Livraison express Niamey par Billo Express.
+
+Génère un message WhatsApp captivant avec emojis, mise en page aérée et appel à l'action.`;
+
+      const res = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+
+      if (res.text) {
+        setPlatDuJour(prev => ({
+          ...prev,
+          marketingTextWhatsApp: res.text || prev.marketingTextWhatsApp
+        }));
+        playSound('success');
+      }
+    } catch (e) {
+      const texts = generatePlatDuJourMarketingTexts(platDuJour, 'GOURMAND');
+      setPlatDuJour(prev => ({
+        ...prev,
+        marketingTextWhatsApp: texts.whatsapp,
+        marketingTextGroups: texts.groups,
+        marketingTextSocial: texts.social
+      }));
+      playSound('success');
+    } finally {
+      setIsAiGeneratingPlat(false);
+    }
+  };
+
+  // Copy Plat du Jour text
+  const handleCopyPlatText = (textToCopy: string) => {
+    playSound('pop');
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedPlatText(true);
+    setTimeout(() => setCopiedPlatText(false), 2000);
   };
 
   // Copy text to clipboard
@@ -305,12 +441,13 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
       {/* Sub-Navigation Tabs */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
         {[
-          { id: 'CAMPAIGNS', label: '1. Campagnes & Diffusion WhatsApp', icon: Send, badge: 'Direct' },
-          { id: 'PROMO_CODES', label: '2. Codes Promo & Remises', icon: Tag, badge: `${promoCodes.length}` },
-          { id: 'BANNER', label: '3. Bannière Live dans l\'App', icon: Megaphone, badge: banner.isEnabled ? 'ON' : 'OFF' },
-          { id: 'FLASH_DEALS', label: '4. Offres Flash du Jour', icon: Flame, badge: 'Booster' },
-          { id: 'CLIENTS_CRM', label: '5. Relance Clients VIP', icon: Users, badge: `${customerAudience.length}` },
-          { id: 'AI_STRATEGY', label: '6. Stratège & Audit IA', icon: Sparkles, badge: 'Gemini' }
+          { id: 'PLAT_DU_JOUR', label: '🍲 1. Plat du Jour & Diffusion 360°', icon: Utensils, badge: platDuJour.isActive ? 'En Ligne' : 'Pause' },
+          { id: 'CAMPAIGNS', label: '2. Messages & Statuts WhatsApp', icon: Send, badge: 'Direct' },
+          { id: 'PROMO_CODES', label: '3. Codes Promo & Remises', icon: Tag, badge: `${promoCodes.length}` },
+          { id: 'BANNER', label: '4. Bannière Live dans l\'App', icon: Megaphone, badge: banner.isEnabled ? 'ON' : 'OFF' },
+          { id: 'FLASH_DEALS', label: '5. Offres Flash du Jour', icon: Flame, badge: 'Booster' },
+          { id: 'CLIENTS_CRM', label: '6. Relance Clients VIP', icon: Users, badge: `${customerAudience.length}` },
+          { id: 'AI_STRATEGY', label: '7. Stratège & Audit IA', icon: Sparkles, badge: 'Gemini' }
         ].map(tab => (
           <button
             key={tab.id}
@@ -334,6 +471,722 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
           </button>
         ))}
       </div>
+
+      {/* TAB 0 : CRÉATEUR DE PLAT DU JOUR & DIFFUSION MULTI-CANAUX (WHATSAPP, GROUPES, CLIENTS, RÉSEAUX SOCIAUX) */}
+      {activeTab === 'PLAT_DU_JOUR' && (
+        <div className="space-y-8 animate-fade-in">
+          
+          {/* Top Status & Controls Header */}
+          <div className="bg-gradient-to-r from-[#22100B] via-[#2D1610] to-[#170906] p-6 sm:p-8 rounded-[2.5rem] border-2 border-brand-gold/40 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-2xl">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="bg-brand-orange text-white text-[9px] font-black uppercase px-3 py-0.5 rounded-full tracking-wider shadow-sm flex items-center gap-1">
+                  <ChefHat size={12} /> Menu Quotidien
+                </span>
+                <span className="text-brand-gold text-[10px] font-bold">
+                  {platDuJour.date}
+                </span>
+              </div>
+              <h3 className="text-lg sm:text-xl font-black italic uppercase text-white tracking-wide flex items-center gap-2">
+                <Utensils className="text-brand-gold" size={22} /> Plat du Jour & Texte Alléchant
+              </h3>
+              <p className="text-xs text-white/70 font-medium">
+                Concevez chaque matin votre offre vedette, générez un argumentaire captivant et publiez en 1 clic sur WhatsApp, vos groupes, vos clients et les réseaux sociaux.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              {/* Active Toggle Switch */}
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  const updated = { ...platDuJour, isActive: !platDuJour.isActive };
+                  setPlatDuJour(updated);
+                  saveStoredPlatDuJour(updated);
+                }}
+                className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all border ${
+                  platDuJour.isActive
+                    ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50'
+                    : 'bg-white/5 text-white/50 border-white/10'
+                }`}
+              >
+                {platDuJour.isActive ? <ToggleRight size={22} className="text-emerald-400" /> : <ToggleLeft size={22} />}
+                <span>{platDuJour.isActive ? 'Visible dans l\'App' : 'Masqué dans l\'App'}</span>
+              </button>
+
+              {/* Save Button */}
+              <button
+                type="button"
+                onClick={() => handleSavePlat()}
+                className="bg-brand-orange hover:bg-orange-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-brand-orange/30 active:scale-95 transition-all flex items-center gap-2"
+              >
+                {platSaved ? <CheckCircle2 size={16} className="text-emerald-300" /> : <Save size={16} />}
+                <span>{platSaved ? 'Enregistré !' : 'Enregistrer'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sub-view Navigation Tabs inside Plat du Jour */}
+          <div className="flex flex-wrap gap-2.5 p-2 bg-black/40 rounded-2xl border border-white/10 w-fit">
+            <button
+              type="button"
+              onClick={() => {
+                playSound('pop');
+                setPlatSubView('POSTER');
+              }}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                platSubView === 'POSTER'
+                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg shadow-brand-orange/30 scale-[1.02]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Sparkles size={16} />
+              <span>🎨 Studio Créateur d'Affiches HD (Réseaux Sociaux & Veille au Soir)</span>
+              <span className="bg-brand-gold text-brand-brown text-[8px] font-black px-2 py-0.5 rounded-full">
+                PNG 1080p
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                playSound('pop');
+                setPlatSubView('RECIPE_CHANNELS');
+              }}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+                platSubView === 'RECIPE_CHANNELS'
+                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg shadow-brand-orange/30 scale-[1.02]'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              <Utensils size={16} />
+              <span>🍲 Fiche Recette, Prix & Diffusion Textes</span>
+            </button>
+          </div>
+
+          {/* SUB-VIEW 1: POSTER STUDIO */}
+          {platSubView === 'POSTER' && (
+            <PlatDuJourPosterStudio
+              plat={platDuJour}
+              onChangePlat={(updated) => {
+                setPlatDuJour(updated);
+                saveStoredPlatDuJour(updated);
+              }}
+            />
+          )}
+
+          {/* SUB-VIEW 2: RECIPE & MULTI-CHANNEL TEXTS CONFIGURATION */}
+          {platSubView === 'RECIPE_CHANNELS' && (
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in">
+            
+            {/* Left Column: Preset Catalog & Dish Configuration (5 cols) */}
+            <div className="xl:col-span-5 space-y-6">
+              
+              {/* 1. Recettes Signature Prêtes en 1 Clic */}
+              <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                    <Award size={16} className="text-brand-orange" /> 1-Clic : Recettes Signature
+                  </h4>
+                  <span className="text-[8px] font-bold text-white/50 uppercase">6 Suggestions</span>
+                </div>
+                <p className="text-[10px] text-white/60 font-bold">
+                  Cliquez sur un plat pour charger automatiquement sa recette, ses accompagnements et son argumentaire :
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {PLAT_DU_JOUR_PRESETS.map((preset) => {
+                    const isSelected = platDuJour.dishName === preset.name;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectPresetPlat(preset)}
+                        className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between gap-2 relative overflow-hidden group ${
+                          isSelected
+                            ? 'bg-brand-gold/20 border-brand-gold text-white shadow-lg'
+                            : 'bg-black/30 border-white/5 text-white/70 hover:bg-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[8px] font-black uppercase text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded-full border border-brand-orange/20">
+                            {preset.badge}
+                          </span>
+                          <span className="text-[9px] font-mono font-black text-brand-gold">
+                            {preset.promoPrice ? `${preset.promoPrice.toLocaleString('fr-FR')} F` : `${preset.price.toLocaleString('fr-FR')} F`}
+                          </span>
+                        </div>
+
+                        <p className="text-xs font-black text-white leading-tight group-hover:text-brand-gold transition-colors">
+                          {preset.name}
+                        </p>
+
+                        <p className="text-[9px] text-white/50 line-clamp-1">
+                          {preset.tagline}
+                        </p>
+
+                        {isSelected && (
+                          <div className="absolute right-2 bottom-2 text-brand-gold">
+                            <CheckCircle2 size={14} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Formulaire Détaillé du Plat du Jour */}
+              <div className="bg-white/5 p-6 sm:p-7 rounded-[2.5rem] border border-white/10 space-y-4">
+                <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                  <Edit3 size={16} className="text-brand-orange" /> Personnalisation du Plat du Jour
+                </h4>
+
+                <div className="space-y-3.5">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-white/60">Nom du Plat du Jour *</label>
+                    <input
+                      type="text"
+                      value={platDuJour.dishName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPlatDuJour({ ...platDuJour, dishName: val });
+                      }}
+                      placeholder="Ex: Tiep Royal Rouge au Mérou Frais"
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-brand-gold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-white/60">Slogan / Tagline Accrocheuse</label>
+                    <input
+                      type="text"
+                      value={platDuJour.tagline}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, tagline: e.target.value })}
+                      placeholder="Ex: Le joyau culinaire sénégalais de Cheffe Khady"
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-white/60">Description Sensorielle & Ingrédients</label>
+                    <textarea
+                      rows={3}
+                      value={platDuJour.description}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, description: e.target.value })}
+                      placeholder="Décrivez les saveurs, les épices, la texture..."
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold leading-relaxed resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-brand-gold flex items-center gap-1.5">
+                      <Gift size={12} /> Accompagnements & Bonus Offerts
+                    </label>
+                    <input
+                      type="text"
+                      value={platDuJour.accompaniments}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, accompaniments: e.target.value })}
+                      placeholder="Ex: Alloco doré + 1 Grande Bouteille de Jus Bissap Glacée 50cl"
+                      className="w-full bg-black/40 border border-brand-gold/30 rounded-xl p-3 text-xs text-brand-gold font-bold focus:outline-none focus:border-brand-gold"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-white/60">Prix Normal (F CFA)</label>
+                      <input
+                        type="number"
+                        value={platDuJour.price || ''}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, price: Number(e.target.value) })}
+                        className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-brand-gold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-brand-orange font-bold">Prix Spécial Midi (F CFA)</label>
+                      <input
+                        type="number"
+                        value={platDuJour.promoPrice || ''}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, promoPrice: Number(e.target.value) })}
+                        className="w-full bg-black/40 border border-brand-orange/40 rounded-xl p-3 text-xs text-brand-orange font-black font-mono focus:outline-none focus:border-brand-orange"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-white/60">Stock de Portions</label>
+                      <input
+                        type="number"
+                        value={platDuJour.remainingStock || ''}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, remainingStock: Number(e.target.value) })}
+                        className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-brand-gold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-white/60">Horaires de Service</label>
+                      <input
+                        type="text"
+                        value={platDuJour.deliveryTime}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, deliveryTime: e.target.value })}
+                        placeholder="11h30 - 14h30"
+                        className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-white/60">Mot de la Cheffe Khady</label>
+                    <input
+                      type="text"
+                      value={platDuJour.chefQuote}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, chefQuote: e.target.value })}
+                      placeholder="« Cuisiné lentement au feu de bois ce matin. » — Cheffe Khady"
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white italic focus:outline-none focus:border-brand-gold"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-black uppercase text-white/60">Photo du Plat (URL)</label>
+                    <input
+                      type="text"
+                      value={platDuJour.dishImage}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, dishImage: e.target.value })}
+                      placeholder="https://..."
+                      className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold truncate font-mono text-[10px]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Copy Generator & Multi-Channel Broadcast Dashboard (7 cols) */}
+            <div className="xl:col-span-7 space-y-6">
+              
+              {/* 1. Style Selector & AI Booster Bar */}
+              <div className="bg-gradient-to-r from-purple-950/40 via-brand-brown/40 to-black/50 p-6 rounded-[2.5rem] border border-purple-500/30 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-purple-300 flex items-center gap-2">
+                      <Sparkles size={16} /> Générateur de Textes Alléchants
+                    </h4>
+                    <p className="text-[10px] text-white/60 font-bold mt-0.5">
+                      Choisissez une ambiance de rédaction ou lancez la génération IA :
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiPlatCopy}
+                    disabled={isAiGeneratingPlat}
+                    className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg shadow-purple-600/30 active:scale-95 transition-all shrink-0 self-start sm:self-auto"
+                  >
+                    {isAiGeneratingPlat ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    <span>Rédiger avec Gemini IA</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'GOURMAND', label: '🍲 Gourmand & Saveurs', desc: 'Tradition & générosité' },
+                    { id: 'FLASH_MIDI', label: '⚡ Vente Flash Midi', desc: 'Pause déjeuner & urgence' },
+                    { id: 'PRESTIGE_ROYAL', label: '👑 Prestige Royal', desc: 'Gastronomie & VIP' }
+                  ].map(style => (
+                    <button
+                      key={style.id}
+                      type="button"
+                      onClick={() => handleSwitchPlatStyle(style.id as PlatDuJourStyle)}
+                      className={`p-3 rounded-2xl text-left border transition-all ${
+                        selectedPlatStyle === style.id
+                          ? 'bg-brand-orange text-white border-brand-orange shadow-md'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <p className="text-[10px] font-black truncate">{style.label}</p>
+                      <p className="text-[8px] text-white/60 truncate mt-0.5">{style.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Multi-Channel Preview & 1-Click Publishing Hub */}
+              <div className="bg-white/5 p-6 sm:p-8 rounded-[2.5rem] border border-white/10 space-y-6">
+                
+                {/* Channel Selector Tabs */}
+                <div className="flex gap-2 overflow-x-auto no-scrollbar border-b border-white/10 pb-4">
+                  {[
+                    { id: 'EVENING', label: '🌙 Teaser Veille au Soir', icon: Moon },
+                    { id: 'STATUS', label: '🟢 Statut WhatsApp', icon: Smartphone },
+                    { id: 'GROUPS', label: '👥 Groupes WhatsApp', icon: Users },
+                    { id: 'CLIENT', label: '💬 Envoi Client VIP', icon: MessageSquare },
+                    { id: 'SOCIAL', label: '🌐 Réseaux Sociaux', icon: Globe },
+                    { id: 'FLYER', label: '🖼️ Flyer Digital', icon: Eye }
+                  ].map(channel => (
+                    <button
+                      key={channel.id}
+                      type="button"
+                      onClick={() => {
+                        playSound('pop');
+                        setActivePlatChannel(channel.id as any);
+                      }}
+                      className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-wider whitespace-nowrap transition-all border ${
+                        activePlatChannel === channel.id
+                          ? channel.id === 'EVENING'
+                            ? 'bg-purple-600 text-white border-purple-400 shadow-md'
+                            : 'bg-brand-gold text-brand-brown border-brand-gold shadow-md'
+                          : 'bg-white/5 text-white/60 border-white/10 hover:text-white'
+                      }`}
+                    >
+                      <channel.icon size={14} />
+                      <span>{channel.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* CHANNEL 0: TEASER VEILLE AU SOIR */}
+                {activePlatChannel === 'EVENING' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-purple-300 flex items-center gap-1.5">
+                        <Moon size={14} /> Teaser de la veille au soir (Publication entre 20h et 22h30)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextEveningTeaser || platDuJour.marketingTextWhatsApp)}
+                        className="text-[9px] font-black text-white/70 hover:text-white uppercase flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl"
+                      >
+                        {copiedPlatText ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        <span>{copiedPlatText ? 'Copié !' : 'Copier'}</span>
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={11}
+                      value={platDuJour.marketingTextEveningTeaser || platDuJour.marketingTextWhatsApp}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextEveningTeaser: e.target.value })}
+                      className="w-full bg-[#120B09] border border-purple-500/30 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-purple-400 leading-relaxed resize-none shadow-inner"
+                    />
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => broadcastToWhatsApp(platDuJour.marketingTextEveningTeaser || platDuJour.marketingTextWhatsApp)}
+                        className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 active:scale-95 transition-all"
+                      >
+                        <Smartphone size={16} /> 🌙 Diffuser Teaser Veille sur WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextEveningTeaser || platDuJour.marketingTextWhatsApp)}
+                        className="bg-white/10 hover:bg-white/20 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Copy size={14} /> Copier
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHANNEL 1: STATUT WHATSAPP */}
+                {activePlatChannel === 'STATUS' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-emerald-400 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} /> Texte optimisé pour les Statuts WhatsApp
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextWhatsApp)}
+                        className="text-[9px] font-black text-white/70 hover:text-white uppercase flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl"
+                      >
+                        {copiedPlatText ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        <span>{copiedPlatText ? 'Copié !' : 'Copier'}</span>
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={11}
+                      value={platDuJour.marketingTextWhatsApp}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextWhatsApp: e.target.value })}
+                      className="w-full bg-[#120B09] border border-white/15 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
+                    />
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => broadcastToWhatsApp(platDuJour.marketingTextWhatsApp)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+                      >
+                        <Smartphone size={16} /> 🟢 Publier sur Statut WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextWhatsApp)}
+                        className="bg-white/10 hover:bg-white/20 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Copy size={14} /> Copier
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHANNEL 2: GROUPES WHATSAPP */}
+                {activePlatChannel === 'GROUPS' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-brand-gold flex items-center gap-1.5">
+                        <Users size={14} /> Formaté pour diffusion dans les Groupes WhatsApp
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextGroups)}
+                        className="text-[9px] font-black text-white/70 hover:text-white uppercase flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl"
+                      >
+                        {copiedPlatText ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        <span>{copiedPlatText ? 'Copié !' : 'Copier'}</span>
+                      </button>
+                    </div>
+
+                    <textarea
+                      rows={11}
+                      value={platDuJour.marketingTextGroups}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextGroups: e.target.value })}
+                      className="w-full bg-[#120B09] border border-white/15 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
+                    />
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => broadcastToWhatsApp(platDuJour.marketingTextGroups)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+                      >
+                        <Users size={16} /> 👥 Diffuser dans un Groupe WhatsApp
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextGroups)}
+                        className="bg-white/10 hover:bg-white/20 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Copy size={14} /> Copier
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHANNEL 3: ENVOI DIRECT CLIENT VIP */}
+                {activePlatChannel === 'CLIENT' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="space-y-1.5">
+                      <label className="text-[9px] font-black uppercase text-white/60">
+                        Sélectionner le Client Destinataire
+                      </label>
+                      <select
+                        value={selectedVipClient}
+                        onChange={(e) => setSelectedVipClient(e.target.value)}
+                        className="w-full bg-black/50 border border-white/20 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-brand-gold"
+                      >
+                        <option value="">-- Choisir un client de la base --</option>
+                        {customerAudience.map((client, idx) => (
+                          <option key={idx} value={client.phone}>
+                            {client.name} ({client.phone}) — {client.district} ({client.ordersCount} commandes)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Preview customized text */}
+                    {(() => {
+                      const client = customerAudience.find(c => c.phone === selectedVipClient) || { name: 'Cher(e) Client(e)', district: 'Niamey', phone: '' };
+                      const personalizedMsg = `*Bonjour ${client.name} !* 🍲✨\n\n` +
+                        `Cheffe Khady a pensé à vous aujourd'hui avec notre *Plat du Jour* :\n` +
+                        `👑 *${platDuJour.dishName.toUpperCase()}*\n` +
+                        `😋 ${platDuJour.description}\n` +
+                        `🎁 *Accompagnements inclus :* ${platDuJour.accompaniments}\n\n` +
+                        `💰 *Tarif Privilège :* ${platDuJour.promoPrice ? `${platDuJour.promoPrice.toLocaleString('fr-FR')} F CFA` : `${platDuJour.price.toLocaleString('fr-FR')} F CFA`}\n` +
+                        `🛵 Livraison expresse à ${client.district || 'votre adresse'} par Billo Express !\n\n` +
+                        `👉 Souhaitez-vous que nous vous réservions une portion bien chaude pour ce midi ?\n` +
+                        `_Khady's Food & Event — Toujours un plaisir de vous régaler !_`;
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="bg-[#120B09] p-4 rounded-2xl border border-white/10 text-xs font-mono text-white/90 whitespace-pre-line leading-relaxed">
+                            {personalizedMsg}
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={!selectedVipClient}
+                            onClick={() => broadcastToWhatsApp(personalizedMsg, selectedVipClient)}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
+                          >
+                            <MessageSquare size={16} /> 💬 Envoyer sur WhatsApp de {client.name}
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* CHANNEL 4: RÉSEAUX SOCIAUX (FACEBOOK, INSTAGRAM, TIKTOK) */}
+                {activePlatChannel === 'SOCIAL' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase text-brand-gold flex items-center gap-1.5">
+                        <Globe size={14} /> Publication pour Facebook, Instagram & TikTok
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextSocial)}
+                        className="text-[9px] font-black text-white/70 hover:text-white uppercase flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl"
+                      >
+                        {copiedPlatText ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        <span>{copiedPlatText ? 'Copié !' : 'Copier'}</span>
+                      </button>
+                    </div>
+
+                    {/* Social Handles Badges */}
+                    <div className="flex flex-wrap items-center gap-2 p-3 bg-black/30 rounded-2xl border border-white/10 text-[10px]">
+                      <span className="text-[9px] text-white/60 font-bold uppercase mr-1">Comptes Officiels :</span>
+                      <span className="flex items-center gap-1 px-2.5 py-1 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-xl font-bold">
+                        <Facebook size={12} /> {RESTAURANT_INFO.socials.facebook.handle}
+                      </span>
+                      <span className="flex items-center gap-1 px-2.5 py-1 bg-pink-600/20 text-pink-300 border border-pink-500/30 rounded-xl font-bold">
+                        <Instagram size={12} /> @{RESTAURANT_INFO.socials.instagram.handle}
+                      </span>
+                      <span className="flex items-center gap-1 px-2.5 py-1 bg-cyan-600/20 text-cyan-300 border border-cyan-500/30 rounded-xl font-bold">
+                        <Music size={12} /> @{RESTAURANT_INFO.socials.tiktok.handle}
+                      </span>
+                    </div>
+
+                    <textarea
+                      rows={10}
+                      value={platDuJour.marketingTextSocial}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextSocial: e.target.value })}
+                      className="w-full bg-[#120B09] border border-white/15 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
+                    />
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => shareToSocialPlatform(platDuJour.marketingTextSocial, 'facebook')}
+                        className="bg-[#1877F2] hover:bg-blue-600 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md"
+                      >
+                        <Facebook size={14} /> Facebook
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => shareToSocialPlatform(platDuJour.marketingTextSocial, 'instagram')}
+                        className="bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:opacity-90 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md"
+                      >
+                        <Instagram size={14} /> Instagram
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => shareToSocialPlatform(platDuJour.marketingTextSocial, 'tiktok')}
+                        className="bg-black hover:bg-zinc-800 border border-white/20 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md"
+                      >
+                        <Music size={14} className="text-cyan-400" /> TikTok
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextSocial)}
+                        className="bg-white/10 hover:bg-white/20 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
+                      >
+                        <Copy size={14} /> Copier Post
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* CHANNEL 5: FLYER DIGITAL PREVIEW */}
+                {activePlatChannel === 'FLYER' && (
+                  <div className="space-y-4 animate-fade-in">
+                    <p className="text-[10px] text-white/60 font-bold">
+                      Aperçu de la carte numérique du Plat du Jour telle qu'elle apparaît pour vos clients :
+                    </p>
+
+                    <div className="bg-gradient-to-b from-[#2A140F] to-[#140805] rounded-[3rem] p-6 sm:p-8 border-2 border-brand-gold/40 shadow-2xl relative overflow-hidden space-y-6">
+                      
+                      {/* Badge & Date */}
+                      <div className="flex justify-between items-center">
+                        <span className="bg-brand-orange text-white px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider shadow-md">
+                          🍲 Plat du Jour • {platDuJour.date}
+                        </span>
+                        <span className="text-[9px] font-mono text-brand-gold font-bold">
+                          {platDuJour.remainingStock} portions restantes
+                        </span>
+                      </div>
+
+                      {/* Dish visual & details */}
+                      <div className="flex flex-col sm:flex-row gap-6 items-center">
+                        <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-[2rem] overflow-hidden border-2 border-brand-gold/30 shadow-xl shrink-0">
+                          <img
+                            src={platDuJour.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000'}
+                            alt={platDuJour.dishName}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="space-y-2 text-center sm:text-left flex-1">
+                          <h3 className="text-xl font-black italic uppercase text-white leading-tight">
+                            {platDuJour.dishName}
+                          </h3>
+                          <p className="text-[10px] text-brand-gold font-bold uppercase tracking-wider">
+                            {platDuJour.tagline}
+                          </p>
+                          <p className="text-xs text-white/80 leading-relaxed">
+                            {platDuJour.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Included Accompaniments */}
+                      <div className="bg-black/40 p-4 rounded-2xl border border-brand-gold/20 flex items-center gap-3">
+                        <Gift size={20} className="text-brand-orange shrink-0" />
+                        <div>
+                          <span className="text-[8px] font-black uppercase text-brand-gold block">Bonus du Midi Inclus :</span>
+                          <span className="text-xs font-bold text-white">{platDuJour.accompaniments}</span>
+                        </div>
+                      </div>
+
+                      {/* Pricing & Call to action */}
+                      <div className="flex items-center justify-between pt-2">
+                        <div>
+                          <span className="text-[9px] text-white/40 line-through block font-mono">
+                            {platDuJour.price.toLocaleString('fr-FR')} F CFA
+                          </span>
+                          <span className="text-2xl font-black text-brand-orange font-mono">
+                            {platDuJour.promoPrice ? `${platDuJour.promoPrice.toLocaleString('fr-FR')} F CFA` : `${platDuJour.price.toLocaleString('fr-FR')} F CFA`}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => broadcastToWhatsApp(platDuJour.marketingTextWhatsApp)}
+                          className="bg-brand-orange hover:bg-orange-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-brand-orange/40 active:scale-95 transition-all flex items-center gap-2"
+                        >
+                          <ShoppingBag size={14} /> Commander ce Plat
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+          )}
+        </div>
+      )}
 
       {/* TAB 1 : COMPOSITEUR & DIFFUSEUR DE CAMPAGNES MULTI-CANAUX */}
       {activeTab === 'CAMPAIGNS' && (

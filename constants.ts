@@ -37,15 +37,18 @@ export const RESTAURANT_INFO = {
   location: "Grande mosquée : Muamar Kadafi, Niamey",
   socials: {
     facebook: {
-      handle: "@Khady's Food & Event",
-      url: "https://www.facebook.com/profile.php?id=615500000000000" // Facebook link fallback or search
+      name: "Facebook",
+      handle: "Khady's Food & Event",
+      url: "https://www.facebook.com/search/top?q=Khady%27s%20Food%20%26%20Event"
     },
     instagram: {
-      handle: "@khadys_food",
+      name: "Instagram",
+      handle: "khadys_food",
       url: "https://www.instagram.com/khadys_food"
     },
     tiktok: {
-      handle: "@khadys.food.event",
+      name: "TikTok",
+      handle: "khadys.food.event",
       url: "https://www.tiktok.com/@khadys.food.event"
     }
   }
