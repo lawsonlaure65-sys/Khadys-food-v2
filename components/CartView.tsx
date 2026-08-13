@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { CartItem, Order, PaymentMethod, UserProfile } from '../types';
-import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send, MessageSquare } from 'lucide-react';
+import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send, MessageSquare, Tag, Gift, Check, X } from 'lucide-react';
 import { PhoneInput } from './PhoneInput';
 import { playSound } from '../utils/audio';
 import { BILLO_INFO, RESTAURANT_INFO, DISTRICTS, DISCOUNT_PER_100_POINTS } from '../constants';
 import { getStoredRestaurantWhatsApp, buildKitchenOrderMessage, openWhatsApp } from '../utils/whatsapp';
+import { applyPromoCode, PromoValidationResult, getStoredPromoCodes } from '../utils/marketing';
 
 interface CartViewProps {
   cart: CartItem[];
@@ -21,6 +22,11 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
   const [usePoints, setUsePoints] = useState(false);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
 
+  // Promo Code State
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<PromoValidationResult | null>(null);
+  const [promoMessage, setPromoMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   // Phone Validation & SMS OTP States
   const [isPhoneValid, setIsPhoneValid] = useState(false);
   const [isPhoneVerified, setIsPhoneVerified] = useState(false);
@@ -36,7 +42,30 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
 
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const maxRedeemablePoints = Math.min(userProfile.points, Math.floor(subtotal / DISCOUNT_PER_100_POINTS) * 100);
-  const discount = usePoints ? (maxRedeemablePoints / 100) * DISCOUNT_PER_100_POINTS : 0;
+  const loyaltyDiscount = usePoints ? (maxRedeemablePoints / 100) * DISCOUNT_PER_100_POINTS : 0;
+  const promoDiscount = appliedPromo?.isValid ? appliedPromo.discountAmount : 0;
+  const discount = loyaltyDiscount + promoDiscount;
+
+  const handleApplyPromoCode = () => {
+    playSound('pop');
+    const result = applyPromoCode(promoInput, subtotal);
+    if (result.isValid) {
+      setAppliedPromo(result);
+      setPromoMessage({ text: result.successMessage || 'Code promo activé !', type: 'success' });
+      playSound('cash');
+    } else {
+      setAppliedPromo(null);
+      setPromoMessage({ text: result.errorMessage || 'Code promo invalide.', type: 'error' });
+      playSound('error');
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    playSound('pop');
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoMessage(null);
+  };
 
   const getDeliveryFee = () => {
     const district = DISTRICTS.find(d => d.name === customer.district);
@@ -515,6 +544,98 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
              )}
           </div>
 
+           {/* Interactive Promo Code Card */}
+           <div className="bg-white p-6 sm:p-8 rounded-[3rem] shadow-xl border border-gray-100 space-y-4">
+             <div className="flex justify-between items-center">
+               <h3 className="text-brand-brown font-black uppercase italic text-xs tracking-widest flex items-center gap-2">
+                 <Tag size={18} className="text-brand-orange" /> Code Promo ou Bon de Réduction
+               </h3>
+               {appliedPromo?.isValid && (
+                 <span className="text-[8px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-200">
+                   Actif : -{appliedPromo.discountAmount.toLocaleString('fr-FR')} F
+                 </span>
+               )}
+             </div>
+
+             <div className="flex gap-2">
+               <div className="relative flex-1">
+                 <input
+                   type="text"
+                   placeholder="Ex: KHADY24, FLASH20..."
+                   value={promoInput}
+                   disabled={!!appliedPromo?.isValid}
+                   onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                   onKeyDown={(e) => {
+                     if (e.key === 'Enter') {
+                       e.preventDefault();
+                       handleApplyPromoCode();
+                     }
+                   }}
+                   className="w-full p-4 bg-gray-50 rounded-2xl text-xs font-mono font-black text-brand-brown uppercase placeholder-gray-400 outline-none border border-gray-200 focus:border-brand-orange transition-all"
+                 />
+                 {appliedPromo?.isValid && (
+                   <button
+                     type="button"
+                     onClick={handleRemovePromoCode}
+                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1"
+                   >
+                     <X size={16} />
+                   </button>
+                 )}
+               </div>
+
+               {appliedPromo?.isValid ? (
+                 <button
+                   type="button"
+                   onClick={handleRemovePromoCode}
+                   className="bg-red-50 hover:bg-red-100 text-red-600 px-4 py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all"
+                 >
+                   Retirer
+                 </button>
+               ) : (
+                 <button
+                   type="button"
+                   onClick={handleApplyPromoCode}
+                   className="bg-brand-brown hover:bg-brand-orange text-brand-gold hover:text-white px-5 py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95 shrink-0"
+                 >
+                   Appliquer
+                 </button>
+               )}
+             </div>
+
+             {/* Feedback message */}
+             {promoMessage && (
+               <div className={`p-3 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 ${
+                 promoMessage.type === 'success' 
+                   ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                   : 'bg-rose-50 text-rose-700 border border-rose-200'
+               }`}>
+                 {promoMessage.type === 'success' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                 <span>{promoMessage.text}</span>
+               </div>
+             )}
+
+             {/* Available Promo Suggestions */}
+             {!appliedPromo && (
+               <div className="flex flex-wrap gap-1.5 pt-1">
+                 <span className="text-[8px] font-bold text-gray-400 uppercase mr-1 flex items-center">Codes actifs :</span>
+                 {getStoredPromoCodes().filter(p => p.isActive).slice(0, 3).map(p => (
+                   <button
+                     key={p.id}
+                     type="button"
+                     onClick={() => {
+                       setPromoInput(p.code);
+                       playSound('pop');
+                     }}
+                     className="text-[8px] font-mono font-black bg-brand-gold/15 text-brand-brown hover:bg-brand-gold/30 px-2 py-0.5 rounded-lg transition-all border border-brand-gold/30"
+                   >
+                     {p.code} ({p.value}{p.type === 'PERCENT' ? '%' : 'F'})
+                   </button>
+                 ))}
+               </div>
+             )}
+           </div>
+
           {/* WhatsApp Dual Order Checkbox */}
           <div className="bg-emerald-50 p-6 rounded-[2.5rem] border-2 border-emerald-500/40 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -537,10 +658,11 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
           {/* Total & Submit Button */}
           <div className="bg-brand-brown p-8 sm:p-10 rounded-[4rem] text-brand-gold shadow-2xl relative overflow-hidden border-4 border-white">
              <div className="space-y-4 mb-8">
-                <div className="flex justify-between text-white/40 text-[9px] font-black uppercase tracking-widest"><span>Sous-total Festin</span><span>{subtotal} F</span></div>
-                {discount > 0 && <div className="flex justify-between text-brand-orange text-[9px] font-black uppercase tracking-widest"><span>Réduction Fidélité</span><span>- {discount} F</span></div>}
-                <div className="flex justify-between text-brand-gold text-[9px] font-black uppercase tracking-widest"><span>Service Billo ({DISTRICTS.find(d => d.name === customer.district)?.name})</span><span>{deliveryFee} F</span></div>
-                <div className="pt-6 border-t border-white/10 flex justify-between items-end"><span className="text-white font-black italic uppercase text-sm">Net à Payer</span><span className="text-4xl font-black">{total} F CFA</span></div>
+                <div className="flex justify-between text-white/40 text-[9px] font-black uppercase tracking-widest"><span>Sous-total Festin</span><span>{subtotal.toLocaleString('fr-FR')} F</span></div>
+                {loyaltyDiscount > 0 && <div className="flex justify-between text-brand-orange text-[9px] font-black uppercase tracking-widest"><span>Réduction Fidélité ({maxRedeemablePoints} pts)</span><span>- {loyaltyDiscount.toLocaleString('fr-FR')} F</span></div>}
+                {promoDiscount > 0 && <div className="flex justify-between text-emerald-400 text-[9px] font-black uppercase tracking-widest"><span>Code Promo ({appliedPromo?.promoCodeObj?.code})</span><span>- {promoDiscount.toLocaleString('fr-FR')} F</span></div>}
+                <div className="flex justify-between text-brand-gold text-[9px] font-black uppercase tracking-widest"><span>Service Billo ({DISTRICTS.find(d => d.name === customer.district)?.name})</span><span>{deliveryFee.toLocaleString('fr-FR')} F</span></div>
+                <div className="pt-6 border-t border-white/10 flex justify-between items-end"><span className="text-white font-black italic uppercase text-sm">Net à Payer</span><span className="text-4xl font-black">{total.toLocaleString('fr-FR')} F CFA</span></div>
              </div>
              
              <button type="submit" className="w-full bg-brand-orange text-white py-6 rounded-[2.5rem] font-black uppercase shadow-[0_20px_50px_rgba(255,111,0,0.3)] flex items-center justify-center gap-4 active:scale-95 transition-all italic tracking-widest text-xs">

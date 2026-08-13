@@ -42,8 +42,11 @@ import {
   clearPendingOrdersFromIDB 
 } from './utils/offlineDB';
 
+import { getStoredBanner, AnnouncementBanner } from './utils/marketing';
+
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
+  const [marketingBanner, setMarketingBanner] = useState<AnnouncementBanner>(() => getStoredBanner());
   
   // Persistent items (menu dishes) initialization
   const [items, setItems] = useState<MenuItem[]>(() => {
@@ -811,6 +814,37 @@ const App: React.FC = () => {
     <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-brand-orange selection:text-white pb-safe flex flex-col items-center ${
       isDarkMode ? 'bg-[#0E0806] text-white' : 'bg-[#FDFCFB] text-brand-brown'
     }`}>
+      {/* Dynamic Marketing Announcement Banner */}
+      {currentPage !== Page.ADMIN && marketingBanner.isEnabled && (
+        <aside aria-label="Bannière promotionnelle" className="w-full bg-gradient-to-r from-brand-orange via-amber-600 to-brand-gold text-white text-xs font-black py-2.5 px-4 shadow-md z-40 relative flex items-center justify-between gap-3 overflow-hidden animate-fade-in">
+          <div className="flex items-center gap-2 max-w-5xl mx-auto w-full justify-between">
+            <div className="flex items-center gap-2 truncate">
+              <span className="bg-black/30 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 border border-white/20">
+                {marketingBanner.badge || 'PROMO 🔥'}
+              </span>
+              <span className="truncate text-[11px] sm:text-xs">
+                {marketingBanner.text}{' '}
+                {marketingBanner.highlight && (
+                  <span className="font-mono bg-white/20 px-2 py-0.5 rounded-md font-black tracking-wider text-amber-200">
+                    {marketingBanner.highlight}
+                  </span>
+                )}
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                playSound('pop');
+                setCurrentPage(Page.MENU);
+              }}
+              className="bg-white text-brand-brown px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 transition-all shrink-0 shadow-sm"
+            >
+              Commander →
+            </button>
+          </div>
+        </aside>
+      )}
+
       <div className="w-full h-full flex flex-col items-center">
         {renderPage()}
       </div>

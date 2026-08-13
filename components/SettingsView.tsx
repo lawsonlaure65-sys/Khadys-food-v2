@@ -46,7 +46,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       phone: '+227 70 03 25 52',
       address: 'Plateau, Niamey',
       district: 'Plateau',
-      items: [{ id: 'sp1', name: 'Tiep Royal Khady', price: 5500, quantity: 1, category: 'Spécialité Maison', image: '', rating: 5, isAvailable: true }],
+      items: [{ id: 'sp1', name: 'Tiep Royal Khady', description: 'Riz rouge sénégalais royal', price: 5500, quantity: 1, category: 'Spécialité Maison' as const, image: '', rating: 5, isAvailable: true }],
       total: 5500,
       deliveryFee: 1000,
       status: 'RECEIVED' as const,

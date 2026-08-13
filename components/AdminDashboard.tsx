@@ -19,6 +19,7 @@ import { GoogleGenAI } from "@google/genai";
 import { DISTRICTS, BILLO_INFO } from '../constants';
 import { db, isSupabaseConfigured } from '../lib/supabase';
 import { compressImage } from '../utils/imageCompressor';
+import { AdminMarketingCenter } from './AdminMarketingCenter';
 
 interface AdminDashboardProps {
   items: MenuItem[];
@@ -758,21 +759,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       case AdminView.AI_MARKETING:
         return (
-          <div className="space-y-6 animate-fade-in">
-            <div className="bg-white/5 p-10 rounded-[3rem] border border-white/5 relative overflow-hidden shadow-2xl">
-               <div className="flex justify-between items-center mb-10">
-                  <h3 className="text-xl font-black italic uppercase text-brand-gold flex items-center gap-3"><Zap className="text-brand-orange" /> Marketing IA</h3>
-                  <button onClick={runAiStrategy} disabled={isAiLoading} className="bg-brand-orange text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase flex items-center gap-3 shadow-lg hover:scale-105 transition-all">
-                    {isAiLoading ? <RefreshCw className="animate-spin" size={16} /> : <Sparkles size={16} />} Analyser le Stock
-                  </button>
-               </div>
-               {aiStrategy ? (
-                 <div className="p-8 bg-black/40 rounded-3xl border border-white/10 text-brand-gold/80 italic text-sm leading-relaxed animate-fade-in">
-                   {aiStrategy}
-                 </div>
-               ) : <div className="text-center py-20 opacity-20 italic">Cliquez sur Analyser pour générer des textes de vente avec Gemini 3...</div>}
-            </div>
-          </div>
+          <AdminMarketingCenter 
+            items={items} 
+            orders={orders} 
+            onItemsChange={setItems} 
+          />
         );
 
       case AdminView.SETTINGS:
