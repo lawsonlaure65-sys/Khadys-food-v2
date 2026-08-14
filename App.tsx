@@ -28,7 +28,7 @@ import ReviewsSection from './components/ReviewsSection';
 import PromotionCalendar from './components/PromotionCalendar';
 import FlashOffer from './components/FlashOffer';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
-import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000 } from './constants';
+import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000, RESTAURANT_INFO } from './constants';
 import { playSound } from './utils/audio';
 import { db, isSupabaseConfigured } from './lib/supabase';
 import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, Mic, WifiOff, Database } from 'lucide-react';
@@ -432,8 +432,8 @@ const App: React.FC = () => {
               </div>
             )}
 
-            {/* Header Elite */}
-            <header className={`sticky top-0 z-50 px-4 sm:px-6 py-5 flex justify-between items-center rounded-b-[2.5rem] shadow-lg mb-6 transition-all duration-300 ${
+            {/* Header Elite avec Salutations Alternatives & Main Animée 👋🏾 */}
+            <header className={`sticky top-0 z-50 px-4 sm:px-6 py-4 flex justify-between items-center rounded-b-[2.5rem] shadow-lg mb-6 transition-all duration-300 ${
               isDarkMode ? 'bg-[#140C0A]/90 border-b border-brand-gold/20 backdrop-blur-xl text-white' : 'glass-card'
             }`}>
               <div className="flex items-center gap-3">
@@ -442,10 +442,18 @@ const App: React.FC = () => {
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
                 </div>
                 <div className="flex flex-col">
-                  <h1 className={`text-[13px] font-black italic uppercase tracking-tighter leading-none ${isDarkMode ? 'text-brand-gold' : 'text-brand-brown'}`}>
-                    Khady's
+                  {/* Salutations rotatives avec main animée */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base inline-block animate-wave origin-[70%_70%] select-none">
+                      👋🏾
+                    </span>
+                    <span className="text-[10px] font-black text-brand-orange uppercase tracking-wider transition-all duration-300">
+                      {greetings[greetingIndex]}
+                    </span>
+                  </div>
+                  <h1 className={`text-[12px] font-black italic uppercase tracking-tighter leading-none mt-0.5 ${isDarkMode ? 'text-brand-gold' : 'text-brand-brown'}`}>
+                    Khady's Food & Event
                   </h1>
-                  <span className="text-[8px] font-black text-brand-orange uppercase tracking-[0.2em] leading-none mt-1">Food & Event</span>
                 </div>
               </div>
 
@@ -486,7 +494,7 @@ const App: React.FC = () => {
             </header>
 
             {/* Banner Hero */}
-            <div className="px-4 sm:px-6 mb-8 overflow-hidden">
+            <div className="px-4 sm:px-6 mb-4 overflow-hidden">
               <div className="relative h-60 rounded-[3rem] shadow-2xl overflow-hidden group cursor-pointer border-2 border-brand-gold/20" onClick={() => setCurrentPage(Page.MENU)}>
                 <div className="absolute inset-0 z-10 bg-gradient-to-r from-black/85 via-black/40 to-transparent"></div>
                 <img 
@@ -500,11 +508,50 @@ const App: React.FC = () => {
                     <span className="bg-brand-orange text-white text-[8px] font-black px-4 py-1.5 rounded-full uppercase italic tracking-widest shadow-lg">L'Excellence à Niamey</span>
                   </div>
                   <h2 className="text-3xl sm:text-4xl font-black text-white italic uppercase tracking-tighter leading-[0.9] mb-4">
-                    LE GÔUT <br/><span className="text-brand-gold">DES ROIS</span>
+                    LE GOÛT <br/><span className="text-brand-gold">DES ROIS</span>
                   </h2>
                   <button className="bg-white text-brand-brown px-6 py-2.5 rounded-full text-[9px] font-black uppercase italic self-start shadow-xl flex items-center gap-2 group-hover:bg-brand-gold transition-colors">
                     Commander maintenant <Navigation size={12} />
                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Précommande WhatsApp du Restaurant */}
+            <div className="px-4 sm:px-6 mb-6">
+              <div 
+                onClick={() => {
+                  playSound('pop');
+                  const url = `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${encodeURIComponent("Salam Khady's Food ! Je souhaite faire une précommande pour aujourd'hui / un événement : ")}`;
+                  window.open(url, '_blank');
+                }}
+                className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-[#12261A] text-white p-4 sm:p-5 rounded-[2.2rem] shadow-xl border-2 border-emerald-500/40 flex items-center justify-between cursor-pointer hover:border-emerald-400 active:scale-98 transition-all group relative overflow-hidden"
+              >
+                <div className="absolute -right-6 -bottom-6 opacity-10 text-emerald-300 pointer-events-none">
+                  <MessageSquare size={90} />
+                </div>
+                <div className="flex items-center gap-3.5 relative z-10">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
+                    <MessageSquare size={22} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-emerald-500/30">
+                        📞 Service Traiteur & Repas
+                      </span>
+                    </div>
+                    <h3 className="font-black text-xs sm:text-sm uppercase italic text-white mt-1">
+                      Précommande sur le numéro WhatsApp du restaurant
+                    </h3>
+                    <p className="text-[10px] text-emerald-200/80 font-bold mt-0.5 flex items-center gap-1.5">
+                      <span>WhatsApp : <strong className="text-brand-gold font-mono">{RESTAURANT_INFO.whatsapp}</strong></span>
+                      <span className="text-emerald-400">• Cliquez pour discuter</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="hidden sm:flex bg-white/10 group-hover:bg-emerald-500 text-white px-3.5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-wider items-center gap-1.5 transition-colors relative z-10 shrink-0">
+                  <span>Précommander</span>
+                  <Navigation size={12} />
                 </div>
               </div>
             </div>

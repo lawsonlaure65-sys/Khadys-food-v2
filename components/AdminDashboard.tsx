@@ -16,7 +16,7 @@ import { MenuItem, AdminView, Order, Review, MenuCategory, OrderStatus, BlogArti
 import { KhadyLogo } from './KhadyLogo';
 import { playSound } from '../utils/audio';
 import { GoogleGenAI } from "@google/genai";
-import { DISTRICTS, BILLO_INFO } from '../constants';
+import { DISTRICTS, BILLO_INFO, MENU_ITEMS } from '../constants';
 import { db, isSupabaseConfigured } from '../lib/supabase';
 import { compressImage } from '../utils/imageCompressor';
 import { AdminMarketingCenter } from './AdminMarketingCenter';

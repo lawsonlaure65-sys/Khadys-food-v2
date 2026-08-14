@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { MenuItem } from '../types';
-import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check, Share } from 'lucide-react';
+import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check, Share, PhoneCall } from 'lucide-react';
 import Dish3DModal from './Dish3DModal';
 import { playSound } from '../utils/audio';
+import { RESTAURANT_INFO } from '../constants';
 
 interface ItemDetailsModalProps {
   item: MenuItem | null;
@@ -139,6 +140,30 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
                     {copied ? 'Copié !' : 'Partager'}
                   </button>
                 </div>
+              </div>
+
+              {/* Notification Précommande WhatsApp */}
+              <div 
+                onClick={() => {
+                  playSound('pop');
+                  const msg = encodeURIComponent(`Salam Khady's Food ! Je souhaite précommander : ${quantity}x ${item.name} (${item.price * quantity} F CFA).\nNotes : ${instructions || 'Standard'}`);
+                  window.open(`https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${msg}`, '_blank');
+                }}
+                className="bg-emerald-950/90 text-white p-4 rounded-3xl border border-emerald-500/30 flex items-center justify-between cursor-pointer hover:bg-emerald-900 transition-all group shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <MessageSquare size={18} />
+                  </div>
+                  <div>
+                    <span className="text-[8px] font-black uppercase text-emerald-300 tracking-wider">Service Rapide</span>
+                    <h5 className="text-[11px] font-black uppercase italic text-white">Précommande sur le WhatsApp du restaurant</h5>
+                    <p className="text-[9px] text-emerald-200/70 font-mono font-bold">{RESTAURANT_INFO.whatsapp}</p>
+                  </div>
+                </div>
+                <span className="text-[9px] bg-emerald-500/20 text-emerald-300 group-hover:bg-emerald-500 group-hover:text-white px-3 py-1.5 rounded-xl font-black uppercase tracking-wider transition-all shrink-0">
+                  Précommander
+                </span>
               </div>
 
               <div>

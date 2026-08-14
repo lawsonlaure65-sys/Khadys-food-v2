@@ -2,9 +2,10 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem, MenuCategory } from '../types';
-import { Search, SlidersHorizontal, Flame, Leaf, Sun, Tag, Sparkles, Star, Plus, Utensils, ShoppingBag, WifiOff, Database, Mic, X, Filter, Gift, ArrowRight } from 'lucide-react';
+import { Search, SlidersHorizontal, Flame, Leaf, Sun, Tag, Sparkles, Star, Plus, Utensils, ShoppingBag, WifiOff, Database, Mic, X, Filter, Gift, ArrowRight, MessageSquare } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { getStoredPlatDuJour } from '../utils/marketing';
+import { RESTAURANT_INFO } from '../constants';
 
 interface MenuViewProps {
   items: MenuItem[];
@@ -253,6 +254,34 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
           </div>
         )}
       </header>
+
+      {/* NOTIFICATION PRÉCOMMANDE WHATSAPP */}
+      <div className="px-6 mb-6">
+        <div 
+          onClick={() => {
+            playSound('pop');
+            const url = `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${encodeURIComponent("Salam Khady's Food ! Je souhaite précommander sur WhatsApp : ")}`;
+            window.open(url, '_blank');
+          }}
+          className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-[#12261A] text-white p-4 rounded-3xl border border-emerald-500/40 flex items-center justify-between cursor-pointer hover:border-emerald-400 active:scale-98 transition-all shadow-lg"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md">
+              <MessageSquare size={20} className="animate-pulse" />
+            </div>
+            <div>
+              <span className="text-[8px] font-black uppercase text-emerald-300 tracking-wider block">Service Restaurant</span>
+              <h4 className="text-xs font-black uppercase italic text-white">Précommande sur le numéro WhatsApp du restaurant</h4>
+              <p className="text-[9px] text-emerald-200/80 font-bold mt-0.5">
+                WhatsApp : <span className="text-brand-gold font-mono">{RESTAURANT_INFO.whatsapp}</span>
+              </p>
+            </div>
+          </div>
+          <span className="bg-emerald-500 hover:bg-emerald-400 text-white text-[8px] font-black uppercase tracking-wider px-3 py-2 rounded-xl transition-colors shrink-0 flex items-center gap-1">
+            Précommander <ArrowRight size={10} />
+          </span>
+        </div>
+      </div>
 
       {/* PLAT DU JOUR SPOTLIGHT BANNER */}
       {platDuJour && platDuJour.isActive && (selectedTagFilter === 'ALL' || selectedTagFilter === 'PLAT_DU_JOUR') && selectedCategory === 'TOUT' && searchQuery === '' && (
