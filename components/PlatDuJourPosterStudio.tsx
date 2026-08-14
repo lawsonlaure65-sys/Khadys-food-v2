@@ -4,9 +4,12 @@ import {
   Image as ImageIcon, Check, Copy, RefreshCw, Eye, Flame, 
   ChefHat, Award, Clock, Gift, ShoppingBag, ShieldCheck, 
   MessageSquare, Globe, ArrowRight, Palette, Layers, CheckCircle2,
-  Music, Facebook, Instagram
+  Music, Facebook, Instagram, AlertCircle, Send, Info
 } from 'lucide-react';
-import { PlatDuJourConfig, PosterTheme, PosterFormat, PublicationTiming, shareToSocialPlatform, broadcastToWhatsApp } from '../utils/marketing';
+import { 
+  PlatDuJourConfig, PosterTheme, PosterFormat, PublicationTiming, 
+  shareToSocialPlatform, broadcastToWhatsApp, shareImageAndText 
+} from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
 import { playSound } from '../utils/audio';
 
@@ -23,12 +26,17 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
   const [isGeneratingCanvas, setIsGeneratingCanvas] = useState(false);
   const [copiedTeaser, setCopiedTeaser] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
-  const [previewScale, setPreviewScale] = useState<number>(1);
+  const [shareStatus, setShareStatus] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  
+  // Toggle between Short Status Format (< 7 lines for WhatsApp Status) and Full Text Format
+  const [textMode, setTextMode] = useState<'SHORT_STATUS' | 'FULL_TEASER'>('SHORT_STATUS');
 
   // Theme palettes configuration
   const themesConfig: Record<PosterTheme, {
     name: string;
     badge: string;
+    isLightSand?: boolean;
     bgGradient: [string, string, string];
     accentColor: string;
     goldColor: string;
@@ -36,54 +44,68 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     textColor: string;
     subtextColor: string;
     borderGold: string;
+    bannerBg: string;
+    bannerTextColor: string;
   }> = {
+    SAHEL_TERRACOTTA: {
+      name: 'Sahélien Ocre & Crème (Style Samalife)',
+      badge: '⭐ RECOMMANDÉ',
+      isLightSand: true,
+      bgGradient: ['#FAF5EE', '#F3E7D7', '#EBDAC5'],
+      accentColor: '#EA580C',
+      goldColor: '#C2410C',
+      cardBg: '#FFFFFF',
+      textColor: '#3A1408',
+      subtextColor: '#7C2D12',
+      borderGold: '#EA580C',
+      bannerBg: '#EA580C',
+      bannerTextColor: '#FFFFFF'
+    },
     LUXURY_GOLD: {
       name: 'Luxe Noir & Or Royal',
       badge: '👑 SIGNATURE',
+      isLightSand: false,
       bgGradient: ['#170A06', '#2A130C', '#0D0503'],
       accentColor: '#FF6B00',
       goldColor: '#F59E0B',
       cardBg: 'rgba(35, 16, 10, 0.85)',
       textColor: '#FFFFFF',
       subtextColor: '#E5D5C5',
-      borderGold: '#D97706'
-    },
-    SAHEL_TERRACOTTA: {
-      name: 'Sahélien Ocre & Épices',
-      badge: '🏜️ TRADITION',
-      bgGradient: ['#3A1208', '#541C0F', '#1F0804'],
-      accentColor: '#EA580C',
-      goldColor: '#FBBF24',
-      cardBg: 'rgba(50, 18, 10, 0.85)',
-      textColor: '#FFF7ED',
-      subtextColor: '#FED7AA',
-      borderGold: '#F59E0B'
+      borderGold: '#D97706',
+      bannerBg: '#FF6B00',
+      bannerTextColor: '#FFFFFF'
     },
     WOOD_FIRE: {
       name: 'Braise & Flamme Vive',
       badge: '🔥 BRAISÉ',
+      isLightSand: false,
       bgGradient: ['#1C0704', '#3E0D06', '#120302'],
       accentColor: '#EF4444',
       goldColor: '#F59E0B',
       cardBg: 'rgba(40, 10, 8, 0.88)',
       textColor: '#FFFFFF',
       subtextColor: '#FECACA',
-      borderGold: '#EF4444'
+      borderGold: '#EF4444',
+      bannerBg: '#DC2626',
+      bannerTextColor: '#FFFFFF'
     },
     MODERN_EMERALD: {
       name: 'Émeraude Impérial & Or',
       badge: '🌿 PRESTIGE',
+      isLightSand: false,
       bgGradient: ['#042116', '#093A27', '#02150E'],
       accentColor: '#10B981',
       goldColor: '#FBBF24',
       cardBg: 'rgba(4, 40, 26, 0.88)',
       textColor: '#FFFFFF',
       subtextColor: '#A7F3D0',
-      borderGold: '#34D399'
+      borderGold: '#34D399',
+      bannerBg: '#059669',
+      bannerTextColor: '#FFFFFF'
     }
   };
 
-  const currentTheme = themesConfig[plat.posterTheme || 'LUXURY_GOLD'];
+  const currentTheme = themesConfig[plat.posterTheme || 'SAHEL_TERRACOTTA'] || themesConfig.SAHEL_TERRACOTTA;
 
   // Dimensions based on format
   const getFormatDimensions = (format: PosterFormat) => {
@@ -95,6 +117,22 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
       case 'SQUARE_POST':
       default:
         return { width: 1080, height: 1080, label: 'Post Carré Instagram & Facebook (1:1)' };
+    }
+  };
+
+  // Get active text based on selected mode & timing
+  const getActiveTextToShare = () => {
+    const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+    if (textMode === 'SHORT_STATUS') {
+      if (isEvening) {
+        return plat.marketingTextEveningStatusShort || 
+          `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n👑 *${plat.dishName.toUpperCase()}*\n🎁 ${plat.accompaniments || 'Alloco + Jus Bissap 50cl offert'}\n💰 *${(plat.promoPrice || plat.price || 4500).toLocaleString('fr-FR')} F CFA* • Livré dès 12h par Billo\n👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
+      } else {
+        return plat.marketingTextStatusShort || 
+          `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n👑 *${plat.dishName.toUpperCase()}*\n🎁 ${plat.accompaniments || 'Alloco doré + Jus Bissap 50cl offert'}\n💰 *${(plat.promoPrice || plat.price || 4500).toLocaleString('fr-FR')} F CFA*\n🛵 Livré dès 12h par Billo Express\n👉 Commandez au ${RESTAURANT_INFO.whatsapp}`;
+      }
+    } else {
+      return isEvening ? (plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp) : plat.marketingTextWhatsApp;
     }
   };
 
@@ -112,7 +150,10 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
 
     setIsGeneratingCanvas(true);
 
-    // 1. Draw Background Gradient
+    const isLight = !!currentTheme.isLightSand;
+    const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+
+    // 1. Draw Background
     const bgGrad = ctx.createLinearGradient(0, 0, width, height);
     bgGrad.addColorStop(0, currentTheme.bgGradient[0]);
     bgGrad.addColorStop(0.5, currentTheme.bgGradient[1]);
@@ -120,29 +161,29 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, width, height);
 
-    // Subtle background luxury pattern/circles
+    // Subtle luxury background circles / mandalas
     ctx.save();
-    ctx.strokeStyle = `${currentTheme.goldColor}15`;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.08)' : `${currentTheme.goldColor}15`;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(width * 0.9, height * 0.1, width * 0.4, 0, Math.PI * 2);
+    ctx.arc(width * 0.88, height * 0.12, width * 0.38, 0, Math.PI * 2);
     ctx.stroke();
     ctx.beginPath();
-    ctx.arc(width * 0.1, height * 0.9, width * 0.35, 0, Math.PI * 2);
+    ctx.arc(width * 0.12, height * 0.88, width * 0.32, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
 
-    // 2. Draw Decorative Border
-    const borderPadding = 36;
+    // 2. Decorative Outer Border
+    const borderPadding = 32;
     ctx.save();
-    ctx.strokeStyle = `${currentTheme.goldColor}40`;
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = isLight ? 'rgba(194, 65, 12, 0.25)' : `${currentTheme.goldColor}40`;
+    ctx.lineWidth = 3;
     ctx.strokeRect(borderPadding, borderPadding, width - borderPadding * 2, height - borderPadding * 2);
     
-    // Golden corner accents
-    const cornerSize = 40;
-    ctx.strokeStyle = currentTheme.goldColor;
-    ctx.lineWidth = 6;
+    // Golden corner flourishes
+    const cornerSize = 36;
+    ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
+    ctx.lineWidth = 5;
     
     // Top-Left
     ctx.beginPath();
@@ -173,49 +214,68 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     ctx.stroke();
     ctx.restore();
 
-    // 3. Top Header: Restaurant Name & Brand
+    // 3. Top Header: Circular Restaurant Emblem & Brand Name (Style Samalife)
     ctx.save();
-    ctx.textAlign = 'center';
-    ctx.fillStyle = currentTheme.goldColor;
-    ctx.font = 'bold 30px "Montserrat", sans-serif';
-    ctx.letterSpacing = '6px';
-    ctx.fillText('✦ KHADY\'S FOOD & EVENT ✦', width / 2, borderPadding + 60);
+    const emblemY = borderPadding + 55;
+    
+    // Round Logo badge
+    ctx.beginPath();
+    ctx.arc(width / 2, emblemY, 32, 0, Math.PI * 2);
+    ctx.fillStyle = isLight ? '#FFFFFF' : '#2A130C';
+    ctx.fill();
+    ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
-    ctx.fillStyle = currentTheme.subtextColor;
-    ctx.font = '500 20px "Inter", sans-serif';
-    ctx.fillText('HAUTE GASTRONOMIE SAHÉLIENNE • NIAMEY', width / 2, borderPadding + 95);
+    // Chef / Fork Icon Monogram
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isLight ? '#EA580C' : currentTheme.goldColor;
+    ctx.font = '900 24px sans-serif';
+    ctx.fillText('👑', width / 2, emblemY - 2);
+
+    // Restaurant Name
+    ctx.fillStyle = isLight ? '#431407' : currentTheme.goldColor;
+    ctx.font = 'bold 24px "Montserrat", sans-serif';
+    ctx.fillText('✦ KHADY\'S FOOD & EVENT ✦', width / 2, emblemY + 52);
+
+    // Subtitle
+    ctx.fillStyle = isLight ? '#9A3412' : currentTheme.subtextColor;
+    ctx.font = '600 15px "Inter", sans-serif';
+    ctx.fillText('AUTHENTIQUE GASTRONOMIE SAHÉLIENNE • NIAMEY', width / 2, emblemY + 76);
     ctx.restore();
 
-    // 4. Timing Badge ("AU MENU DEMAIN MIDI !" or "AU MENU DU JOUR")
-    const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+    // 4. Timing Ribbon Badge ("🌙 AU MENU DEMAIN MIDI" or "🍲 PLAT DU JOUR")
     const badgeText = isEvening 
       ? `🌙 AU MENU DEMAIN MIDI (${(plat.targetDayLabel || 'DEMAIN').toUpperCase()})`
       : `🍲 PLAT DU JOUR • ${(plat.date || 'AUJOURD\'HUI').toUpperCase()}`;
 
-    const badgeWidth = Math.min(width * 0.75, 680);
-    const badgeHeight = 56;
+    const badgeWidth = Math.min(width * 0.72, 620);
+    const badgeHeight = 50;
     const badgeX = (width - badgeWidth) / 2;
-    const badgeY = borderPadding + 125;
+    const badgeY = emblemY + 98;
 
     ctx.save();
-    // Badge pill
     ctx.fillStyle = isEvening ? '#7C2D12' : currentTheme.accentColor;
     ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 28);
+    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25);
     ctx.fill();
-    ctx.strokeStyle = currentTheme.goldColor;
+    ctx.strokeStyle = isLight ? '#FED7AA' : currentTheme.goldColor;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Badge text
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 22px "Montserrat", sans-serif';
+    ctx.font = '900 20px "Montserrat", sans-serif';
     ctx.fillText(badgeText, width / 2, badgeY + badgeHeight / 2);
     ctx.restore();
 
-    // 5. Dish Image (Load & Draw with rounded corners and golden frame)
+    // 5. Dish Title & Tagline (Positioned above or below image based on format)
+    const isPortrait = plat.posterFormat === 'STORY_PORTRAIT';
+    const isLandscape = plat.posterFormat === 'BANNER_LANDSCAPE';
+
+    // 6. Dish Image (Load & Draw with circular plate shadow)
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = plat.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000';
@@ -225,92 +285,98 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
       let imgX = 0;
       let imgY = 0;
 
-      if (plat.posterFormat === 'STORY_PORTRAIT') {
-        imgSize = 720;
+      if (isPortrait) {
+        imgSize = 640;
         imgX = (width - imgSize) / 2;
-        imgY = badgeY + badgeHeight + 40;
-      } else if (plat.posterFormat === 'BANNER_LANDSCAPE') {
-        imgSize = 600;
+        imgY = badgeY + badgeHeight + 35;
+      } else if (isLandscape) {
+        imgSize = 580;
         imgX = borderPadding + 60;
         imgY = (height - imgSize) / 2 + 30;
       } else {
         // Square 1:1
-        imgSize = 520;
+        imgSize = 480;
         imgX = (width - imgSize) / 2;
         imgY = badgeY + badgeHeight + 25;
       }
 
-      // Draw Golden image shadow & frame
+      // Draw Circular Dish Shadow & Raffia/Gold Ring
       ctx.save();
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 35;
-      ctx.shadowOffsetY = 15;
+      const centerX = imgX + imgSize / 2;
+      const centerY = imgY + imgSize / 2;
+      const radius = imgSize / 2;
 
+      // Realistic deep shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 35;
+      ctx.shadowOffsetY = 14;
+
+      // Outer braided plate rim
       ctx.beginPath();
-      ctx.roundRect(imgX - 6, imgY - 6, imgSize + 12, imgSize + 12, 36);
-      ctx.fillStyle = currentTheme.goldColor;
+      ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
+      ctx.fillStyle = isLight ? '#F59E0B' : currentTheme.goldColor;
       ctx.fill();
 
-      // Clip image to rounded rectangle
+      // Clip image to perfect circle
       ctx.beginPath();
-      ctx.roundRect(imgX, imgY, imgSize, imgSize, 32);
+      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
       ctx.clip();
       try {
         ctx.drawImage(img, imgX, imgY, imgSize, imgSize);
       } catch (e) {
-        ctx.fillStyle = '#2A130C';
+        ctx.fillStyle = isLight ? '#FDE68A' : '#2A130C';
         ctx.fillRect(imgX, imgY, imgSize, imgSize);
       }
       ctx.restore();
 
-      // Promotional overlay tag on the dish photo
+      // Tag badge over the dish
       ctx.save();
-      const tagW = 240;
-      const tagH = 46;
+      const tagW = 220;
+      const tagH = 42;
       ctx.fillStyle = '#EF4444';
       ctx.beginPath();
-      ctx.roundRect(imgX + 20, imgY + 20, tagW, tagH, 14);
+      ctx.roundRect(centerX - tagW / 2, imgY + imgSize - 30, tagW, tagH, 21);
       ctx.fill();
       ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = '900 17px "Montserrat", sans-serif';
-      ctx.fillText(isEvening ? '⚡ PRÉCOMMANDE SOIR' : '🔥 ÉDITION DU JOUR', imgX + 20 + tagW / 2, imgY + 20 + tagH / 2);
+      ctx.font = '900 15px "Montserrat", sans-serif';
+      ctx.fillText(isEvening ? '🌙 PRÉCOMMANDE VEILLE' : '🔥 ÉDITION DU JOUR', centerX, imgY + imgSize - 30 + tagH / 2);
       ctx.restore();
 
-      // 6. Dish Title, Description, and Details
+      // 7. Dish Title & Details
       let textStartX = 0;
       let textStartY = 0;
       let textMaxWidth = 0;
 
-      if (plat.posterFormat === 'BANNER_LANDSCAPE') {
-        textStartX = imgX + imgSize + 60;
+      if (isLandscape) {
+        textStartX = imgX + imgSize + 50;
         textStartY = borderPadding + 140;
         textMaxWidth = width - textStartX - borderPadding - 40;
-      } else if (plat.posterFormat === 'STORY_PORTRAIT') {
-        textStartX = borderPadding + 40;
-        textStartY = imgY + imgSize + 45;
-        textMaxWidth = width - (borderPadding + 40) * 2;
+      } else if (isPortrait) {
+        textStartX = borderPadding + 30;
+        textStartY = imgY + imgSize + 35;
+        textMaxWidth = width - (borderPadding + 30) * 2;
       } else {
         // Square 1:1
-        textStartX = borderPadding + 40;
+        textStartX = borderPadding + 30;
         textStartY = imgY + imgSize + 25;
-        textMaxWidth = width - (borderPadding + 40) * 2;
+        textMaxWidth = width - (borderPadding + 30) * 2;
       }
 
       ctx.save();
-      ctx.textAlign = plat.posterFormat === 'BANNER_LANDSCAPE' ? 'left' : 'center';
-      const textCenterX = plat.posterFormat === 'BANNER_LANDSCAPE' ? textStartX : width / 2;
+      ctx.textAlign = isLandscape ? 'left' : 'center';
+      const textCenterX = isLandscape ? textStartX : width / 2;
 
-      // Dish Main Title (wrapped if needed)
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '900 38px "Playfair Display", "Montserrat", serif';
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 10;
+      // Dish Title (High contrast & elegant typography)
+      ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
+      ctx.font = '900 36px "Playfair Display", "Montserrat", serif';
+      ctx.shadowColor = isLight ? 'rgba(234, 88, 12, 0.15)' : 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 6;
 
       const titleWords = plat.dishName.toUpperCase().split(' ');
       let line1 = '';
@@ -323,80 +389,88 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
         }
       }
 
-      ctx.fillText(line1, textCenterX, textStartY + 10);
+      ctx.fillText(line1, textCenterX, textStartY + 15);
       if (line2) {
         ctx.fillText(line2, textCenterX, textStartY + 55);
-        textStartY += 45;
+        textStartY += 40;
       }
 
-      // Tagline
-      ctx.fillStyle = currentTheme.goldColor;
-      ctx.font = 'italic 700 20px "Inter", sans-serif';
-      ctx.fillText(`« ${plat.tagline || 'Cuisiné au feu de bois avec passion'} »`, textCenterX, textStartY + 50);
+      // Tagline with diamond ornaments
+      ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
+      ctx.font = 'italic 700 18px "Inter", sans-serif';
+      ctx.fillText(`◆ ${plat.tagline || 'Cuisiné au feu de bois avec passion'} ◆`, textCenterX, textStartY + 50);
 
       // Bonus / Accompaniments Pill
       if (plat.accompaniments) {
-        const bonusY = textStartY + 80;
-        const bonusW = Math.min(textMaxWidth, 820);
-        const bonusH = 54;
-        const bonusX = plat.posterFormat === 'BANNER_LANDSCAPE' ? textStartX : (width - bonusW) / 2;
+        const bonusY = textStartY + 72;
+        const bonusW = Math.min(textMaxWidth, 780);
+        const bonusH = 48;
+        const bonusX = isLandscape ? textStartX : (width - bonusW) / 2;
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillStyle = isLight ? '#FFFBEB' : 'rgba(0, 0, 0, 0.6)';
         ctx.beginPath();
-        ctx.roundRect(bonusX, bonusY, bonusW, bonusH, 18);
+        ctx.roundRect(bonusX, bonusY, bonusW, bonusH, 16);
         ctx.fill();
-        ctx.strokeStyle = `${currentTheme.goldColor}60`;
+        ctx.strokeStyle = isLight ? '#F59E0B' : `${currentTheme.goldColor}60`;
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        ctx.fillStyle = currentTheme.goldColor;
-        ctx.font = '900 16px "Montserrat", sans-serif';
+        ctx.fillStyle = isLight ? '#B45309' : currentTheme.goldColor;
+        ctx.font = '900 15px "Montserrat", sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`🎁 INCLUS : ${plat.accompaniments.toUpperCase()}`, bonusX + bonusW / 2, bonusY + 33);
+        ctx.fillText(`🎁 INCLUS : ${plat.accompaniments.toUpperCase()}`, bonusX + bonusW / 2, bonusY + 30);
       }
 
-      // Price block & Call to action
-      const priceY = textStartY + 165;
-      ctx.textAlign = plat.posterFormat === 'BANNER_LANDSCAPE' ? 'left' : 'center';
+      // 8. Solid Bottom Call-to-Action Bar (Style Samalife)
+      const barH = 100;
+      const barY = height - borderPadding - barH - 8;
+      const barW = width - (borderPadding + 16) * 2;
+      const barX = borderPadding + 16;
 
-      // Old price crossed out
-      if (plat.promoPrice && plat.promoPrice < plat.price) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = '700 24px "Montserrat", sans-serif';
-        const oldPriceText = `${plat.price.toLocaleString('fr-FR')} F CFA`;
-        const oldPriceX = plat.posterFormat === 'BANNER_LANDSCAPE' ? textStartX : width / 2 - 130;
-        ctx.fillText(oldPriceText, oldPriceX, priceY);
-        // Strikethrough
-        const metrics = ctx.measureText(oldPriceText);
-        ctx.fillRect(oldPriceX - (plat.posterFormat === 'BANNER_LANDSCAPE' ? 0 : metrics.width / 2), priceY - 8, metrics.width, 3);
-      }
-
-      // Promo Price Highlight
-      ctx.fillStyle = currentTheme.accentColor;
-      ctx.font = '900 48px "Montserrat", sans-serif';
-      const finalPrice = (plat.promoPrice || plat.price).toLocaleString('fr-FR');
-      const finalPriceX = plat.posterFormat === 'BANNER_LANDSCAPE' ? (plat.promoPrice ? textStartX + 180 : textStartX) : (plat.promoPrice ? width / 2 + 90 : width / 2);
-      ctx.fillText(`${finalPrice} F CFA`, finalPriceX, priceY);
-
-      // Bottom Footer Bar (WhatsApp, Billo Express, Portions)
-      const footerY = height - borderPadding - 65;
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.save();
+      // Orange/Terracotta CTA banner
+      ctx.fillStyle = currentTheme.bannerBg;
       ctx.beginPath();
-      ctx.roundRect(borderPadding + 20, footerY - 20, width - (borderPadding + 20) * 2, 70, 22);
+      ctx.roundRect(barX, barY, barW, barH, 24);
       ctx.fill();
-      ctx.strokeStyle = `${currentTheme.goldColor}40`;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      ctx.textAlign = 'center';
+      // Left Column inside bar: WhatsApp Ordering Info
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '800 20px "Montserrat", sans-serif';
-      const footerText = isEvening
-        ? `📲 RÉSERVEZ CE SOIR PAR WHATSAPP : ${RESTAURANT_INFO.whatsapp} • 🛵 LIVRAISON DÈS 12H PAR BILLO EXPRESS`
-        : `📲 COMMANDES WHATSAPP : ${RESTAURANT_INFO.whatsapp} • 🛵 LIVRAISON EXPRESS BILLO (NIAMEY)`;
-      
-      ctx.fillText(footerText, width / 2, footerY + 24);
+      ctx.font = '900 17px "Montserrat", sans-serif';
+      ctx.fillText(`💬 COMMANDES WHATSAPP : ${RESTAURANT_INFO.whatsapp}`, barX + 24, barY + 35);
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.font = '700 13px "Inter", sans-serif';
+      ctx.fillText(`🛵 Livraison express partout à Niamey par Billo Express`, barX + 24, barY + 68);
+
+      // Right Column inside bar: Price Tag & White Pill Button
+      const finalPriceStr = `${(plat.promoPrice || plat.price).toLocaleString('fr-FR')} F CFA`;
+      const btnW = 210;
+      const btnH = 58;
+      const btnX = barX + barW - btnW - 20;
+      const btnY = barY + (barH - btnH) / 2;
+
+      // Button Pill
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.roundRect(btnX, btnY, btnW, btnH, 29);
+      ctx.fill();
+
+      // Button text
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = currentTheme.bannerBg;
+      ctx.font = '900 16px "Montserrat", sans-serif';
+      ctx.fillText(finalPriceStr, btnX + btnW / 2, btnY + 22);
+
+      ctx.font = '800 11px "Montserrat", sans-serif';
+      ctx.fillStyle = '#7C2D12';
+      ctx.fillText('COMMANDER MAINTENANT', btnX + btnW / 2, btnY + 40);
 
       ctx.restore();
       setIsGeneratingCanvas(false);
@@ -432,22 +506,55 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     setTimeout(() => setDownloadSuccess(false), 3000);
   };
 
-  // Copy evening teaser text
-  const handleCopyTeaserText = () => {
+  // Copy active teaser/status text
+  const handleCopyActiveText = () => {
     playSound('pop');
-    navigator.clipboard.writeText(plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp);
+    const textToCopy = getActiveTextToShare();
+    navigator.clipboard.writeText(textToCopy);
     setCopiedTeaser(true);
     setTimeout(() => setCopiedTeaser(false), 2500);
   };
 
-  // Broadcast evening teaser to WhatsApp
-  const handleBroadcastEvening = () => {
+  // Direct Image & Text Native Web Share (solves WhatsApp status & attachment issue)
+  const handleShareImageAndTextDirect = async () => {
     playSound('pop');
-    const textToSend = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW' 
-      ? plat.marketingTextEveningTeaser 
-      : plat.marketingTextWhatsApp;
+    setIsSharing(true);
+    setShareStatus('Préparation de l\'affiche haute définition...');
+
+    const textToShare = getActiveTextToShare();
+    const filename = `khadys-plat-du-jour-${plat.dishName.toLowerCase().replace(/[^a-z0-9]/g, '-')}.png`;
+
+    try {
+      const res = await shareImageAndText(
+        canvasRef.current,
+        `Plat du Jour : ${plat.dishName} - Khady's Food`,
+        textToShare,
+        filename
+      );
+
+      setShareStatus(res.message);
+      if (res.success) {
+        playSound('success');
+      }
+    } catch (e: any) {
+      setShareStatus('Erreur lors du partage.');
+    } finally {
+      setIsSharing(false);
+      setTimeout(() => setShareStatus(null), 8000);
+    }
+  };
+
+  // Standard WhatsApp Web Broadcast
+  const handleBroadcastWhatsApp = () => {
+    playSound('pop');
+    const textToSend = getActiveTextToShare();
     broadcastToWhatsApp(textToSend);
   };
+
+  const activeText = getActiveTextToShare();
+  const textLineCount = activeText.split('\n').length;
+  const textCharCount = activeText.length;
+  const isStatusSafe = textLineCount <= 8 && textCharCount <= 400;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -459,15 +566,15 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
             <span className="bg-brand-orange text-white text-[9px] font-black uppercase px-3 py-1 rounded-full tracking-wider shadow-sm flex items-center gap-1.5">
               <Sparkles size={12} /> Studio Graphique & Affiches Réseaux Sociaux
             </span>
-            <span className="bg-brand-gold/20 text-brand-gold border border-brand-gold/40 text-[9px] font-bold px-3 py-0.5 rounded-full">
-              Export PNG Haute Résolution 1080p
+            <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-3 py-0.5 rounded-full flex items-center gap-1">
+              <ShieldCheck size={11} /> Format WhatsApp Statut Garanti
             </span>
           </div>
           <h3 className="text-xl sm:text-2xl font-black italic uppercase text-white tracking-wide flex items-center gap-2.5">
-            <ImageIcon className="text-brand-gold" size={26} /> Créateur d'Affiches Alléchantes
+            <ImageIcon className="text-brand-gold" size={26} /> Créateur d'Affiches Alléchantes & Partage Direct
           </h3>
           <p className="text-xs text-white/70 font-medium max-w-2xl leading-relaxed">
-            Créez en 1 clic une affiche professionnelle alléchante pour le Plat du Jour. Publiez-la **la veille au soir** sur WhatsApp, Facebook et Instagram pour déclencher les précommandes nocturnes avant le rush de midi !
+            Créez une affiche de haute qualité (style Samalife), téléchargez l'image PNG et partagez le texte adapté aux **Statuts WhatsApp** (sans risque de coupure ou dépassement de 700 caractères).
           </p>
         </div>
 
@@ -475,23 +582,45 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
         <div className="flex flex-wrap items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={handleDownloadPoster}
-            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-emerald-600/30 active:scale-95 transition-all flex items-center gap-2"
+            onClick={handleShareImageAndTextDirect}
+            disabled={isSharing}
+            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-xl shadow-emerald-600/30 active:scale-95 transition-all flex items-center gap-2"
           >
-            {downloadSuccess ? <CheckCircle2 size={16} className="text-emerald-200" /> : <Download size={16} />}
-            <span>{downloadSuccess ? 'Téléchargé en HD !' : 'Télécharger l\'Affiche PNG HD'}</span>
+            {isSharing ? <RefreshCw size={16} className="animate-spin" /> : <Send size={16} />}
+            <span>📲 Partager Affiche + Texte Direct</span>
           </button>
 
           <button
             type="button"
-            onClick={handleBroadcastEvening}
-            className="bg-brand-orange hover:bg-orange-600 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-brand-orange/30 active:scale-95 transition-all flex items-center gap-2"
+            onClick={handleDownloadPoster}
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider border border-white/20 active:scale-95 transition-all flex items-center gap-2"
           >
-            <Share2 size={16} />
-            <span>Diffuser sur WhatsApp</span>
+            {downloadSuccess ? <CheckCircle2 size={16} className="text-emerald-300" /> : <Download size={16} />}
+            <span>{downloadSuccess ? 'Téléchargé !' : 'Télécharger PNG HD'}</span>
           </button>
         </div>
       </div>
+
+      {/* Share Status Toast / Notification Banner */}
+      {shareStatus && (
+        <div className="bg-emerald-950/80 border-2 border-emerald-500/60 p-4 rounded-2xl flex items-center justify-between gap-4 animate-fade-in shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/20 text-emerald-300 rounded-xl">
+              <CheckCircle2 size={20} />
+            </div>
+            <p className="text-xs font-bold text-white leading-snug">
+              {shareStatus}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShareStatus(null)}
+            className="text-white/60 hover:text-white text-xs font-bold px-2 py-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Studio Workspace: 2 Columns */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
@@ -576,8 +705,8 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
                 <label className="text-[9px] font-black uppercase text-purple-300 flex items-center gap-1.5">
                   <ChefHat size={12} /> Intitulé du jour cible sur l'affiche
                 </label>
-                <div className="flex gap-2">
-                  {['Demain Midi', 'Demain Vendredi', 'Demain Samedi', 'Ce Midi'].map((label) => (
+                <div className="flex flex-wrap gap-2">
+                  {['Demain Midi', 'Demain Vendredi', 'Demain Samedi', 'Demain Dimanche', 'Ce Midi'].map((label) => (
                     <button
                       key={label}
                       type="button"
@@ -632,16 +761,16 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
             </div>
           </div>
 
-          {/* 3. Graphic Theme Selector (Luxe Noir/Or, Sahélien, Braisé, Émeraude) */}
+          {/* 3. Graphic Theme Selector (Luxe Noir/Or, Sahélien Ocre, Braisé, Émeraude) */}
           <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
             <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-              <Palette size={16} className="text-brand-orange" /> 3. Ambiance & Thème Visuel
+              <Palette size={16} className="text-brand-orange" /> 3. Ambiance & Thème Graphique
             </h4>
 
             <div className="grid grid-cols-2 gap-3">
               {(Object.keys(themesConfig) as PosterTheme[]).map((themeKey) => {
                 const th = themesConfig[themeKey];
-                const isSelected = (plat.posterTheme || 'LUXURY_GOLD') === themeKey;
+                const isSelected = (plat.posterTheme || 'SAHEL_TERRACOTTA') === themeKey;
                 return (
                   <button
                     key={themeKey}
@@ -660,66 +789,130 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
                     }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-black/40 text-white border border-white/20">
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        th.isLightSand ? 'bg-orange-600 text-white' : 'bg-black/40 text-white'
+                      }`}>
                         {th.badge}
                       </span>
-                      {isSelected && <CheckCircle2 size={14} className="text-brand-gold" />}
+                      {isSelected && <CheckCircle2 size={14} className={th.isLightSand ? 'text-orange-600' : 'text-brand-gold'} />}
                     </div>
-                    <p className="text-xs font-black text-white">{th.name}</p>
+                    <p className={`text-xs font-black ${th.isLightSand ? 'text-amber-950' : 'text-white'}`}>{th.name}</p>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* 4. Text Teaser de la Veille au Soir (Prêt à Copier & Diffuser) */}
-          <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-3.5">
+          {/* 4. Text Format Switcher (Format Court Spécial Statut vs Format Long) */}
+          <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-                <MessageSquare size={16} className="text-brand-orange" /> Texte d'Accompagnement Veille au Soir
+                <MessageSquare size={16} className="text-brand-orange" /> 4. Texte de Diffusion WhatsApp
               </h4>
               <button
                 type="button"
-                onClick={handleCopyTeaserText}
+                onClick={handleCopyActiveText}
                 className="text-[9px] font-black text-white/80 hover:text-white uppercase flex items-center gap-1 bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition-all"
               >
                 {copiedTeaser ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                <span>{copiedTeaser ? 'Copié !' : 'Copier Texte'}</span>
+                <span>{copiedTeaser ? 'Copié !' : 'Copier'}</span>
               </button>
             </div>
 
+            {/* Toggle tabs for Short vs Full */}
+            <div className="grid grid-cols-2 gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/10">
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  setTextMode('SHORT_STATUS');
+                }}
+                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  textMode === 'SHORT_STATUS'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <Smartphone size={13} />
+                <span>Format Court (Statut &lt; 7 lignes)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  setTextMode('FULL_TEASER');
+                }}
+                className={`py-2.5 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  textMode === 'FULL_TEASER'
+                    ? 'bg-brand-orange text-white shadow-md'
+                    : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <MessageSquare size={13} />
+                <span>Format Long (Groupes)</span>
+              </button>
+            </div>
+
+            {/* Validation Indicator */}
+            <div className="flex items-center justify-between text-[10px] px-1">
+              <span className={`font-bold flex items-center gap-1 ${isStatusSafe ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {isStatusSafe ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+                {isStatusSafe ? 'Parfait pour Statut WhatsApp (< 700 car.)' : 'Texte long : idéal pour Groupes WhatsApp'}
+              </span>
+              <span className="font-mono text-white/50 text-[9px]">
+                {textLineCount} lignes • {textCharCount} car.
+              </span>
+            </div>
+
             <textarea
-              rows={7}
-              value={plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp}
-              onChange={(e) => onChangePlat({ ...plat, marketingTextEveningTeaser: e.target.value })}
+              rows={textMode === 'SHORT_STATUS' ? 6 : 9}
+              value={activeText}
+              onChange={(e) => {
+                const val = e.target.value;
+                const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+                if (textMode === 'SHORT_STATUS') {
+                  if (isEvening) {
+                    onChangePlat({ ...plat, marketingTextEveningStatusShort: val });
+                  } else {
+                    onChangePlat({ ...plat, marketingTextStatusShort: val });
+                  }
+                } else {
+                  if (isEvening) {
+                    onChangePlat({ ...plat, marketingTextEveningTeaser: val });
+                  } else {
+                    onChangePlat({ ...plat, marketingTextWhatsApp: val });
+                  }
+                }
+              }}
               className="w-full bg-[#120B09] border border-white/15 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
             />
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <button
                 type="button"
-                onClick={() => broadcastToWhatsApp(plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp)}
+                onClick={handleBroadcastWhatsApp}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all active:scale-95"
               >
                 <Smartphone size={13} /> WhatsApp
               </button>
               <button
                 type="button"
-                onClick={() => shareToSocialPlatform(plat.marketingTextEveningTeaser || plat.marketingTextSocial, 'facebook')}
+                onClick={() => shareToSocialPlatform(activeText, 'facebook')}
                 className="bg-[#1877F2] hover:bg-blue-600 text-white py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all"
               >
                 <Facebook size={13} /> Facebook
               </button>
               <button
                 type="button"
-                onClick={() => shareToSocialPlatform(plat.marketingTextEveningTeaser || plat.marketingTextSocial, 'instagram')}
+                onClick={() => shareToSocialPlatform(activeText, 'instagram')}
                 className="bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:opacity-90 text-white py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all"
               >
                 <Instagram size={13} /> Instagram
               </button>
               <button
                 type="button"
-                onClick={() => shareToSocialPlatform(plat.marketingTextEveningTeaser || plat.marketingTextSocial, 'tiktok')}
+                onClick={() => shareToSocialPlatform(activeText, 'tiktok')}
                 className="bg-black hover:bg-zinc-800 border border-white/20 text-white py-3 rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md transition-all"
               >
                 <Music size={13} className="text-cyan-400" /> TikTok
@@ -729,7 +922,7 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
 
         </div>
 
-        {/* Right Column: Live HD Canvas Poster Preview & Export Hub (7 cols) */}
+        {/* Right Column: Live HD Canvas Poster Preview & Direct Share Hub (7 cols) */}
         <div className="xl:col-span-7 space-y-6">
           
           <div className="bg-white/5 p-6 sm:p-8 rounded-[2.5rem] border border-white/10 space-y-6 flex flex-col items-center">
@@ -738,7 +931,7 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
             <div className="w-full flex items-center justify-between border-b border-white/10 pb-4">
               <div>
                 <span className="text-[9px] font-black uppercase text-brand-gold flex items-center gap-1.5">
-                  <Eye size={14} /> Rendu Graphique Haute Définition
+                  <Eye size={14} /> Rendu Graphique HD
                 </span>
                 <p className="text-[10px] text-white/60 font-bold">
                   {getFormatDimensions(plat.posterFormat || 'SQUARE_POST').label}
@@ -782,43 +975,42 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
               </div>
             </div>
 
-            {/* Poster Publication Advice Box */}
-            <div className="w-full bg-gradient-to-r from-amber-950/40 via-brand-brown/40 to-black/40 p-5 rounded-2xl border border-brand-gold/20 flex items-start gap-4">
-              <div className="p-2.5 bg-brand-orange/20 text-brand-orange rounded-2xl shrink-0 mt-0.5">
-                <ChefHat size={22} />
+            {/* Step by Step Guide for WhatsApp Status */}
+            <div className="w-full bg-gradient-to-r from-emerald-950/40 via-brand-brown/40 to-black/40 p-5 rounded-2xl border border-emerald-500/30 flex items-start gap-4">
+              <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-2xl shrink-0 mt-0.5">
+                <Info size={22} />
               </div>
-              <div className="space-y-1">
-                <h5 className="text-xs font-black uppercase text-brand-gold">
-                  💡 Conseil Marketing de Cheffe Khady pour la Veille au Soir :
+              <div className="space-y-1.5">
+                <h5 className="text-xs font-black uppercase text-emerald-300">
+                  📱 Comment publier l'affiche &amp; le texte sur votre Statut WhatsApp :
                 </h5>
-                <p className="text-[10px] text-white/80 leading-relaxed">
-                  Publiez cette affiche sur vos **Statuts WhatsApp et Stories Facebook / Instagram entre 20h00 et 22h30**. C'est le créneau idéal où les clients consultent leur téléphone avant de dormir et planifient leur déjeuner du lendemain midi au bureau.
-                </p>
+                <ol className="text-[10px] text-white/80 leading-relaxed list-decimal list-inside space-y-1">
+                  <li>Cliquez sur **« Partager Affiche + Texte Direct »** ci-dessous pour ouvrir directement WhatsApp sur mobile.</li>
+                  <li>Sur ordinateur : Téléchargez l'affiche PNG puis copiez le texte en 1 clic.</li>
+                  <li>Sélectionnez l'image dans votre Statut WhatsApp et collez le texte en légende !</li>
+                </ol>
               </div>
             </div>
 
-            {/* Big Action Button */}
+            {/* Big Action Buttons */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
-                onClick={handleDownloadPoster}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                onClick={handleShareImageAndTextDirect}
+                disabled={isSharing}
+                className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl shadow-emerald-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Download size={18} />
-                <span>Télécharger l'Image PNG (HD 1080p)</span>
+                {isSharing ? <RefreshCw size={18} className="animate-spin" /> : <Send size={18} />}
+                <span>Partager Affiche + Texte Direct</span>
               </button>
 
               <button
                 type="button"
-                onClick={() => {
-                  playSound('pop');
-                  handleCopyTeaserText();
-                  broadcastToWhatsApp(plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp);
-                }}
+                onClick={handleDownloadPoster}
                 className="w-full bg-brand-orange hover:bg-orange-600 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-wider shadow-xl shadow-brand-orange/30 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Smartphone size={18} />
-                <span>Publier Image + Texte WhatsApp</span>
+                <Download size={18} />
+                <span>Télécharger l'Image PNG HD</span>
               </button>
             </div>
 

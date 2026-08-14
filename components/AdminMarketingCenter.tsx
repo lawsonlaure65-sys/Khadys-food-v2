@@ -895,11 +895,11 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                   <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center justify-between">
                       <span className="text-[9px] font-black uppercase text-emerald-400 flex items-center gap-1.5">
-                        <CheckCircle2 size={14} /> Texte optimisé pour les Statuts WhatsApp
+                        <CheckCircle2 size={14} /> Format Court Optimisé pour Statuts WhatsApp (&lt; 7 lignes &amp; &lt; 700 car.)
                       </span>
                       <button
                         type="button"
-                        onClick={() => handleCopyPlatText(platDuJour.marketingTextWhatsApp)}
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp)}
                         className="text-[9px] font-black text-white/70 hover:text-white uppercase flex items-center gap-1 bg-white/10 px-2.5 py-1 rounded-xl"
                       >
                         {copiedPlatText ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
@@ -907,17 +907,26 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                       </button>
                     </div>
 
+                    <div className="flex items-center justify-between text-[10px] px-1">
+                      <span className="text-emerald-400 font-bold flex items-center gap-1">
+                        <ShieldCheck size={13} /> Conforme limite WhatsApp (ne sera pas tronqué)
+                      </span>
+                      <span className="font-mono text-white/50 text-[9px]">
+                        {(platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp).split('\n').length} lignes • {(platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp).length} car.
+                      </span>
+                    </div>
+
                     <textarea
-                      rows={11}
-                      value={platDuJour.marketingTextWhatsApp}
-                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextWhatsApp: e.target.value })}
-                      className="w-full bg-[#120B09] border border-white/15 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
+                      rows={6}
+                      value={platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp}
+                      onChange={(e) => setPlatDuJour({ ...platDuJour, marketingTextStatusShort: e.target.value })}
+                      className="w-full bg-[#120B09] border border-emerald-500/40 rounded-2xl p-4 text-xs font-mono text-white/90 focus:outline-none focus:border-brand-gold leading-relaxed resize-none shadow-inner"
                     />
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => broadcastToWhatsApp(platDuJour.marketingTextWhatsApp)}
+                        onClick={() => broadcastToWhatsApp(platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp)}
                         className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 active:scale-95 transition-all"
                       >
                         <Smartphone size={16} /> 🟢 Publier sur Statut WhatsApp
@@ -925,7 +934,7 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
 
                       <button
                         type="button"
-                        onClick={() => handleCopyPlatText(platDuJour.marketingTextWhatsApp)}
+                        onClick={() => handleCopyPlatText(platDuJour.marketingTextStatusShort || platDuJour.marketingTextWhatsApp)}
                         className="bg-white/10 hover:bg-white/20 text-white px-5 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"
                       >
                         <Copy size={14} /> Copier

@@ -60,9 +60,11 @@ export interface PlatDuJourConfig {
   posterTheme: PosterTheme;
   posterFormat: PosterFormat;
   marketingTextWhatsApp: string;
+  marketingTextStatusShort?: string; // Format court < 7 lignes spécial Statut WhatsApp & Stories
   marketingTextGroups: string;
   marketingTextSocial: string;
   marketingTextEveningTeaser: string;
+  marketingTextEveningStatusShort?: string; // Teaser court < 7 lignes spécial Statut Veille
   hashtags: string;
 }
 
@@ -193,6 +195,12 @@ export const INITIAL_PLAT_DU_JOUR: PlatDuJourConfig = {
     `👉 *Commandez maintenant avant épuisement du stock (25 parts dispo) :*\n` +
     `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20Tiep%20Royal\n\n` +
     `_Khady's Food & Event — L'excellence culinaire au Sahel_`,
+  marketingTextStatusShort: `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n` +
+    `👑 *TIEP ROYAL ROUGE AU MÉROU FRAIS*\n` +
+    `🎁 Alloco doré + Jus Bissap 50cl offert !\n` +
+    `💰 *4 500 F CFA* (au lieu de 5 500 F)\n` +
+    `🛵 Livré dès 12h00 par Billo Express\n` +
+    `👉 Commandez au ${RESTAURANT_INFO.whatsapp}`,
   marketingTextGroups: `*🍲 ALERTE GOURMANDE DU MIDI — KHADY'S FOOD 🍲*\n\n` +
     `Chers membres, les marmites bouillonnent pour le déjeuner ! 🥘🔥\n` +
     `Aujourd'hui au menu du jour :\n` +
@@ -222,6 +230,12 @@ export const INITIAL_PLAT_DU_JOUR: PlatDuJourConfig = {
     `👉 *Pour réserver dès ce soir en 1 clic :*\n` +
     `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20Tiep%20Royal\n\n` +
     `_Bonne soirée à tous et à demain pour un déjeuner royal !_ 🌟`,
+  marketingTextEveningStatusShort: `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n` +
+    `👑 *TIEP ROYAL ROUGE AU MÉROU FRAIS*\n` +
+    `🎁 Alloco + 1 Jus Bissap 50cl offert !\n` +
+    `💰 *4 500 F CFA* • Livré dès 12h par Billo\n` +
+    `⚠️ Stock limité (25 parts)\n` +
+    `👉 Réservez dès ce soir : ${RESTAURANT_INFO.whatsapp}`,
   hashtags: '#KhadyFood #PlatDuJour #TiepRoyal #Niamey #CuisineAfricaine #BilloExpress #FoodNiamey'
 };
 
@@ -313,7 +327,15 @@ export type PlatDuJourStyle = 'GOURMAND' | 'FLASH_MIDI' | 'PRESTIGE_ROYAL';
 export const generatePlatDuJourMarketingTexts = (
   plat: Partial<PlatDuJourConfig>,
   style: PlatDuJourStyle = 'GOURMAND'
-): { whatsapp: string; groups: string; social: string; eveningTeaser: string; hashtags: string } => {
+): { 
+  whatsapp: string; 
+  statusShort: string; 
+  groups: string; 
+  social: string; 
+  eveningTeaser: string; 
+  eveningStatusShort: string; 
+  hashtags: string; 
+} => {
   const name = plat.dishName || 'Tiep Royal Khady\'s Food';
   const price = plat.promoPrice ? `${plat.promoPrice.toLocaleString('fr-FR')} F CFA` : `${(plat.price || 4500).toLocaleString('fr-FR')} F CFA`;
   const originalPrice = plat.price ? `${plat.price.toLocaleString('fr-FR')} F CFA` : '5 500 F CFA';
@@ -325,9 +347,11 @@ export const generatePlatDuJourMarketingTexts = (
   const stock = plat.remainingStock || 25;
 
   let whatsapp = '';
+  let statusShort = '';
   let groups = '';
   let social = '';
   let eveningTeaser = '';
+  let eveningStatusShort = '';
 
   if (style === 'FLASH_MIDI') {
     whatsapp = `*⚡ ALERTE DÉJEUNER MIDI — KHADY'S FOOD ⚡*\n\n` +
@@ -341,6 +365,13 @@ export const generatePlatDuJourMarketingTexts = (
       `📲 *Cliquez ici pour commander directement :*\n` +
       `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20veux%20commander%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
       `_Khady's Food & Event — Votre déjeuner chaud au bureau ou à domicile !_`;
+
+    statusShort = `⚡ *DÉJEUNER DU JOUR CHEZ KHADY'S* ⚡\n` +
+      `🥘 *${name.toUpperCase()}*\n` +
+      `🎁 ${acc}\n` +
+      `💰 *${price}* (au lieu de ${originalPrice})\n` +
+      `🛵 Livré chaud en 35 min par Billo Express\n` +
+      `👉 Commandes : ${RESTAURANT_INFO.whatsapp}`;
 
     groups = `*🥘 MIDI EXPRESS NIAMEY — KHADY'S FOOD 🥘*\n\n` +
       `Bonjour à tous ! Qui n'a pas encore prévu son déjeuner au bureau ?\n` +
@@ -366,6 +397,13 @@ export const generatePlatDuJourMarketingTexts = (
       `💰 *Tarif Flash :* ${price} (au lieu de ${originalPrice})\n\n` +
       `🛵 Livraison express garantie dès 12h00 précises à Niamey.\n` +
       `📲 Bloquez votre portion dès ce soir : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Plat%20du%20Jour%20de%20demain%20${encodeURIComponent(name)}`;
+
+    eveningStatusShort = `🌙 *AU MENU DEMAIN MIDI (${targetDay.toUpperCase()})* 🍲✨\n` +
+      `👉 *${name.toUpperCase()}*\n` +
+      `🎁 ${acc}\n` +
+      `💰 *${price}* (au lieu de ${originalPrice})\n` +
+      `🛵 Livré dès 12h par Billo Express\n` +
+      `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   } else if (style === 'PRESTIGE_ROYAL') {
     whatsapp = `*👑 FESTIN GASTRONOMIQUE DU JOUR — KHADY'S FOOD 👑*\n\n` +
       `Offrez-vous un moment d'exception culinaire ce ${dateStr} avec la création signature de Cheffe Khady :\n\n` +
@@ -379,6 +417,13 @@ export const generatePlatDuJourMarketingTexts = (
       `👉 *Réserver votre portion VIP :*\n` +
       `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20réserve%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
       `_Khady's Food & Event — L'art de la haute gastronomie sahélienne_`;
+
+    statusShort = `👑 *DÉLICE ROYAL DU JOUR • KHADY'S FOOD* 👑\n` +
+      `✨ *${name.toUpperCase()}*\n` +
+      `🌟 ${acc}\n` +
+      `💎 *${price}* • Déjeuner d'exception\n` +
+      `🛵 Livraison Billo Express Niamey\n` +
+      `👉 Réservation : ${RESTAURANT_INFO.whatsapp}`;
 
     groups = `*👑 DÉLICE ROYAL DU JOUR — KHADY'S FOOD 👑*\n\n` +
       `Chers gourmets, le plat d'exception du jour est prêt :\n` +
@@ -408,6 +453,13 @@ export const generatePlatDuJourMarketingTexts = (
       `🛵 Réservé aux amateurs de gastronomie sahélienne. Livré à l'heure exacte de votre déjeuner à Niamey.\n` +
       `👉 *Précommandez votre repas VIP dès ce soir :*\n` +
       `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Plat%20Royal%20de%20demain%20${encodeURIComponent(name)}`;
+
+    eveningStatusShort = `👑 *AVANT-PREMIÈRE AU MENU ${targetDay.toUpperCase()}* 👑\n` +
+      `✨ *${name.toUpperCase()}*\n` +
+      `🎁 ${acc}\n` +
+      `💎 *${price}* • Cuisiné par Cheffe Khady\n` +
+      `🛵 Livré dès 12h par Billo Express\n` +
+      `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   } else {
     // Default GOURMAND
     whatsapp = `*🍲 LE PLAT DU JOUR EST PRÊT CHEZ KHADY'S FOOD ! 🍲*\n\n` +
@@ -422,6 +474,13 @@ export const generatePlatDuJourMarketingTexts = (
       `👉 *Cliquez ici pour commander sur WhatsApp :*\n` +
       `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
       `_Khady's Food & Event — Le goût du bonheur au Sahel_`;
+
+    statusShort = `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n` +
+      `👑 *${name.toUpperCase()}*\n` +
+      `🎁 ${acc}\n` +
+      `💰 *${price}* (au lieu de ${originalPrice})\n` +
+      `🛵 Livré chaud dès 12h par Billo Express\n` +
+      `👉 Commandez au ${RESTAURANT_INFO.whatsapp}`;
 
     groups = `*🍲 BONJOUR LE GROUPE ! LE DÉJEUNER EST SERVI 🍲*\n\n` +
       `Les délicieux arômes de Cheffe Khady sont de sortie !\n` +
@@ -452,11 +511,18 @@ export const generatePlatDuJourMarketingTexts = (
       `👉 *Pour réserver dès ce soir en 1 clic :*\n` +
       `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
       `_Khady's Food & Event — Toujours un plaisir de vous régaler !_ 🌟`;
+
+    eveningStatusShort = `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n` +
+      `👑 *${name.toUpperCase()}*\n` +
+      `🎁 ${acc}\n` +
+      `💰 *${price}* • Livré dès 12h par Billo\n` +
+      `⚠️ Stock limité (${stock} parts)\n` +
+      `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   }
 
   const hashtags = `#KhadyFood #PlatDuJour #${name.replace(/[^a-zA-Z0-9]/g, '')} #Niamey #BilloExpress #CuisineAfricaine #FoodNiger #DejeunerNiamey`;
 
-  return { whatsapp, groups, social, eveningTeaser, hashtags };
+  return { whatsapp, statusShort, groups, social, eveningTeaser, eveningStatusShort, hashtags };
 };
 
 // Storage for Plat du Jour
@@ -510,6 +576,76 @@ export const shareToSocialPlatform = (text: string, platform: 'facebook' | 'inst
   } catch (e) {
     return false;
   }
+};
+
+// Web Share API Level 2 (File Blob Sharing for Android & iOS: Native image + text to WhatsApp / Social)
+export const shareImageAndText = async (
+  canvas: HTMLCanvasElement | null,
+  title: string,
+  text: string,
+  filename: string = 'affiche-plat-du-jour.png'
+): Promise<{ success: boolean; method: 'native' | 'download_and_copy' | 'fallback'; message: string }> => {
+  if (!canvas) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return { success: true, method: 'fallback', message: 'Texte copié dans le presse-papier !' };
+    } catch {
+      return { success: false, method: 'fallback', message: 'Impossible de copier le texte.' };
+    }
+  }
+
+  // 1. Convert Canvas to Blob File
+  const blob: Blob | null = await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/png', 1.0);
+  });
+
+  if (!blob) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return { success: true, method: 'fallback', message: 'Texte copié !' };
+    } catch {
+      return { success: false, method: 'fallback', message: 'Erreur lors de la préparation' };
+    }
+  }
+
+  const file = new File([blob], filename, { type: 'image/png' });
+
+  // 2. Try native Web Share API with File
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: title,
+        text: text
+      });
+      return { success: true, method: 'native', message: 'Partage direct ouvert avec l\'affiche image !' };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return { success: false, method: 'native', message: 'Partage annulé' };
+      }
+      // If user cancel or share failed, proceed to fallback
+    }
+  }
+
+  // 3. Fallback for desktop / unsupported browsers:
+  // Auto-download the high-res PNG image + Auto-copy short text to clipboard
+  try {
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = URL.createObjectURL(blob);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  } catch (e) {}
+
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {}
+
+  return {
+    success: true,
+    method: 'download_and_copy',
+    message: 'Affiche PNG enregistrée dans vos photos + Texte copié ! Ouvrez WhatsApp et publiez l\'affiche avec le texte collé.'
+  };
 };
 
 
