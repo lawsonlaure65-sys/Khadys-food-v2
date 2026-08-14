@@ -494,11 +494,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </span>
             </div>
 
-            <div className="flex justify-between items-center">
-               <h3 className="text-xl font-black italic uppercase text-brand-gold">Gestion de la Carte</h3>
-               <button onClick={() => setEditingItem({})} className="bg-brand-gold text-brand-brown px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black text-[10px] uppercase italic active:scale-95 transition-all">
-                 <Plus size={18}/> Ajouter un Plat
-               </button>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+               <div>
+                 <h3 className="text-xl font-black italic uppercase text-brand-gold">Gestion de la Carte</h3>
+                 <p className="text-[10px] text-white/50">Modifiez les photos, prix, descriptions ou ajoutez de nouveaux plats.</p>
+               </div>
+               <div className="flex items-center gap-2 w-full sm:w-auto">
+                 <button 
+                   type="button"
+                   onClick={() => {
+                     if (window.confirm('Voulez-vous synchroniser la carte avec le catalogue officiel (incluant Couscous Royal, Tiep Rouge Royal, Suya de Didi) ?')) {
+                       playSound('success');
+                       setItems(MENU_ITEMS);
+                       try {
+                         localStorage.setItem('khadys_menu_items', JSON.stringify(MENU_ITEMS));
+                       } catch (e) {}
+                     }
+                   }}
+                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-white/10"
+                   title="Restaurer ou mettre à jour avec les plats officiels"
+                 >
+                   <RefreshCw size={14} /> Sync Plats Officiels
+                 </button>
+                 <button onClick={() => setEditingItem({})} className="bg-brand-gold hover:bg-amber-400 text-brand-brown px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black text-[10px] uppercase italic active:scale-95 transition-all">
+                   <Plus size={18}/> Ajouter un Plat
+                 </button>
+               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                {items.map(item => (

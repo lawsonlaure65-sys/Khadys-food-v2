@@ -54,7 +54,16 @@ const App: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Check if key official items like sp1, sp3, sp4 exist, merge if not present
+          const existingIds = new Set(parsed.map((p: MenuItem) => p.id));
+          const missingOfficial = MENU_ITEMS.filter(m => !existingIds.has(m.id));
+          if (missingOfficial.length > 0) {
+            const merged = [...parsed, ...missingOfficial];
+            return merged;
+          }
+          return parsed;
+        }
       } catch (e) {
         console.error('Error reading khadys_menu_items from localStorage', e);
       }
@@ -205,17 +214,25 @@ const App: React.FC = () => {
           } catch (e) {}
         }
 
+        let baseItems: MenuItem[] = [];
         if (cachedMenuIDB && cachedMenuIDB.length >= localMenuParsed.length && cachedMenuIDB.length > 0) {
-          setItems(cachedMenuIDB);
-          try {
-            localStorage.setItem('khadys_menu_items', JSON.stringify(cachedMenuIDB));
-          } catch (e) {}
+          baseItems = cachedMenuIDB;
         } else if (localMenuParsed && localMenuParsed.length > 0) {
-          setItems(localMenuParsed);
-          await saveMenuToIDB(localMenuParsed);
-        } else if (items && items.length > 0) {
-          await saveMenuToIDB(items);
+          baseItems = localMenuParsed;
+        } else {
+          baseItems = MENU_ITEMS;
         }
+
+        // Merge any new official dishes (Couscous Royal, Suya de Didi, etc.)
+        const existingIds = new Set(baseItems.map(b => b.id));
+        const missingOfficial = MENU_ITEMS.filter(m => !existingIds.has(m.id));
+        const finalMerged = missingOfficial.length > 0 ? [...baseItems, ...missingOfficial] : baseItems;
+
+        setItems(finalMerged);
+        try {
+          localStorage.setItem('khadys_menu_items', JSON.stringify(finalMerged));
+        } catch (e) {}
+        await saveMenuToIDB(finalMerged);
       } catch (err) {
         console.warn('Erreur synchronisation menu hors-ligne:', err);
       }
