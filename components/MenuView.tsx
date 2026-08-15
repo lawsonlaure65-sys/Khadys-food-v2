@@ -40,7 +40,24 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
   const [selectedCategory, setSelectedCategory] = useState<MenuCategory | 'TOUT'>('TOUT');
   const [selectedTagFilter, setSelectedTagFilter] = useState<TagFilterType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [platDuJour] = useState(() => getStoredPlatDuJour());
+  const [platDuJour, setPlatDuJour] = useState(() => getStoredPlatDuJour());
+
+  // Listen to real-time Plat du Jour updates from Admin
+  React.useEffect(() => {
+    const handlePlatUpdate = (e: any) => {
+      if (e?.detail) {
+        setPlatDuJour(e.detail);
+      } else {
+        setPlatDuJour(getStoredPlatDuJour());
+      }
+    };
+    window.addEventListener('khadys_plat_du_jour_updated', handlePlatUpdate);
+    window.addEventListener('storage', handlePlatUpdate);
+    return () => {
+      window.removeEventListener('khadys_plat_du_jour_updated', handlePlatUpdate);
+      window.removeEventListener('storage', handlePlatUpdate);
+    };
+  }, []);
 
   // Dynamically calculate match counts for each tag filter
   const tagCounts = useMemo(() => {
@@ -316,8 +333,10 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute top-2 left-2 bg-brand-orange text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md">
-                  Aujourd'hui
+                <div className={`absolute top-2 left-2 text-white text-[8px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-md ${
+                  platDuJour.publicationTiming === 'TONIGHT_FOR_TOMORROW' ? 'bg-purple-600' : 'bg-brand-orange'
+                }`}>
+                  {platDuJour.targetDayLabel || (platDuJour.publicationTiming === 'TONIGHT_FOR_TOMORROW' ? 'Demain Midi' : "Aujourd'hui")}
                 </div>
               </div>
 

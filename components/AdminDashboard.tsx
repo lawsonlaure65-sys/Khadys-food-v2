@@ -10,7 +10,8 @@ import {
   Calendar, Smartphone, CheckCircle2, ChefHat, PackageCheck, Bell, Camera, 
   MapPin, Clock, Heart, Sliders, DollarSign, MessageCircle, AlertCircle,
   UserRound, Save, ToggleLeft as Toggle, Image as ImageIcon, BookOpen, HelpCircle,
-  ShieldAlert, AlertTriangle, BarChart3, LineChart as LineChartIcon, ArrowUpRight
+  ShieldAlert, AlertTriangle, BarChart3, LineChart as LineChartIcon, ArrowUpRight, Database,
+  Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight
 } from 'lucide-react';
 import { MenuItem, AdminView, Order, Review, MenuCategory, OrderStatus, BlogArticle, FaqItem } from '../types';
 import { KhadyLogo } from './KhadyLogo';
@@ -20,6 +21,7 @@ import { DISTRICTS, BILLO_INFO, MENU_ITEMS } from '../constants';
 import { db, isSupabaseConfigured } from '../lib/supabase';
 import { compressImage } from '../utils/imageCompressor';
 import { AdminMarketingCenter } from './AdminMarketingCenter';
+import { getStoredPlatDuJour, saveStoredPlatDuJour, PlatDuJourConfig } from '../utils/marketing';
 
 interface AdminDashboardProps {
   items: MenuItem[];
@@ -94,6 +96,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const dishPhotoInputRef = useRef<HTMLInputElement>(null);
   const articlePhotoInputRef = useRef<HTMLInputElement>(null);
   const [adminAvatar, setAdminAvatar] = useState(() => localStorage.getItem('khadys_admin_avatar') || '');
+  const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
+
+  // Listen to real-time Plat du Jour updates across admin and app
+  React.useEffect(() => {
+    const handlePlatChange = (e: any) => {
+      if (e?.detail) {
+        setPlatDuJour(e.detail);
+      } else {
+        setPlatDuJour(getStoredPlatDuJour());
+      }
+    };
+    window.addEventListener('khadys_plat_du_jour_updated', handlePlatChange);
+    window.addEventListener('storage', handlePlatChange);
+    return () => {
+      window.removeEventListener('khadys_plat_du_jour_updated', handlePlatChange);
+      window.removeEventListener('storage', handlePlatChange);
+    };
+  }, []);
+
+  const handleTogglePlatDuJour = () => {
+    playSound('pop');
+    const updated = { ...platDuJour, isActive: !platDuJour.isActive };
+    setPlatDuJour(updated);
+    saveStoredPlatDuJour(updated);
+  };
 
   // Dynamic monthly sales data calculation based on validated orders
   const monthlySalesData = useMemo(() => {
@@ -210,7 +237,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
 
     if (isSupabaseConfigured) {
-      db.saveMenuItem(finalItem);
+      db.saveMenuItem(finalItem).then(res => {
+        if (!res.success) {
+          console.warn('⚠️ Supabase Cloud Save Issue:', res.error);
+        }
+      });
     }
     
     setEditingItem(null);
@@ -290,6 +321,94 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       case AdminView.DASHBOARD:
         return (
           <div className="space-y-6 animate-fade-in">
+            {/* PLAT DU JOUR LIVE CONTROL HERO CARD */}
+            <div className="bg-gradient-to-r from-amber-950/70 via-[#2E140D] to-[#1A0A06] p-5 sm:p-7 rounded-[2.5rem] border-2 border-brand-gold/40 shadow-2xl relative overflow-hidden">
+               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                  {/* Left: Dish Preview */}
+                  <div className="flex items-center gap-4 sm:gap-5">
+                     <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-brand-gold/40 shadow-xl bg-black/40">
+                        <img 
+                          src={platDuJour.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000'} 
+                          alt={platDuJour.dishName} 
+                          className="w-full h-full object-cover" 
+                        />
+                        <div className={`absolute top-1 left-1 text-[7px] font-black uppercase px-2 py-0.5 rounded-full shadow ${
+                          platDuJour.isActive ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
+                        }`}>
+                          {platDuJour.isActive ? 'En Ligne' : 'Masqué'}
+                        </div>
+                     </div>
+
+                     <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                           <span className="bg-brand-gold/20 text-brand-gold text-[8px] font-black uppercase px-2.5 py-0.5 rounded-full border border-brand-gold/30 flex items-center gap-1">
+                              <Sun size={10} className="text-brand-orange" /> Plat du Jour Actuel
+                           </span>
+                           <span className="text-[8px] font-bold text-white/50 bg-white/5 px-2 py-0.5 rounded-full">
+                              {platDuJour.targetDayLabel || (platDuJour.publicationTiming === 'TONIGHT_FOR_TOMORROW' ? 'Demain Midi' : "Aujourd'hui")}
+                           </span>
+                        </div>
+                        <h4 className="text-base sm:text-xl font-black italic uppercase text-white leading-tight">
+                           {platDuJour.dishName}
+                        </h4>
+                        <div className="flex items-center gap-2.5 text-xs">
+                           <span className="text-brand-orange font-black font-mono">
+                              {(platDuJour.promoPrice || platDuJour.price).toLocaleString('fr-FR')} F CFA
+                           </span>
+                           {platDuJour.promoPrice && platDuJour.promoPrice < platDuJour.price && (
+                              <span className="text-white/40 line-through text-[10px] font-mono">
+                                 {platDuJour.price.toLocaleString('fr-FR')} F
+                              </span>
+                           )}
+                           <span className="text-white/50 text-[10px]">
+                              • {platDuJour.remainingStock || 25} parts
+                           </span>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Right: Quick Actions */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+                     <button
+                        type="button"
+                        onClick={handleTogglePlatDuJour}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                           platDuJour.isActive
+                              ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/50 hover:bg-emerald-600/40'
+                              : 'bg-white/5 text-white/50 border-white/10 hover:bg-white/10'
+                        }`}
+                     >
+                        {platDuJour.isActive ? <ToggleRight size={20} className="text-emerald-400" /> : <ToggleLeft size={20} />}
+                        <span>{platDuJour.isActive ? 'Visible sur l\'App' : 'Activer sur l\'App'}</span>
+                     </button>
+
+                     <button
+                        type="button"
+                        onClick={() => {
+                           playSound('pop');
+                           setCurrentView(AdminView.PLAT_DU_JOUR);
+                        }}
+                        className="bg-brand-orange hover:bg-orange-600 text-white px-5 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg shadow-brand-orange/30 active:scale-95 transition-all flex items-center gap-1.5"
+                     >
+                        <Utensils size={14} />
+                        <span>Changer / Créer</span>
+                     </button>
+
+                     <button
+                        type="button"
+                        onClick={() => {
+                           playSound('pop');
+                           setCurrentView(AdminView.PLAT_DU_JOUR);
+                        }}
+                        className="bg-brand-gold hover:bg-yellow-400 text-brand-brown px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-wider shadow-lg active:scale-95 transition-all flex items-center gap-1.5"
+                     >
+                        <Sparkles size={14} />
+                        <span>Studio Affiche</span>
+                     </button>
+                  </div>
+               </div>
+            </div>
+
             {/* Top Stat Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                {[
@@ -499,7 +618,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <h3 className="text-xl font-black italic uppercase text-brand-gold">Gestion de la Carte</h3>
                  <p className="text-[10px] text-white/50">Modifiez les photos, prix, descriptions ou ajoutez de nouveaux plats.</p>
                </div>
-               <div className="flex items-center gap-2 w-full sm:w-auto">
+               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                 <button 
+                   type="button"
+                   onClick={async () => {
+                     if (!isSupabaseConfigured) {
+                       alert("⚠️ Supabase n'est pas encore configuré avec les clés d'environnement.");
+                       return;
+                     }
+                     playSound('pop');
+                     const res = await db.syncAllMenuItems(items);
+                     if (res.success) {
+                       playSound('success');
+                       alert(`✅ Félicitations ! ${res.count} plats ont été synchronisés sur Supabase. Tous vos clients recevront ces plats automatiquement !`);
+                     } else {
+                       alert(`❌ Erreur d'envoi vers Supabase : ${res.error}\n\nAssurez-vous d'avoir exécuté le script SQL mis à jour dans Supabase (politiques RLS autorisées).`);
+                     }
+                   }}
+                   className="bg-emerald-600/80 hover:bg-emerald-600 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-emerald-400/30 shadow-md"
+                   title="Envoyer tous les plats vers Supabase pour que tous les clients les voient"
+                 >
+                   <Database size={14} /> Pousser vers Cloud ({items.length})
+                 </button>
                  <button 
                    type="button"
                    onClick={() => {
@@ -778,6 +918,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         );
 
+      case AdminView.PLAT_DU_JOUR:
+        return (
+          <AdminMarketingCenter 
+            items={items} 
+            orders={orders} 
+            onItemsChange={setItems}
+            initialTab="PLAT_DU_JOUR"
+          />
+        );
+
       case AdminView.AI_MARKETING:
         return (
           <AdminMarketingCenter 
@@ -823,6 +973,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const navItems = [
     { v: AdminView.DASHBOARD, i: LayoutDashboard, l: 'Home' },
+    { v: AdminView.PLAT_DU_JOUR, i: Sun, l: 'Plat du Jour' },
     { v: AdminView.MENU_MGMT, i: Utensils, l: 'Carte' },
     { v: AdminView.BLOG_MGMT, i: BookOpen, l: 'Blog' },
     { v: AdminView.FAQ_MGMT, i: HelpCircle, l: 'FAQ' },

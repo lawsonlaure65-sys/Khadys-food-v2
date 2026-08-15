@@ -2,8 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { MenuItem, Order } from '../types';
 
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+const envUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
+const envKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+
+const customUrl = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_url') || '' : '';
+const customKey = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_key') || '' : '';
+
+const supabaseUrl = customUrl || envUrl;
+const supabaseKey = customKey || envKey;
 
 export const isSupabaseConfigured = 
   Boolean(supabaseUrl) &&
@@ -20,7 +26,7 @@ export const supabase = isSupabaseConfigured
 
 /**
  * SERVICE DE DONNÉES KHADY'S ELITE
- * Gère la synchronisation entre l'App et le Cloud
+ * Gère la synchronisation bidirectionnelle Cloud & Temps Réel
  */
 export const db = {
   // --- MENU ---
@@ -31,11 +37,15 @@ export const db = {
         .from('menu_items')
         .select('*')
         .order('category', { ascending: true });
-      if (error || !data) return null;
+      if (error) {
+        console.warn('⚠️ Supabase fetchMenu error:', error.message);
+        return null;
+      }
+      if (!data) return null;
       return data.map((row: any) => ({
         id: row.id,
         name: row.name,
-        description: row.description,
+        description: row.description || '',
         price: Number(row.price),
         image: row.image,
         category: row.category,
@@ -44,43 +54,85 @@ export const db = {
         isSpicy: row.is_spicy ?? row.isSpicy ?? false,
         isSpécialitéMaison: row.is_specialite_maison ?? row.isSpécialitéMaison ?? false
       })) as MenuItem[];
-    } catch {
+    } catch (e: any) {
+      console.warn('⚠️ Exception Supabase fetchMenu:', e);
       return null;
     }
   },
 
-  saveMenuItem: async (item: MenuItem) => {
-    if (!supabase) return null;
+  saveMenuItem: async (item: MenuItem): Promise<{ success: boolean; error?: string; data?: any }> => {
+    if (!supabase) return { success: false, error: 'Supabase non configuré' };
     try {
+      const payload = {
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        price: item.price,
+        image: item.image,
+        category: item.category,
+        rating: item.rating || 5,
+        is_available: item.isAvailable ?? true,
+        is_spicy: item.isSpicy ?? false,
+        is_specialite_maison: item.isSpécialitéMaison ?? false
+      };
+
       const { data, error } = await supabase
         .from('menu_items')
-        .upsert({
-          id: item.id,
-          name: item.name,
-          description: item.description,
-          price: item.price,
-          image: item.image,
-          category: item.category,
-          rating: item.rating,
-          is_available: item.isAvailable,
-          is_spicy: item.isSpicy,
-          is_specialite_maison: item.isSpécialitéMaison
-        })
+        .upsert(payload, { onConflict: 'id' })
         .select();
-      if (error) return null;
-      return data;
-    } catch {
-      return null;
+
+      if (error) {
+        console.error('❌ Erreur Supabase saveMenuItem:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true, data };
+    } catch (e: any) {
+      console.error('❌ Exception Supabase saveMenuItem:', e);
+      return { success: false, error: e.message || 'Erreur inconnue' };
     }
   },
 
-  deleteMenuItem: async (id: string) => {
-    if (!supabase) return null;
+  syncAllMenuItems: async (items: MenuItem[]): Promise<{ success: boolean; error?: string; count: number }> => {
+    if (!supabase) return { success: false, error: 'Supabase non configuré', count: 0 };
+    try {
+      const payloads = items.map(item => ({
+        id: item.id,
+        name: item.name,
+        description: item.description || '',
+        price: item.price,
+        image: item.image,
+        category: item.category,
+        rating: item.rating || 5,
+        is_available: item.isAvailable ?? true,
+        is_spicy: item.isSpicy ?? false,
+        is_specialite_maison: item.isSpécialitéMaison ?? false
+      }));
+
+      const { data, error } = await supabase
+        .from('menu_items')
+        .upsert(payloads, { onConflict: 'id' });
+
+      if (error) {
+        console.error('❌ Erreur Supabase syncAllMenuItems:', error);
+        return { success: false, error: error.message, count: 0 };
+      }
+      return { success: true, count: items.length };
+    } catch (e: any) {
+      return { success: false, error: e.message, count: 0 };
+    }
+  },
+
+  deleteMenuItem: async (id: string): Promise<{ success: boolean; error?: string }> => {
+    if (!supabase) return { success: false, error: 'Supabase non configuré' };
     try {
       const { error } = await supabase.from('menu_items').delete().eq('id', id);
-      if (error) return null;
-    } catch {
-      return null;
+      if (error) {
+        console.error('❌ Erreur Supabase deleteMenuItem:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
   },
 
@@ -111,8 +163,8 @@ export const db = {
     }
   },
 
-  placeOrder: async (order: Order) => {
-    if (!supabase) return null;
+  placeOrder: async (order: Order): Promise<{ success: boolean; error?: string }> => {
+    if (!supabase) return { success: false, error: 'Supabase non connecté' };
     try {
       const { data, error } = await supabase
         .from('orders')
@@ -122,7 +174,7 @@ export const db = {
           phone: order.phone,
           items: order.items,
           total: order.total,
-          delivery_fee: order.deliveryFee,
+          delivery_fee: order.deliveryFee || 0,
           status: order.status,
           payment_method: order.paymentMethod,
           timestamp: order.timestamp,
@@ -130,10 +182,13 @@ export const db = {
           address: order.address
         })
         .select();
-      if (error) return null;
-      return data;
-    } catch {
-      return null;
+      if (error) {
+        console.error('❌ Erreur placeOrder Supabase:', error);
+        return { success: false, error: error.message };
+      }
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
   },
 

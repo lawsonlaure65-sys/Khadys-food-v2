@@ -148,6 +148,7 @@ export enum Page {
 
 export enum AdminView {
   DASHBOARD = 'DASHBOARD',
+  PLAT_DU_JOUR = 'PLAT_DU_JOUR',
   ORDERS = 'ORDERS',
   MENU_MGMT = 'MENU_MGMT',
   BLOG_MGMT = 'BLOG_MGMT',

@@ -30,7 +30,7 @@ import FlashOffer from './components/FlashOffer';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000, RESTAURANT_INFO } from './constants';
 import { playSound } from './utils/audio';
-import { db, isSupabaseConfigured } from './lib/supabase';
+import { db, isSupabaseConfigured, supabase } from './lib/supabase';
 import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, Mic, WifiOff, Database } from 'lucide-react';
 import { 
   saveMenuToIDB, 
@@ -203,8 +203,24 @@ const App: React.FC = () => {
         setCart(cachedCart);
       }
 
-      // 2. Synchronisation robuste du Menu (IndexedDB + LocalStorage)
+      // 2. Synchronisation robuste du Menu (Cloud Supabase > IndexedDB > LocalStorage > MENU_ITEMS)
       try {
+        if (isSupabaseConfigured) {
+          try {
+            const cloudMenu = await db.fetchMenu();
+            if (cloudMenu && cloudMenu.length > 0) {
+              setItems(cloudMenu);
+              try {
+                localStorage.setItem('khadys_menu_items', JSON.stringify(cloudMenu));
+              } catch (e) {}
+              await saveMenuToIDB(cloudMenu);
+              return;
+            }
+          } catch (e) {
+            console.warn('Erreur fetch cloud menu:', e);
+          }
+        }
+
         const cachedMenuIDB = await getMenuFromIDB();
         const localMenuRaw = localStorage.getItem('khadys_menu_items');
         let localMenuParsed: MenuItem[] = [];
@@ -240,9 +256,34 @@ const App: React.FC = () => {
 
     initOfflineStorage();
 
+    // 3. Écouteur Temps Réel Supabase (Realtime Channel)
+    let realtimeChannel: any = null;
+    if (isSupabaseConfigured && supabase) {
+      try {
+        realtimeChannel = supabase
+          .channel('public_menu_sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, async () => {
+            const updated = await db.fetchMenu();
+            if (updated && updated.length > 0) {
+              setItems(updated);
+              try {
+                localStorage.setItem('khadys_menu_items', JSON.stringify(updated));
+              } catch (e) {}
+              await saveMenuToIDB(updated);
+            }
+          })
+          .subscribe();
+      } catch (e) {
+        console.warn('Realtime channel error:', e);
+      }
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      if (realtimeChannel) {
+        realtimeChannel.unsubscribe?.();
+      }
     };
   }, []);
 

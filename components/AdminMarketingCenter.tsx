@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Zap, Tag, Megaphone, Send, Sparkles, Plus, Trash2, Edit3, 
   CheckCircle2, Copy, Share2, MessageSquare, Flame, Clock, 
   Users, Gift, ShoppingBag, ArrowRight, RefreshCw, Smartphone, 
   Layers, Sliders, Check, ShieldCheck, AlertCircle, Percent, DollarSign,
   Eye, ToggleLeft, ToggleRight, Info, Utensils, Award, ChefHat, Globe, Save,
-  Moon, Sun, Music, Facebook, Instagram
+  Moon, Sun, Music, Facebook, Instagram, Camera, Search, UploadCloud
 } from 'lucide-react';
 import { MenuItem, Order } from '../types';
 import { playSound } from '../utils/audio';
@@ -22,24 +22,32 @@ import {
   MARKETING_TEMPLATES, broadcastToWhatsApp
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
+import { compressImage } from '../utils/imageCompressor';
+import { db, isSupabaseConfigured } from '../lib/supabase';
 
 interface AdminMarketingCenterProps {
   items: MenuItem[];
   orders: Order[];
   onItemsChange?: (items: MenuItem[]) => void;
+  initialTab?: 'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY';
 }
 
 export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({ 
   items, 
   orders,
-  onItemsChange 
+  onItemsChange,
+  initialTab
 }) => {
   // Active sub-tab inside Marketing
-  const [activeTab, setActiveTab] = useState<'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY'>('PLAT_DU_JOUR');
+  const [activeTab, setActiveTab] = useState<'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY'>(initialTab || 'PLAT_DU_JOUR');
 
   // Plat du Jour State
   const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
   const [platSubView, setPlatSubView] = useState<'POSTER' | 'RECIPE_CHANNELS'>('POSTER');
+  const [platSourceMode, setPlatSourceMode] = useState<'CARTE' | 'CUSTOM' | 'PRESETS'>('CARTE');
+  const [platMenuSearch, setPlatMenuSearch] = useState('');
+  const [platCategoryFilter, setPlatCategoryFilter] = useState<string>('TOUT');
+  const platImageInputRef = useRef<HTMLInputElement | null>(null);
   const [platSaved, setPlatSaved] = useState(false);
   const [selectedPlatStyle, setSelectedPlatStyle] = useState<PlatDuJourStyle>('GOURMAND');
   const [activePlatChannel, setActivePlatChannel] = useState<'EVENING' | 'STATUS' | 'GROUPS' | 'CLIENT' | 'SOCIAL' | 'FLYER'>('EVENING');
@@ -181,6 +189,74 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
     saveStoredFlashDeal(flashDeal);
     setFlashSaved(true);
     setTimeout(() => setFlashSaved(false), 3000);
+  };
+
+  // Handle selecting ANY dish from the Restaurant's Menu as Plat du Jour
+  const handleSelectMenuItemAsPlat = (item: MenuItem) => {
+    playSound('pop');
+    const defaultPromoPrice = Math.round(item.price * 0.9 / 50) * 50; // Suggested 10% promo rounded
+    const accompanimentsText = item.includes && item.includes.length > 0
+      ? item.includes.join(', ')
+      : 'Riz jasmin parfumé, bananes plantains alloco, piment vert maison';
+    
+    const texts = generatePlatDuJourMarketingTexts({
+      dishName: item.name,
+      description: item.description,
+      accompaniments: accompanimentsText,
+      price: item.price,
+      promoPrice: defaultPromoPrice,
+      chefQuote: 'Cuisiné frais avec nos épices du Sahel et notre amour de la gastronomie.',
+      date: platDuJour.date,
+      targetDayLabel: platDuJour.targetDayLabel || 'Demain Midi',
+      remainingStock: platDuJour.remainingStock || 30
+    }, selectedPlatStyle);
+
+    const updated: PlatDuJourConfig = {
+      ...platDuJour,
+      dishName: item.name,
+      tagline: item.description || `Spécialité du Chef Khady`,
+      description: item.description,
+      accompaniments: accompanimentsText,
+      price: item.price,
+      promoPrice: defaultPromoPrice,
+      dishImage: item.image,
+      chefQuote: platDuJour.chefQuote || 'Cuisiné ce matin avec passion par Khady.',
+      marketingTextWhatsApp: texts.whatsapp,
+      marketingTextGroups: texts.groups,
+      marketingTextSocial: texts.social,
+      marketingTextEveningTeaser: texts.eveningTeaser,
+      hashtags: texts.hashtags,
+      isActive: true
+    };
+
+    setPlatDuJour(updated);
+    saveStoredPlatDuJour(updated);
+    
+    // Also sync to items if available
+    if (onItemsChange && items) {
+      const updatedItems = items.map(i => i.id === item.id ? { ...i, isPlatDuJour: true } : { ...i, isPlatDuJour: false });
+      onItemsChange(updatedItems);
+    }
+
+    setPlatSaved(true);
+    setTimeout(() => setPlatSaved(false), 2500);
+  };
+
+  // Upload Custom Dish Photo
+  const handleUploadPlatImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const compressed = await compressImage(base64, 800, 0.8);
+        const updated = { ...platDuJour, dishImage: compressed };
+        setPlatDuJour(updated);
+        saveStoredPlatDuJour(updated);
+        playSound('success');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Handle Plat du Jour Presets Selection
@@ -528,24 +604,29 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
           </div>
 
           {/* Sub-view Navigation Tabs inside Plat du Jour */}
-          <div className="flex flex-wrap gap-2.5 p-2 bg-black/40 rounded-2xl border border-white/10 w-fit">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-2 bg-black/60 rounded-2xl border-2 border-brand-gold/30">
             <button
               type="button"
               onClick={() => {
                 playSound('pop');
                 setPlatSubView('POSTER');
               }}
-              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-2.5 px-5 py-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                 platSubView === 'POSTER'
-                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg shadow-brand-orange/30 scale-[1.02]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-xl shadow-brand-orange/40 ring-2 ring-brand-gold scale-[1.01]'
+                  : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Sparkles size={16} />
-              <span>🎨 Studio Créateur d'Affiches HD (Réseaux Sociaux & Veille au Soir)</span>
-              <span className="bg-brand-gold text-brand-brown text-[8px] font-black px-2 py-0.5 rounded-full">
-                PNG 1080p
-              </span>
+              <Sparkles size={18} className={platSubView === 'POSTER' ? 'text-white' : 'text-brand-gold'} />
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span>🎨 1. Studio Créateur d'Affiches</span>
+                  <span className="bg-brand-gold text-brand-brown text-[8px] font-black px-2 py-0.5 rounded-full">
+                    PNG 1080p
+                  </span>
+                </div>
+                <p className="text-[9px] font-normal normal-case text-white/70">Affiches réseaux sociaux & statuts WhatsApp</p>
+              </div>
             </button>
 
             <button
@@ -554,14 +635,22 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                 playSound('pop');
                 setPlatSubView('RECIPE_CHANNELS');
               }}
-              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
+              className={`flex items-center justify-center gap-2.5 px-5 py-4 rounded-xl text-xs font-black uppercase tracking-wider transition-all relative overflow-hidden ${
                 platSubView === 'RECIPE_CHANNELS'
-                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg shadow-brand-orange/30 scale-[1.02]'
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-xl shadow-brand-orange/40 ring-2 ring-brand-gold scale-[1.01]'
+                  : 'bg-white/5 text-white/70 hover:text-white hover:bg-white/10'
               }`}
             >
-              <Utensils size={16} />
-              <span>🍲 Fiche Recette, Prix & Diffusion Textes</span>
+              <Utensils size={18} className={platSubView === 'RECIPE_CHANNELS' ? 'text-white' : 'text-brand-orange'} />
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <span>🍲 2. Fiche Recette & Personnalisation</span>
+                  <span className="bg-emerald-500 text-white text-[8px] font-black px-2 py-0.5 rounded-full">
+                    ✍️ Sur-Mesure
+                  </span>
+                </div>
+                <p className="text-[9px] font-normal normal-case text-white/70">Choisir dans le menu, changer photo, prix & textes</p>
+              </div>
             </button>
           </div>
 
@@ -569,6 +658,11 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
           {platSubView === 'POSTER' && (
             <PlatDuJourPosterStudio
               plat={platDuJour}
+              items={items}
+              onSwitchToRecipeTab={() => {
+                playSound('pop');
+                setPlatSubView('RECIPE_CHANNELS');
+              }}
               onChangePlat={(updated) => {
                 setPlatDuJour(updated);
                 saveStoredPlatDuJour(updated);
@@ -580,70 +674,272 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
           {platSubView === 'RECIPE_CHANNELS' && (
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in">
             
+            {/* Hidden File Input for Dish Photo Upload */}
+            <input 
+              type="file" 
+              ref={platImageInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleUploadPlatImage} 
+            />
+
             {/* Left Column: Preset Catalog & Dish Configuration (5 cols) */}
             <div className="xl:col-span-5 space-y-6">
               
-              {/* 1. Recettes Signature Prêtes en 1 Clic */}
-              <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
+              {/* Source Mode Selector */}
+              <div className="bg-white/5 p-4 rounded-[2rem] border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-                    <Award size={16} className="text-brand-orange" /> 1-Clic : Recettes Signature
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-brand-gold flex items-center gap-1.5">
+                    <Utensils size={14} className="text-brand-orange" /> Source du Plat du Jour
                   </h4>
-                  <span className="text-[8px] font-bold text-white/50 uppercase">6 Suggestions</span>
+                  <span className="text-[8px] font-bold text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
+                    {platSourceMode === 'CARTE' ? `${items.length} Plats au Menu` : platSourceMode === 'CUSTOM' ? 'Sur-Mesure' : '6 Signatures'}
+                  </span>
                 </div>
-                <p className="text-[10px] text-white/60 font-bold">
-                  Cliquez sur un plat pour charger automatiquement sa recette, ses accompagnements et son argumentaire :
-                </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {PLAT_DU_JOUR_PRESETS.map((preset) => {
-                    const isSelected = platDuJour.dishName === preset.name;
-                    return (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => handleSelectPresetPlat(preset)}
-                        className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between gap-2 relative overflow-hidden group ${
-                          isSelected
-                            ? 'bg-brand-gold/20 border-brand-gold text-white shadow-lg'
-                            : 'bg-black/30 border-white/5 text-white/70 hover:bg-white/10 hover:border-white/20'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="text-[8px] font-black uppercase text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded-full border border-brand-orange/20">
-                            {preset.badge}
-                          </span>
-                          <span className="text-[9px] font-mono font-black text-brand-gold">
-                            {preset.promoPrice ? `${preset.promoPrice.toLocaleString('fr-FR')} F` : `${preset.price.toLocaleString('fr-FR')} F`}
-                          </span>
-                        </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { playSound('pop'); setPlatSourceMode('CARTE'); }}
+                    className={`py-2.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-center border ${
+                      platSourceMode === 'CARTE'
+                        ? 'bg-brand-orange text-white border-brand-orange shadow-lg shadow-brand-orange/30'
+                        : 'bg-black/30 text-white/60 border-white/5 hover:bg-white/5'
+                    }`}
+                  >
+                    📜 La Carte
+                  </button>
 
-                        <p className="text-xs font-black text-white leading-tight group-hover:text-brand-gold transition-colors">
-                          {preset.name}
-                        </p>
+                  <button
+                    type="button"
+                    onClick={() => { playSound('pop'); setPlatSourceMode('CUSTOM'); }}
+                    className={`py-2.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-center border ${
+                      platSourceMode === 'CUSTOM'
+                        ? 'bg-brand-orange text-white border-brand-orange shadow-lg shadow-brand-orange/30'
+                        : 'bg-black/30 text-white/60 border-white/5 hover:bg-white/5'
+                    }`}
+                  >
+                    ✍️ Personnalisé
+                  </button>
 
-                        <p className="text-[9px] text-white/50 line-clamp-1">
-                          {preset.tagline}
-                        </p>
-
-                        {isSelected && (
-                          <div className="absolute right-2 bottom-2 text-brand-gold">
-                            <CheckCircle2 size={14} />
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
+                  <button
+                    type="button"
+                    onClick={() => { playSound('pop'); setPlatSourceMode('PRESETS'); }}
+                    className={`py-2.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-center border ${
+                      platSourceMode === 'PRESETS'
+                        ? 'bg-brand-orange text-white border-brand-orange shadow-lg shadow-brand-orange/30'
+                        : 'bg-black/30 text-white/60 border-white/5 hover:bg-white/5'
+                    }`}
+                  >
+                    ⭐ Signatures
+                  </button>
                 </div>
               </div>
 
-              {/* 2. Formulaire Détaillé du Plat du Jour */}
+              {/* MODE 1: CHOISIR DEPUIS LA CARTE DU RESTAURANT */}
+              {platSourceMode === 'CARTE' && (
+                <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                      <ShoppingBag size={16} className="text-brand-orange" /> Sélectionner un Plat de la Carte
+                    </h4>
+                    <span className="text-[8px] font-bold text-white/50">{items.length} Plats Disponibles</span>
+                  </div>
+
+                  {/* Search & Filter */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40" />
+                      <input
+                        type="text"
+                        value={platMenuSearch}
+                        onChange={(e) => setPlatMenuSearch(e.target.value)}
+                        placeholder="Rechercher par nom (Tiep, Yassa, Aloko...)..."
+                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-white/40 focus:outline-none focus:border-brand-gold"
+                      />
+                    </div>
+
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                      {['TOUT', ...Array.from(new Set(items.map(i => i.category)))].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => { playSound('pop'); setPlatCategoryFilter(cat); }}
+                          className={`px-2.5 py-1 rounded-lg text-[8px] font-black uppercase whitespace-nowrap border transition-all ${
+                            platCategoryFilter === cat
+                              ? 'bg-brand-gold text-brand-brown border-brand-gold'
+                              : 'bg-black/30 text-white/50 border-white/5 hover:text-white'
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dishes Grid */}
+                  <div className="max-h-[360px] overflow-y-auto pr-1 space-y-2 no-scrollbar">
+                    {items
+                      .filter((item) => {
+                        const matchCat = platCategoryFilter === 'TOUT' || item.category === platCategoryFilter;
+                        const matchSearch = !platMenuSearch || item.name.toLowerCase().includes(platMenuSearch.toLowerCase()) || item.description.toLowerCase().includes(platMenuSearch.toLowerCase());
+                        return matchCat && matchSearch;
+                      })
+                      .map((item) => {
+                        const isSelected = platDuJour.dishName.toLowerCase().trim() === item.name.toLowerCase().trim();
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleSelectMenuItemAsPlat(item)}
+                            className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer group ${
+                              isSelected
+                                ? 'bg-brand-gold/20 border-brand-gold shadow-lg ring-1 ring-brand-gold'
+                                : 'bg-black/30 border-white/5 hover:bg-white/10 hover:border-white/20'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="w-12 h-12 rounded-xl object-cover shrink-0 border border-white/10"
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[7px] font-black uppercase text-brand-orange bg-brand-orange/10 px-1.5 py-0.5 rounded border border-brand-orange/20">
+                                    {item.category}
+                                  </span>
+                                  {item.isSpécialitéMaison && (
+                                    <span className="text-[7px] font-black uppercase text-brand-gold">⭐ Star</span>
+                                  )}
+                                </div>
+                                <h5 className="text-xs font-black text-white truncate group-hover:text-brand-gold transition-colors">
+                                  {item.name}
+                                </h5>
+                                <p className="text-[9px] text-white/50 truncate">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <span className="text-xs font-mono font-black text-brand-gold block">
+                                {item.price.toLocaleString('fr-FR')} F
+                              </span>
+                              {isSelected ? (
+                                <span className="text-[8px] font-black text-emerald-400 flex items-center gap-1 justify-end">
+                                  <CheckCircle2 size={10} /> Sélectionné
+                                </span>
+                              ) : (
+                                <span className="text-[8px] font-bold text-white/40 group-hover:text-white">
+                                  Choisir ➔
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* MODE 2: RECETTES SIGNATURE PRESET (6 Suggestions) */}
+              {platSourceMode === 'PRESETS' && (
+                <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                      <Award size={16} className="text-brand-orange" /> 1-Clic : Recettes Signature
+                    </h4>
+                    <span className="text-[8px] font-bold text-white/50 uppercase">6 Suggestions</span>
+                  </div>
+                  <p className="text-[10px] text-white/60 font-bold">
+                    Cliquez sur un plat pour charger automatiquement sa recette, ses accompagnements et son argumentaire :
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {PLAT_DU_JOUR_PRESETS.map((preset) => {
+                      const isSelected = platDuJour.dishName === preset.name;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => handleSelectPresetPlat(preset)}
+                          className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between gap-2 relative overflow-hidden group ${
+                            isSelected
+                              ? 'bg-brand-gold/20 border-brand-gold text-white shadow-lg'
+                              : 'bg-black/30 border-white/5 text-white/70 hover:bg-white/10 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-[8px] font-black uppercase text-brand-orange bg-brand-orange/10 px-2 py-0.5 rounded-full border border-brand-orange/20">
+                              {preset.badge}
+                            </span>
+                            <span className="text-[9px] font-mono font-black text-brand-gold">
+                              {preset.promoPrice ? `${preset.promoPrice.toLocaleString('fr-FR')} F` : `${preset.price.toLocaleString('fr-FR')} F`}
+                            </span>
+                          </div>
+
+                          <p className="text-xs font-black text-white leading-tight group-hover:text-brand-gold transition-colors">
+                            {preset.name}
+                          </p>
+
+                          <p className="text-[9px] text-white/50 line-clamp-1">
+                            {preset.tagline}
+                          </p>
+
+                          {isSelected && (
+                            <div className="absolute right-2 bottom-2 text-brand-gold">
+                              <CheckCircle2 size={14} />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* FORMULAIRE DE PERSONNALISATION / CRÉATION SUR-MESURE */}
               <div className="bg-white/5 p-6 sm:p-7 rounded-[2.5rem] border border-white/10 space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-                  <Edit3 size={16} className="text-brand-orange" /> Personnalisation du Plat du Jour
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                    <Edit3 size={16} className="text-brand-orange" /> Paramètres du Plat du Jour
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => platImageInputRef.current?.click()}
+                    className="bg-brand-gold/20 hover:bg-brand-gold/30 text-brand-gold text-[8px] font-black uppercase px-2.5 py-1.5 rounded-xl border border-brand-gold/30 flex items-center gap-1.5"
+                  >
+                    <Camera size={12} /> Changer Photo
+                  </button>
+                </div>
 
                 <div className="space-y-3.5">
+                  {/* Target Day and Timing Selector */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-white/60">Jour Cible (Ex: Demain Samedi)</label>
+                      <input
+                        type="text"
+                        value={platDuJour.targetDayLabel || ''}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, targetDayLabel: e.target.value })}
+                        placeholder="Ex: Demain Samedi"
+                        className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-brand-gold font-black focus:outline-none focus:border-brand-gold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase text-white/60">Moment de Diffusion</label>
+                      <select
+                        value={platDuJour.publicationTiming || 'TONIGHT_FOR_TOMORROW'}
+                        onChange={(e) => setPlatDuJour({ ...platDuJour, publicationTiming: e.target.value as any })}
+                        className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-brand-gold"
+                      >
+                        <option value="TONIGHT_FOR_TOMORROW" className="bg-[#1A0A06] text-white">🌙 Veille au Soir (Précommandes)</option>
+                        <option value="SAME_DAY_MORNING" className="bg-[#1A0A06] text-white">☀️ Le Matin Même (Midi)</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="space-y-1">
                     <label className="text-[9px] font-black uppercase text-white/60">Nom du Plat du Jour *</label>
                     <input
@@ -750,7 +1046,16 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-white/60">Photo du Plat (URL)</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black uppercase text-white/60">Photo du Plat (URL ou Fichier)</label>
+                      <button
+                        type="button"
+                        onClick={() => platImageInputRef.current?.click()}
+                        className="text-[8px] font-black text-brand-gold uppercase flex items-center gap-1 hover:underline"
+                      >
+                        <Camera size={10} /> Importer depuis l'appareil
+                      </button>
+                    </div>
                     <input
                       type="text"
                       value={platDuJour.dishImage}
@@ -760,6 +1065,16 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                     />
                   </div>
                 </div>
+
+                {/* Instant Save & Publish Button */}
+                <button
+                  type="button"
+                  onClick={() => handleSavePlat()}
+                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-wider shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95 transition-all mt-4"
+                >
+                  {platSaved ? <CheckCircle2 size={18} className="text-white" /> : <Save size={18} />}
+                  <span>{platSaved ? 'Plat du Jour Enregistré & Synchronisé !' : 'Enregistrer & Activer sur l\'App'}</span>
+                </button>
               </div>
             </div>
 

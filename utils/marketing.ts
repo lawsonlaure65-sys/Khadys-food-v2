@@ -540,6 +540,9 @@ export const getStoredPlatDuJour = (): PlatDuJourConfig => {
 export const saveStoredPlatDuJour = (plat: PlatDuJourConfig): void => {
   try {
     localStorage.setItem('khadys_plat_du_jour', JSON.stringify(plat));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: plat }));
+    }
   } catch (e) {}
 };
 

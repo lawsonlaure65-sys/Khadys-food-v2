@@ -4,7 +4,7 @@ import {
   Image as ImageIcon, Check, Copy, RefreshCw, Eye, Flame, 
   ChefHat, Award, Clock, Gift, ShoppingBag, ShieldCheck, 
   MessageSquare, Globe, ArrowRight, Palette, Layers, CheckCircle2,
-  Music, Facebook, Instagram, AlertCircle, Send, Info
+  Music, Facebook, Instagram, AlertCircle, Send, Info, Edit3
 } from 'lucide-react';
 import { 
   PlatDuJourConfig, PosterTheme, PosterFormat, PublicationTiming, 
@@ -12,17 +12,23 @@ import {
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
 import { playSound } from '../utils/audio';
+import { MenuItem } from '../types';
 
 interface PlatDuJourPosterStudioProps {
   plat: PlatDuJourConfig;
+  items?: MenuItem[];
+  onSwitchToRecipeTab?: () => void;
   onChangePlat: (updated: PlatDuJourConfig) => void;
 }
 
 export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
   plat,
+  items,
+  onSwitchToRecipeTab,
   onChangePlat
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isGeneratingCanvas, setIsGeneratingCanvas] = useState(false);
   const [copiedTeaser, setCopiedTeaser] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState(false);
@@ -628,6 +634,49 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
         {/* Left Column: Creative Controls & Publication Timing (5 cols) */}
         <div className="xl:col-span-5 space-y-6">
           
+          {/* Active Dish Quick-Card with Direct Switch to 100% Custom Edition */}
+          <div className="bg-gradient-to-r from-brand-orange/20 via-brand-gold/15 to-transparent p-5 rounded-[2rem] border-2 border-brand-gold/40 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] font-black uppercase tracking-wider text-brand-gold flex items-center gap-1.5">
+                <ChefHat size={14} className="text-brand-orange" /> Plat Actif sur l'Affiche
+              </span>
+              <span className="text-[9px] font-mono font-black text-white bg-brand-orange/40 px-2 py-0.5 rounded-full border border-brand-orange/40">
+                {(plat.promoPrice || plat.price || 4500).toLocaleString('fr-FR')} F CFA
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <img
+                src={plat.dishImage || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80'}
+                alt={plat.dishName}
+                className="w-14 h-14 rounded-2xl object-cover border-2 border-brand-gold/40 shrink-0 shadow-md"
+              />
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-black text-white truncate">
+                  {plat.dishName}
+                </h4>
+                <p className="text-[10px] text-white/60 line-clamp-1">
+                  {plat.tagline || plat.description}
+                </p>
+                <p className="text-[9px] font-bold text-brand-gold mt-0.5">
+                  📅 {plat.targetDayLabel || 'Demain Midi'}
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Button to 100% Custom Edition Form */}
+            {onSwitchToRecipeTab && (
+              <button
+                type="button"
+                onClick={onSwitchToRecipeTab}
+                className="w-full bg-brand-gold hover:bg-amber-400 text-brand-brown py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+              >
+                <Edit3 size={13} />
+                <span>✍️ Modifier la Recette, Photo, Prix & Ingrédients ➔</span>
+              </button>
+            )}
+          </div>
+
           {/* 1. Publication Timing Selector (Veille au Soir vs Aujourd'hui) */}
           <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
             <div className="flex items-center justify-between">
