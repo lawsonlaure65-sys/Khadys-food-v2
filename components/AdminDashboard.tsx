@@ -18,10 +18,24 @@ import { KhadyLogo } from './KhadyLogo';
 import { playSound } from '../utils/audio';
 import { GoogleGenAI } from "@google/genai";
 import { DISTRICTS, BILLO_INFO, MENU_ITEMS } from '../constants';
-import { db, isSupabaseConfigured } from '../lib/supabase';
+import { 
+  db, 
+  isSupabaseConfigured,
+  getSupabaseConfig, 
+  getSupabaseClient, 
+  setCustomSupabaseCredentials, 
+  testSupabaseConnection 
+} from '../lib/supabase';
 import { compressImage } from '../utils/imageCompressor';
 import { AdminMarketingCenter } from './AdminMarketingCenter';
-import { getStoredPlatDuJour, saveStoredPlatDuJour, PlatDuJourConfig } from '../utils/marketing';
+import { 
+  getStoredPlatDuJour, 
+  saveStoredPlatDuJour, 
+  PlatDuJourConfig,
+  getStoredPromoCodes,
+  getStoredBanner,
+  getStoredFlashDeal
+} from '../utils/marketing';
 
 interface AdminDashboardProps {
   items: MenuItem[];
@@ -98,6 +112,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [adminAvatar, setAdminAvatar] = useState(() => localStorage.getItem('khadys_admin_avatar') || '');
   const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
 
+  // Supabase Cloud Modal & Sync State
+  const [showCloudModal, setShowCloudModal] = useState(false);
+  const [cloudConfig, setCloudConfig] = useState(() => getSupabaseConfig());
+  const [inputUrl, setInputUrl] = useState(() => getSupabaseConfig().url);
+  const [inputKey, setInputKey] = useState(() => getSupabaseConfig().key);
+  const [isTestingCloud, setIsTestingCloud] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isMasterSyncing, setIsMasterSyncing] = useState(false);
+  const [masterSyncResult, setMasterSyncResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
+  const [activeCloudTab, setActiveCloudTab] = useState<'sync' | 'credentials' | 'sql' | 'vercel'>('sync');
+
+  // Synchronisation avatar et config Supabase en temps réel
+  React.useEffect(() => {
+    const handleAvatarUpdated = (e: any) => {
+      if (e?.detail) setAdminAvatar(e.detail);
+    };
+    const handleConfigChanged = () => {
+      const cfg = getSupabaseConfig();
+      setCloudConfig(cfg);
+      setInputUrl(cfg.url);
+      setInputKey(cfg.key);
+    };
+    window.addEventListener('khadys_admin_avatar_updated', handleAvatarUpdated);
+    window.addEventListener('khadys_supabase_config_changed', handleConfigChanged);
+    return () => {
+      window.removeEventListener('khadys_admin_avatar_updated', handleAvatarUpdated);
+      window.removeEventListener('khadys_supabase_config_changed', handleConfigChanged);
+    };
+  }, []);
+
   // Listen to real-time Plat du Jour updates across admin and app
   React.useEffect(() => {
     const handlePlatChange = (e: any) => {
@@ -120,6 +165,37 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const updated = { ...platDuJour, isActive: !platDuJour.isActive };
     setPlatDuJour(updated);
     saveStoredPlatDuJour(updated);
+  };
+
+  const handleExecuteMasterSync = async () => {
+    setIsMasterSyncing(true);
+    setMasterSyncResult(null);
+    playSound('pop');
+    try {
+      const res = await db.syncEverythingToCloud({
+        menuItems: items,
+        platDuJour: platDuJour,
+        adminAvatar: adminAvatar,
+        promoCodes: getStoredPromoCodes(),
+        announcementBanner: getStoredBanner(),
+        flashDeal: getStoredFlashDeal(),
+        customWhatsApp: localStorage.getItem('khadys_custom_whatsapp') || ''
+      });
+      setMasterSyncResult(res);
+      if (res.success) {
+        playSound('success');
+      } else {
+        playSound('error');
+      }
+    } catch (e: any) {
+      setMasterSyncResult({
+        success: false,
+        message: `Erreur inattendue : ${e.message || e}`
+      });
+      playSound('error');
+    } finally {
+      setIsMasterSyncing(false);
+    }
   };
 
   // Dynamic monthly sales data calculation based on validated orders
@@ -178,6 +254,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         setAdminAvatar(compressed);
         try {
           localStorage.setItem('khadys_admin_avatar', compressed);
+          window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: compressed }));
+          // Enregistrement Cloud immédiat
+          db.saveAdminAvatar(compressed).catch(() => {});
         } catch (e) {}
         playSound('success');
       };
@@ -621,22 +700,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                  <button 
                    type="button"
-                   onClick={async () => {
-                     if (!isSupabaseConfigured) {
-                       alert("⚠️ Supabase n'est pas encore configuré avec les clés d'environnement.");
-                       return;
-                     }
+                   onClick={() => {
                      playSound('pop');
-                     const res = await db.syncAllMenuItems(items);
-                     if (res.success) {
-                       playSound('success');
-                       alert(`✅ Félicitations ! ${res.count} plats ont été synchronisés sur Supabase. Tous vos clients recevront ces plats automatiquement !`);
-                     } else {
-                       alert(`❌ Erreur d'envoi vers Supabase : ${res.error}\n\nAssurez-vous d'avoir exécuté le script SQL mis à jour dans Supabase (politiques RLS autorisées).`);
+                     setShowCloudModal(true);
+                     if (cloudConfig.isValid) {
+                       handleExecuteMasterSync();
                      }
                    }}
-                   className="bg-emerald-600/80 hover:bg-emerald-600 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-emerald-400/30 shadow-md"
-                   title="Envoyer tous les plats vers Supabase pour que tous les clients les voient"
+                   className="bg-emerald-600/90 hover:bg-emerald-600 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-emerald-400/30 shadow-md active:scale-95"
+                   title="Envoyer tous les plats, plat du jour et profil admin vers Supabase"
                  >
                    <Database size={14} /> Pousser vers Cloud ({items.length})
                  </button>
@@ -1042,6 +1114,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
            </div>
            
            <div className="flex items-center gap-2 md:gap-3">
+              {/* Bouton Cloud Supabase */}
+              <button 
+                type="button"
+                onClick={() => { playSound('pop'); setShowCloudModal(true); }}
+                className={`px-3 md:px-4 py-2 md:py-2.5 rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0 border ${
+                  cloudConfig.isValid 
+                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                    : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
+                }`}
+                title="Gérer la synchronisation Supabase Cloud"
+              >
+                <Database size={14} className={cloudConfig.isValid ? 'text-emerald-400' : 'text-amber-400'} />
+                <span className="hidden sm:inline">
+                  {cloudConfig.isValid ? 'Cloud Connecté' : 'Configurer Cloud'}
+                </span>
+                <span className="sm:hidden">Cloud</span>
+                <span className={`w-2 h-2 rounded-full ${cloudConfig.isValid ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400 animate-ping'}`} />
+              </button>
+
               <button 
                 onClick={onExit}
                 className="px-3 md:px-4 py-2 md:py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0"
@@ -1052,7 +1143,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <div 
                 onClick={() => adminPhotoInputRef.current?.click()}
                 className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-2xl hover:border-brand-orange transition-all flex-shrink-0"
-                title="Changer la photo de profil Admin"
+                title="Changer la photo de profil Admin (Synchronisée sur le Cloud)"
               >
                  {adminAvatar ? <img src={adminAvatar} className="w-full h-full object-cover" alt="Admin Avatar" /> : <Camera className="text-brand-gold opacity-20" size={20} />}
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
@@ -1403,6 +1494,444 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <Trash2 size={16} /> Supprimer
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL CLOUD SUPABASE : SYNCHRONISATION TOTALE & GESTION DES CLÉS          */}
+      {/* ========================================================================= */}
+      {showCloudModal && (
+        <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+          <div className="bg-[#1C0F0D] border-2 border-brand-gold/40 w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto no-scrollbar text-white">
+            
+            {/* Bouton Fermer */}
+            <button 
+              onClick={() => { playSound('pop'); setShowCloudModal(false); }}
+              className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all"
+              title="Fermer"
+            >
+              <X size={20} />
+            </button>
+
+            {/* En-tête Modal */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-brand-gold/10 text-brand-gold rounded-2xl border border-brand-gold/30">
+                <Database size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold tracking-tight">
+                  Centre Cloud Supabase
+                </h3>
+                <p className="text-[10px] text-white/50">
+                  Synchronisation temps réel : Plats, Plat du Jour, Photo Admin & Paramètres
+                </p>
+              </div>
+            </div>
+
+            {/* Badge État de Connexion */}
+            <div className={`p-4 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              cloudConfig.isValid 
+                ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300' 
+                : 'bg-amber-950/40 border-amber-500/40 text-amber-300'
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <span className={`w-3 h-3 rounded-full shrink-0 ${
+                  cloudConfig.isValid ? 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]' : 'bg-amber-400 animate-ping'
+                }`} />
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider">
+                    {cloudConfig.isValid ? 'Supabase Connecté & Prêt' : 'Supabase Non Configuré'}
+                  </div>
+                  <div className="text-[9px] text-white/50 font-mono truncate max-w-xs">
+                    {cloudConfig.url || 'Aucune URL Supabase renseignée'}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] font-black uppercase px-2.5 py-1 rounded-full bg-white/10 border border-white/15">
+                  {cloudConfig.isCustom ? 'Clés Directes App' : 'Clés Environnement (.env)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Onglets de Navigation */}
+            <div className="flex bg-black/40 p-1.5 rounded-2xl border border-white/10 gap-1 mb-6 overflow-x-auto no-scrollbar">
+              <button
+                onClick={() => { playSound('pop'); setActiveCloudTab('sync'); }}
+                className={`flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  activeCloudTab === 'sync' ? 'bg-brand-orange text-white shadow-lg' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <Zap size={12} /> Sync Totale
+              </button>
+              <button
+                onClick={() => { playSound('pop'); setActiveCloudTab('credentials'); }}
+                className={`flex-1 min-w-[110px] py-2.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  activeCloudTab === 'credentials' ? 'bg-brand-orange text-white shadow-lg' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <Settings size={12} /> Clés & Connexion
+              </button>
+              <button
+                onClick={() => { playSound('pop'); setActiveCloudTab('sql'); }}
+                className={`flex-1 min-w-[100px] py-2.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  activeCloudTab === 'sql' ? 'bg-brand-orange text-white shadow-lg' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <BookOpen size={12} /> Script SQL
+              </button>
+              <button
+                onClick={() => { playSound('pop'); setActiveCloudTab('vercel'); }}
+                className={`flex-1 min-w-[100px] py-2.5 px-3 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  activeCloudTab === 'vercel' ? 'bg-brand-orange text-white shadow-lg' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                <Smartphone size={12} /> Guide PWA
+              </button>
+            </div>
+
+            {/* TAB 1: SYNCHRONISATION TOTALE */}
+            {activeCloudTab === 'sync' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3">
+                  <h4 className="text-xs font-black italic uppercase text-brand-gold flex items-center gap-2">
+                    <Sparkles size={14} /> Pousser l'ensemble des données vers le Cloud
+                  </h4>
+                  <p className="text-[11px] text-white/70 leading-relaxed">
+                    Cliquez sur le bouton ci-dessous pour envoyer simultanément toutes les données actuelles vers Supabase. Tous vos clients et appareils installés (PWA) recevront ces données instantanément :
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] pt-1">
+                    <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span>{items.length} Plats & Spécialités</span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span>Plat du Jour : {platDuJour.dishName}</span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span>Photo Profil Admin ({adminAvatar ? 'Personnalisée' : 'Défaut'})</span>
+                    </div>
+                    <div className="bg-black/30 p-2.5 rounded-xl border border-white/5 flex items-center gap-2">
+                      <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                      <span>Bannières & Codes Promos</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3">
+                    <button
+                      type="button"
+                      disabled={isMasterSyncing}
+                      onClick={handleExecuteMasterSync}
+                      className={`w-full py-4 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-all active:scale-95 ${
+                        isMasterSyncing 
+                          ? 'bg-brand-orange/50 text-white cursor-wait' 
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/40'
+                      }`}
+                    >
+                      {isMasterSyncing ? (
+                        <>
+                          <RefreshCw size={16} className="animate-spin" />
+                          Synchronisation en cours vers Supabase...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={16} />
+                          ⚡ Synchroniser Tout vers Supabase
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {masterSyncResult && (
+                    <div className={`p-4 rounded-xl text-xs font-medium border animate-fade-in ${
+                      masterSyncResult.success 
+                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
+                        : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
+                    }`}>
+                      <div className="font-bold flex items-center gap-2">
+                        {masterSyncResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
+                        <span>{masterSyncResult.success ? 'Succès de la synchronisation !' : 'Erreur de synchronisation'}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] opacity-90">{masterSyncResult.message}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center bg-black/30 p-4 rounded-2xl border border-white/5">
+                  <div className="text-[10px] text-white/60">
+                    Besoin de récupérer les données déjà enregistrées sur le Cloud ?
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      playSound('pop');
+                      const cloudMenu = await db.fetchMenu();
+                      if (cloudMenu && cloudMenu.length > 0) {
+                        setItems(cloudMenu);
+                        playSound('success');
+                        alert(`✅ ${cloudMenu.length} plats rechargés depuis Supabase !`);
+                      } else {
+                        alert("⚠️ Aucun plat trouvé sur le Cloud Supabase.");
+                      }
+                    }}
+                    className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 border border-white/10"
+                  >
+                    <RefreshCw size={12} /> Recharger Plats Cloud
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: CLÉS & CONNEXION DIRECTE */}
+            {activeCloudTab === 'credentials' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black italic uppercase text-brand-gold">
+                      Configuration des Clés Supabase
+                    </h4>
+                    <span className="text-[9px] text-white/40">Connexion instantanée sans redéploiement</span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
+                      URL du Projet Supabase (Project URL)
+                    </label>
+                    <input 
+                      type="url"
+                      value={inputUrl}
+                      onChange={e => setInputUrl(e.target.value)}
+                      placeholder="https://votre-projet.supabase.co"
+                      className="w-full p-3.5 bg-black/40 border border-white/15 rounded-xl text-white text-xs font-mono focus:border-brand-gold outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
+                      Clé Publique Anon (API Key / anon public)
+                    </label>
+                    <textarea 
+                      rows={2}
+                      value={inputKey}
+                      onChange={e => setInputKey(e.target.value)}
+                      placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      className="w-full p-3.5 bg-black/40 border border-white/15 rounded-xl text-white text-xs font-mono focus:border-brand-gold outline-none resize-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={isTestingCloud || !inputUrl || !inputKey}
+                      onClick={async () => {
+                        setIsTestingCloud(true);
+                        setTestResult(null);
+                        playSound('pop');
+                        const res = await testSupabaseConnection(inputUrl, inputKey);
+                        setIsTestingCloud(false);
+                        setTestResult(res);
+                        if (res.success) playSound('success');
+                        else playSound('error');
+                      }}
+                      className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 border border-white/15 transition-all"
+                    >
+                      {isTestingCloud ? (
+                        <>
+                          <RefreshCw size={14} className="animate-spin" />
+                          Test en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={14} /> Tester la Connexion
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={!inputUrl || !inputKey}
+                      onClick={() => {
+                        setCustomSupabaseCredentials(inputUrl.trim(), inputKey.trim());
+                        setCloudConfig(getSupabaseConfig());
+                        playSound('success');
+                        alert("✅ Clés Supabase enregistrées avec succès ! L'application est maintenant connectée à votre base Supabase.");
+                      }}
+                      className="flex-1 py-3 bg-brand-gold hover:bg-amber-400 text-brand-brown rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg transition-all active:scale-95"
+                    >
+                      <Save size={14} /> Enregistrer ces Clés
+                    </button>
+                  </div>
+
+                  {cloudConfig.isCustom && (
+                    <div className="pt-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCustomSupabaseCredentials('', '');
+                          setCloudConfig(getSupabaseConfig());
+                          setInputUrl(getSupabaseConfig().url);
+                          setInputKey(getSupabaseConfig().key);
+                          playSound('pop');
+                        }}
+                        className="text-[9px] text-rose-400/80 hover:text-rose-300 underline font-semibold"
+                      >
+                        Effacer les clés manuelles et réutiliser les variables .env
+                      </button>
+                    </div>
+                  )}
+
+                  {testResult && (
+                    <div className={`p-4 rounded-xl text-xs border animate-fade-in ${
+                      testResult.success 
+                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
+                        : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
+                    }`}>
+                      <div className="font-bold flex items-center gap-2">
+                        {testResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
+                        <span>{testResult.success ? 'Connexion réussie !' : 'Échec de connexion'}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] leading-relaxed whitespace-pre-line">{testResult.message}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: SCRIPT SQL SUPABASE */}
+            {activeCloudTab === 'sql' && (
+              <div className="space-y-4 animate-fade-in">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black italic uppercase text-brand-gold">
+                      Script SQL d'initialisation (Tables & RLS)
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const sql = `-- KHADY'S FOOD - SCRIPT SQL OFFICIEL SUPABASE
+CREATE TABLE IF NOT EXISTS menu_items (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC NOT NULL,
+    image TEXT,
+    category TEXT NOT NULL,
+    rating NUMERIC DEFAULT 5,
+    is_available BOOLEAN DEFAULT true,
+    is_spicy BOOLEAN DEFAULT false,
+    is_specialite_maison BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY,
+    customer_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    items JSONB NOT NULL,
+    total NUMERIC NOT NULL,
+    delivery_fee NUMERIC NOT NULL DEFAULT 0,
+    status TEXT DEFAULT 'RECEIVED',
+    payment_method TEXT NOT NULL,
+    district TEXT,
+    address TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Full Access menu_items" ON menu_items;
+CREATE POLICY "Public Full Access menu_items" ON menu_items FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Full Access orders" ON orders;
+CREATE POLICY "Public Full Access orders" ON orders FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Full Access app_settings" ON app_settings;
+CREATE POLICY "Public Full Access app_settings" ON app_settings FOR ALL USING (true) WITH CHECK (true);
+
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime FOR TABLE menu_items, orders, app_settings;
+COMMIT;`;
+                        navigator.clipboard.writeText(sql);
+                        setSqlCopied(true);
+                        playSound('success');
+                        setTimeout(() => setSqlCopied(false), 3000);
+                      }}
+                      className="px-3 py-1.5 bg-brand-gold hover:bg-amber-400 text-brand-brown rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 transition-all shadow-md"
+                    >
+                      {sqlCopied ? <CheckCircle2 size={12} /> : <Save size={12} />}
+                      {sqlCopied ? 'Copié !' : 'Copier le Script SQL'}
+                    </button>
+                  </div>
+
+                  <p className="text-[10px] text-white/60">
+                    Étapes : 1. Ouvrez votre console Supabase → 2. Allez dans <b>SQL Editor</b> → 3. Collez ce script et cliquez sur <b>RUN</b>.
+                  </p>
+
+                  <div className="bg-black/60 p-4 rounded-xl border border-white/10 font-mono text-[10px] text-emerald-400/90 max-h-48 overflow-y-auto no-scrollbar">
+                    <pre className="whitespace-pre-wrap">{`-- KHADY'S FOOD - TABLES & PERMISSIONS
+CREATE TABLE IF NOT EXISTS menu_items (id TEXT PRIMARY KEY, name TEXT NOT NULL, price NUMERIC, ...);
+CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, customer_name TEXT, total NUMERIC, ...);
+CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value JSONB NOT NULL, updated_at TIMESTAMP);
+
+-- Activer les permissions publiques et Realtime
+ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
+-- Politiques & publication temps réel configurées !`}</pre>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: GUIDE VERCEL & PWA */}
+            {activeCloudTab === 'vercel' && (
+              <div className="space-y-4 animate-fade-in text-[11px] text-white/80">
+                <div className="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-3">
+                  <h4 className="text-xs font-black italic uppercase text-brand-gold">
+                    Pourquoi une application déjà installée ou Vercel ne voyait pas les clés ?
+                  </h4>
+                  <ul className="space-y-2.5 text-white/70">
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-orange font-black">1.</span>
+                      <span><b>Vercel compile les variables au moment du build :</b> Si vous ajoutez des variables dans Vercel, elles ne prennent effet qu'après un <b>Redeploy sans cache</b> dans Vercel.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-orange font-black">2.</span>
+                      <span><b>PWA & Téléphone autonome :</b> Grâce à notre nouveau panneau <b>Clés & Connexion</b>, vous pouvez coller directement l'URL et la clé Supabase sur n'importe quel téléphone installé : l'application sera connectée sans avoir à redéployer !</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-brand-orange font-black">3.</span>
+                      <span><b>Synchronisation Totale :</b> Une fois connecté, appuyez sur <b>⚡ Synchroniser Tout vers Supabase</b>. Les plats, le plat du jour et la photo admin seront visibles instantanément sur tous les écrans.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Bouton Fermer Bas */}
+            <div className="pt-4 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { playSound('pop'); setShowCloudModal(false); }}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-wider"
+              >
+                Fermer
+              </button>
+            </div>
+
           </div>
         </div>
       )}

@@ -30,7 +30,7 @@ import FlashOffer from './components/FlashOffer';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000, RESTAURANT_INFO } from './constants';
 import { playSound } from './utils/audio';
-import { db, isSupabaseConfigured, supabase } from './lib/supabase';
+import { db, isSupabaseConfigured, getSupabaseClient, getSupabaseConfig } from './lib/supabase';
 import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, Mic, WifiOff, Database } from 'lucide-react';
 import { 
   saveMenuToIDB, 
@@ -195,17 +195,19 @@ const App: React.FC = () => {
       };
     }
 
-    // Synchronisation IndexedDB & LocalStorage au démarrage
-    const initOfflineStorage = async () => {
+    // Synchronisation IndexedDB, LocalStorage & Cloud Supabase au démarrage
+    const initStorageAndCloudSync = async () => {
       // 1. Charger le panier sauvegardé en local dans IndexedDB
       const cachedCart = await getCartFromIDB();
       if (cachedCart && cachedCart.length > 0) {
         setCart(cachedCart);
       }
 
-      // 2. Synchronisation robuste du Menu (Cloud Supabase > IndexedDB > LocalStorage > MENU_ITEMS)
+      // 2. Synchronisation globale Cloud (Menu, Plat du Jour, Photo Admin, Bannières)
       try {
-        if (isSupabaseConfigured) {
+        const config = getSupabaseConfig();
+        if (config.isValid) {
+          // A. Synchronisation du Menu Cloud
           try {
             const cloudMenu = await db.fetchMenu();
             if (cloudMenu && cloudMenu.length > 0) {
@@ -214,13 +216,43 @@ const App: React.FC = () => {
                 localStorage.setItem('khadys_menu_items', JSON.stringify(cloudMenu));
               } catch (e) {}
               await saveMenuToIDB(cloudMenu);
-              return;
             }
           } catch (e) {
             console.warn('Erreur fetch cloud menu:', e);
           }
+
+          // B. Synchronisation du Plat du Jour Cloud
+          try {
+            const cloudPlat = await db.fetchPlatDuJour();
+            if (cloudPlat && cloudPlat.dishName) {
+              localStorage.setItem('khadys_plat_du_jour', JSON.stringify(cloudPlat));
+              window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: cloudPlat }));
+            }
+          } catch (e) {}
+
+          // C. Synchronisation de la Photo de Profil Admin Cloud
+          try {
+            const cloudAvatar = await db.fetchAdminAvatar();
+            if (cloudAvatar) {
+              localStorage.setItem('khadys_admin_avatar', cloudAvatar);
+              window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: cloudAvatar }));
+            }
+          } catch (e) {}
+
+          // D. Synchronisation des Paramètres Marketing (Bannière, Flash Deal, Codes Promo)
+          try {
+            const cloudBanner = await db.fetchSetting('announcement_banner');
+            if (cloudBanner) localStorage.setItem('khadys_announcement_banner', JSON.stringify(cloudBanner));
+
+            const cloudFlash = await db.fetchSetting('flash_deal');
+            if (cloudFlash) localStorage.setItem('khadys_flash_deal', JSON.stringify(cloudFlash));
+
+            const cloudPromos = await db.fetchSetting('promo_codes');
+            if (cloudPromos) localStorage.setItem('khadys_promo_codes', JSON.stringify(cloudPromos));
+          } catch (e) {}
         }
 
+        // Fallback local pour le menu si non chargé depuis le Cloud
         const cachedMenuIDB = await getMenuFromIDB();
         const localMenuRaw = localStorage.getItem('khadys_menu_items');
         let localMenuParsed: MenuItem[] = [];
@@ -239,7 +271,7 @@ const App: React.FC = () => {
           baseItems = MENU_ITEMS;
         }
 
-        // Merge any new official dishes (Couscous Royal, Suya de Didi, etc.)
+        // Fusion des nouveaux plats officiels
         const existingIds = new Set(baseItems.map(b => b.id));
         const missingOfficial = MENU_ITEMS.filter(m => !existingIds.has(m.id));
         const finalMerged = missingOfficial.length > 0 ? [...baseItems, ...missingOfficial] : baseItems;
@@ -254,13 +286,18 @@ const App: React.FC = () => {
       }
     };
 
-    initOfflineStorage();
+    initStorageAndCloudSync();
 
-    // 3. Écouteur Temps Réel Supabase (Realtime Channel)
-    let realtimeChannel: any = null;
-    if (isSupabaseConfigured && supabase) {
+    // 3. Écouteur Temps Réel Supabase (Menu, App Settings, Commandes)
+    let realtimeMenuChannel: any = null;
+    let realtimeSettingsChannel: any = null;
+
+    const setupRealtime = () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+
       try {
-        realtimeChannel = supabase
+        realtimeMenuChannel = client
           .channel('public_menu_sync')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, async () => {
             const updated = await db.fetchMenu();
@@ -273,17 +310,48 @@ const App: React.FC = () => {
             }
           })
           .subscribe();
+
+        realtimeSettingsChannel = client
+          .channel('public_settings_sync')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, (payload: any) => {
+            if (payload?.new) {
+              const { key, value } = payload.new;
+              if (key === 'plat_du_jour' && value) {
+                localStorage.setItem('khadys_plat_du_jour', JSON.stringify(value));
+                window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: value }));
+              } else if (key === 'admin_avatar' && value) {
+                localStorage.setItem('khadys_admin_avatar', value);
+                window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: value }));
+              } else if (key === 'announcement_banner' && value) {
+                localStorage.setItem('khadys_announcement_banner', JSON.stringify(value));
+              } else if (key === 'flash_deal' && value) {
+                localStorage.setItem('khadys_flash_deal', JSON.stringify(value));
+              } else if (key === 'promo_codes' && value) {
+                localStorage.setItem('khadys_promo_codes', JSON.stringify(value));
+              }
+            }
+          })
+          .subscribe();
       } catch (e) {
-        console.warn('Realtime channel error:', e);
+        console.warn('Realtime subscription error:', e);
       }
-    }
+    };
+
+    setupRealtime();
+
+    const handleConfigChange = () => {
+      initStorageAndCloudSync();
+      setupRealtime();
+    };
+
+    window.addEventListener('khadys_supabase_config_changed', handleConfigChange);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if (realtimeChannel) {
-        realtimeChannel.unsubscribe?.();
-      }
+      window.removeEventListener('khadys_supabase_config_changed', handleConfigChange);
+      if (realtimeMenuChannel) realtimeMenuChannel.unsubscribe?.();
+      if (realtimeSettingsChannel) realtimeSettingsChannel.unsubscribe?.();
     };
   }, []);
 

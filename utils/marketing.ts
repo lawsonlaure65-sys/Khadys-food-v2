@@ -1,6 +1,7 @@
 import { Order, MenuItem } from '../types';
 import { RESTAURANT_INFO, BILLO_INFO } from '../constants';
 import { openWhatsApp, cleanPhoneNumber } from './whatsapp';
+import { db } from '../lib/supabase';
 
 export interface PromoCode {
   id: string;
@@ -544,6 +545,8 @@ export const saveStoredPlatDuJour = (plat: PlatDuJourConfig): void => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: plat }));
     }
+    // Background cloud sync
+    db.savePlatDuJour(plat).catch(() => {});
   } catch (e) {}
 };
 
@@ -668,6 +671,7 @@ export const getStoredPromoCodes = (): PromoCode[] => {
 export const saveStoredPromoCodes = (codes: PromoCode[]): void => {
   try {
     localStorage.setItem('khadys_promo_codes', JSON.stringify(codes));
+    db.saveSetting('promo_codes', codes).catch(() => {});
   } catch (e) {}
 };
 
@@ -684,6 +688,7 @@ export const getStoredBanner = (): AnnouncementBanner => {
 export const saveStoredBanner = (banner: AnnouncementBanner): void => {
   try {
     localStorage.setItem('khadys_announcement_banner', JSON.stringify(banner));
+    db.saveSetting('announcement_banner', banner).catch(() => {});
   } catch (e) {}
 };
 
@@ -700,6 +705,7 @@ export const getStoredFlashDeal = (): FlashDealConfig => {
 export const saveStoredFlashDeal = (deal: FlashDealConfig): void => {
   try {
     localStorage.setItem('khadys_flash_deal', JSON.stringify(deal));
+    db.saveSetting('flash_deal', deal).catch(() => {});
   } catch (e) {}
 };
 

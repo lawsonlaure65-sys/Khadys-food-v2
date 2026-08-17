@@ -1,15 +1,8 @@
+import { getSupabaseClient, isSupabaseConfigured, getSupabaseConfig, db } from './lib/supabase';
 
-import { createClient } from '@supabase/supabase-js';
+export const supabase = getSupabaseClient();
+export { isSupabaseConfigured, getSupabaseConfig, db };
 
-// Récupération des clés depuis Vercel ou l'environnement
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const supabaseKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
-
-// Vérification de la validité pour éviter le crash
-const isValid = supabaseUrl.startsWith('https://') && supabaseKey.length > 20;
-
-export const supabase = isValid ? createClient(supabaseUrl, supabaseKey) : null;
-
-if (!isValid) {
-  console.log("ℹ️ Supabase n'est pas encore configuré. L'application utilise les données locales.");
+if (!isSupabaseConfigured) {
+  console.log("ℹ️ Supabase n'est pas encore configuré avec les clés d'environnement ou locales.");
 }
