@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Zap, Tag, Megaphone, Send, Sparkles, Plus, Trash2, Edit3, 
   CheckCircle2, Copy, Share2, MessageSquare, Flame, Clock, 
@@ -19,7 +19,7 @@ import {
   getStoredPlatDuJour, saveStoredPlatDuJour,
   PLAT_DU_JOUR_PRESETS, generatePlatDuJourMarketingTexts, PlatDuJourStyle,
   shareToSocialPlatform,
-  MARKETING_TEMPLATES, broadcastToWhatsApp
+  getMarketingTemplates, MARKETING_TEMPLATES, broadcastToWhatsApp
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
 import { compressImage } from '../utils/imageCompressor';
@@ -76,13 +76,37 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
   const [flashDeal, setFlashDeal] = useState<FlashDealConfig>(() => getStoredFlashDeal());
   const [flashSaved, setFlashSaved] = useState(false);
 
+  // Dynamic Marketing Templates derived from currently chosen Plat du Jour
+  const dynamicTemplates = useMemo(() => getMarketingTemplates(platDuJour), [platDuJour]);
+
   // Campaign Composer State
-  const [selectedTemplate, setSelectedTemplate] = useState(MARKETING_TEMPLATES[0]);
-  const [campaignTitle, setCampaignTitle] = useState(MARKETING_TEMPLATES[0].title);
-  const [campaignText, setCampaignText] = useState(MARKETING_TEMPLATES[0].bodyText);
+  const [selectedTemplate, setSelectedTemplate] = useState<typeof dynamicTemplates[0]>(() => dynamicTemplates[0]);
+  const [campaignTitle, setCampaignTitle] = useState(() => dynamicTemplates[0].title);
+  const [campaignText, setCampaignText] = useState(() => dynamicTemplates[0].bodyText);
   const [targetPhone, setTargetPhone] = useState('');
   const [copiedText, setCopiedText] = useState(false);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+
+  // Synchronize campaign text whenever Plat du Jour changes if Plat du Jour template is active
+  useEffect(() => {
+    if (selectedTemplate.id === 'tpl-plat-du-jour-midi' || selectedTemplate.id === 'tpl-tiep-midi') {
+      const activeTpl = dynamicTemplates[0];
+      setSelectedTemplate(activeTpl);
+      setCampaignTitle(activeTpl.title);
+      setCampaignText(activeTpl.bodyText);
+    }
+  }, [platDuJour.dishName, platDuJour.price, platDuJour.promoPrice, platDuJour.description, platDuJour.accompaniments, dynamicTemplates]);
+
+  // Listen to global Plat du Jour updates from anywhere in the app
+  useEffect(() => {
+    const handlePlatUpdated = (e: any) => {
+      if (e.detail && e.detail.dishName) {
+        setPlatDuJour(e.detail);
+      }
+    };
+    window.addEventListener('khadys_plat_du_jour_updated', handlePlatUpdated);
+    return () => window.removeEventListener('khadys_plat_du_jour_updated', handlePlatUpdated);
+  }, []);
 
   // AI Insights State
   const [aiStrategyResult, setAiStrategyResult] = useState('');
@@ -337,14 +361,20 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const prompt = `Tu es le Chef et Responsable Marketing de « Khady's Food & Event » à Niamey (Niger).
-Rédige 3 versions alléchantes et irrésistibles pour le Plat du Jour : "${platDuJour.dishName}".
-Détails :
+Rédige 1 message WhatsApp de vente irrésistible, gourmand et percutant pour le Plat du Jour actuel : "${platDuJour.dishName}".
+
+DÉTAILS DU PLAT SÉLECTIONNÉ :
+- Nom exact du plat : "${platDuJour.dishName}"
 - Ingrédients / Description : ${platDuJour.description}
 - Accompagnements : ${platDuJour.accompaniments}
 - Prix du jour : ${platDuJour.promoPrice || platDuJour.price} F CFA (au lieu de ${platDuJour.price} F CFA)
 - Livraison express Niamey par Billo Express.
 
-Génère un message WhatsApp captivant avec emojis, mise en page aérée et appel à l'action.`;
+CONSIGNES STRICTES :
+- Rédige UNIQUEMENT et EXCLUSIVEMENT pour le plat "${platDuJour.dishName}".
+- Ne mentionne JAMAIS un autre plat (comme le Tiep) si le plat actuel est différent !
+- Utilise des emojis attractifs et appétissants adaptés au plat (🍲, 🍝, 🔥, 🛵, ✨, 🎁, 👑).
+- Génère un message WhatsApp captivant avec emojis, mise en page aérée et appel à l'action.`;
 
       const res = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -394,7 +424,7 @@ Génère un message WhatsApp captivant avec emojis, mise en page aérée et appe
     broadcastToWhatsApp(campaignText, target || targetPhone);
   };
 
-  // AI Copywriting Generator with Gemini
+  // AI Copywriting Generator with Gemini (Context-Aware to Active Plat du Jour)
   const handleGenerateAiCopy = async (topic: string) => {
     setIsAiGenerating(true);
     playSound('pop');
@@ -402,11 +432,19 @@ Génère un message WhatsApp captivant avec emojis, mise en page aérée et appe
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       const prompt = `Tu es le Responsable Marketing digital de « Khady's Food & Event » à Niamey (Niger).
 Rédige un message promotionnel WhatsApp ultra-percutant, chaleureux et persuasif pour : "${topic}".
-Contraintes :
-- Utilise des emojis attractifs (🍲, 🔥, 🛵, ✨, 🎁, 👑).
-- Mentionne les spécialités (Tiep Royal, Box Sauces, Dibi d'Agneau, Couscous, Jus Bissap).
-- Indique le partenaire de livraison Billo Express.
-- Inclut un appel à l'action clair avec lien WhatsApp.
+
+INFORMATIONS IMPORTANTES SUR LE PLAT DU JOUR ACTUEL :
+- Nom du plat sélectionné : "${platDuJour.dishName}"
+- Description : "${platDuJour.description}"
+- Accompagnements / Ingrédients : "${platDuJour.accompaniments}"
+- Tarif spécial : ${platDuJour.promoPrice || platDuJour.price} F CFA (au lieu de ${platDuJour.price} F CFA)
+
+CONSIGNES STRICTES :
+- Le message doit être 100% centré sur le sujet "${topic}" et le plat sélectionné ("${platDuJour.dishName}").
+- Ne mentionne JAMAIS de "Tiep" si le plat sélectionné est "${platDuJour.dishName}" (par exemple Spaghettis, Mafé, Grillades, etc.) !
+- Utilise des emojis attractifs et appétissants (🍲, 🍝, 🔥, 🛵, ✨, 🎁, 👑).
+- Indique le partenaire de livraison Billo Express à Niamey.
+- Inclut un appel à l'action clair avec lien WhatsApp direct : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20veux%20commander%20${encodeURIComponent(platDuJour.dishName)}
 - Longueur : 12-16 lignes bien aérées avec des puces. En français.`;
 
       const res = await ai.models.generateContent({
@@ -419,15 +457,16 @@ Contraintes :
         playSound('success');
       }
     } catch (err) {
-      // High-quality fallback template if offline or no API key
+      // High-quality fallback template conforming to current plat du jour
       const fallback = `*🔥 OFFRE EXCLUSIVE DU JOUR — KHADY'S FOOD NIAMEY !* 🥘✨\n\n` +
-        `Chers gourmets de Niamey, Cheffe Khady vous a concocté un menu royal aujourd'hui :\n` +
-        `• *Tiep Royal au Poisson Frais & Légumes fondants*\n` +
-        `• *Grillades Suya d'Agneau au Feu de Bois*\n` +
-        `• *Box Sauce Gombo Royal & Viande de Bœuf*\n\n` +
-        `🎁 *Offre Flash :* -20% sur votre commande avec le code *FLASH20* !\n` +
+        `Chers gourmets de Niamey, Cheffe Khady vous a concocté un régal aujourd'hui :\n` +
+        `• *${platDuJour.dishName.toUpperCase()}*\n` +
+        `• ${platDuJour.description}\n` +
+        `• *Accompagnements inclus :* ${platDuJour.accompaniments}\n\n` +
+        `💰 *Tarif Spécial :* ${(platDuJour.promoPrice || platDuJour.price).toLocaleString('fr-FR')} F CFA\n` +
+        `🎁 *Offre Flash :* -15% sur votre commande avec le code *KHADY24* !\n` +
         `🛵 Livraison express et soignée dans tout Niamey assurée par *Billo Express*.\n\n` +
-        `📲 Commandez dès maintenant en 1 clic : https://wa.me/${RESTAURANT_INFO.whatsappClean}\n` +
+        `📲 Commandez dès maintenant en 1 clic : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20commande%20${encodeURIComponent(platDuJour.dishName)}\n` +
         `_Khady's Food & Event — Le goût de l'excellence._`;
       setCampaignText(fallback);
       playSound('success');
@@ -1527,7 +1566,7 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
               </p>
 
               <div className="space-y-2">
-                {MARKETING_TEMPLATES.map(tpl => (
+                {dynamicTemplates.map(tpl => (
                   <button
                     key={tpl.id}
                     onClick={() => {
@@ -1563,16 +1602,17 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                 <h4 className="text-xs font-black uppercase tracking-wider">Assistant Rédacteur IA</h4>
               </div>
               <p className="text-[10px] text-white/70 leading-relaxed font-bold">
-                Besoin d'un texte original ? L'IA rédige pour vous un message de vente captivant avec emojis et arguments de choc.
+                Besoin d'un texte original ? L'IA rédige pour vous un message de vente captivant adapté à votre plat du jour avec emojis et arguments percutants.
               </p>
               
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => handleGenerateAiCopy('Vente Flash Tiep Royal Déjeuner')}
+                  onClick={() => handleGenerateAiCopy(`Vente Flash ${platDuJour.dishName} Déjeuner`)}
                   disabled={isAiGenerating}
-                  className="bg-white/10 hover:bg-purple-600 text-white p-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-center"
+                  className="bg-white/10 hover:bg-purple-600 text-white p-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-center truncate border border-purple-400/20"
+                  title={`Générer un message IA pour ${platDuJour.dishName}`}
                 >
-                  ⚡ Tiep Flash
+                  ⚡ Flash {platDuJour.dishName ? (platDuJour.dishName.length > 13 ? platDuJour.dishName.slice(0, 12) + '…' : platDuJour.dishName) : 'Midi'}
                 </button>
                 <button
                   onClick={() => handleGenerateAiCopy('Box Sauces Traditionnelles')}

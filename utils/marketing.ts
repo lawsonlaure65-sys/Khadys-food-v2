@@ -32,8 +32,9 @@ export interface MarketingCampaign {
   headline: string;
   bodyText: string;
   promoCode?: string;
-  createdAt: string;
-  status: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED';
+  suggestedPromo?: string;
+  createdAt?: string;
+  status?: 'DRAFT' | 'PUBLISHED' | 'SCHEDULED';
 }
 
 export type PosterTheme = 'LUXURY_GOLD' | 'SAHEL_TERRACOTTA' | 'WOOD_FIRE' | 'MODERN_EMERALD';
@@ -762,76 +763,90 @@ export const applyPromoCode = (inputCode: string, subtotal: number): PromoValida
   };
 };
 
-// Campaign Templates for Fast Marketing Broadcast
-export const MARKETING_TEMPLATES = [
-  {
-    id: 'tpl-tiep-midi',
-    title: '🍲 Vente Flash Tiep Royal (Midi)',
-    category: 'FLASH' as const,
-    headline: '⚡ Vente Flash Déjeuner — Tiep Royal Khady\'s Food !',
-    bodyText: `*BON APPÉTIT NIAMEY ! LE TIEP ROYAL DU MIDI EST PRÊT !* 🥘🔥\n\n` +
-      `Envie d'un déjeuner gourmand et authentique au bureau ou à la maison ?\n` +
-      `Nos marmites bouillonnent chez *Khady's Food* avec nos morceaux de poisson et viande braisée fondante.\n\n` +
-      `🎁 *Offre Spéciale Déjeuner :* -15% sur toutes les commandes passées avant 14h avec le code *KHADY24* !\n` +
-      `🛵 Livraison express assurée partout à Niamey par *Billo Express*.\n\n` +
-      `👉 Cliquez ici pour commander votre part : https://wa.me/${RESTAURANT_INFO.whatsappClean}\n` +
-      `_Khady's Food & Event — L'art culinaire au Sahel_`,
-    suggestedPromo: 'KHADY24'
-  },
-  {
-    id: 'tpl-sauce-box',
-    title: '🥫 Promotion Box Sauces Africaines',
-    category: 'MENU_DU_JOUR' as const,
-    headline: '🔥 Promo Spéciale Box Sauces — Mafé, Gombo & Feuilles',
-    bodyText: `*DÉCOUVREZ NOS BOX SAUCES TRADITIONNELLES KHADY'S FOOD !* 🥘✨\n\n` +
-      `Faites le plein de saveurs avec nos Box Sauces préparées dans la pure tradition africaine :\n` +
-      `• *Box Sauce Mafé Onctueuse* aux cacahuètes grillées\n` +
-      `• *Box Sauce Gombo Frais & Viande Tendre*\n` +
-      `• *Box Sauce Feuille & Poisson Fumé*\n\n` +
-      `🎁 *Pack Découverte :* 3 Box commandées = 1 Grande Bouteille de Jus Bissap offerte !\n` +
-      `📞 Commandes rapides : ${RESTAURANT_INFO.whatsapp}\n` +
-      `_Livraison chaude et soignée à domicile ou au bureau._`,
-    suggestedPromo: 'BISSAPFREE'
-  },
-  {
-    id: 'tpl-weekend-dibi',
-    title: '🥩 Festin Week-end Grillades & Dibi',
-    category: 'WEEKEND' as const,
-    headline: '🍖 Soirée Dibi d’Agneau & Grillades au Feu de Bois',
-    bodyText: `*WEEK-END GOURMAND CHEZ KHADY'S FOOD !* 🥩🔥\n\n` +
-      `Ce week-end, offrez-vous le meilleur Dibi d'Agneau de Niamey, assaisonné aux épices secrètes du Chef et grillé lentement au feu de bois avec ses bananes plantains (Aloko) et oignons caramélisés.\n\n` +
-      `⚡ *Code Promo VIP Week-end :* Utilisez *FLASH20* pour 20% de remise immédiate !\n` +
-      `🛵 Commandez pour votre famille ou vos amis, livraison express par Billo !\n\n` +
-      `📲 Commandes WhatsApp directes : https://wa.me/${RESTAURANT_INFO.whatsappClean}`,
-    suggestedPromo: 'FLASH20'
-  },
-  {
-    id: 'tpl-buffet-event',
-    title: '👑 Buffets & Événements Entreprise',
-    category: 'BUFFET' as const,
-    headline: '✨ Buffets Haut de Gamme pour Séminaires & Cérémonies',
-    bodyText: `*VOUS ORGANISEZ UN ÉVÉNEMENT, RÉUNION OU MARIAGE À NIAMEY ?* 👑🎉\n\n` +
-      `Confiez votre service traiteur à *Khady's Food & Event* :\n` +
-      `✅ Menus gastronomiques africains et européens sur-mesure\n` +
-      `✅ Présentation soignée, nappage et vaisselle de standing\n` +
-      `✅ Équipe de service dynamique et professionnelle\n\n` +
-      `💼 *Offre Entreprise :* Devis personnalisé en moins de 2 heures + 15% de remise avec le code *BUFFETPRO*.\n\n` +
-      `📞 Contact Direct Traiteur : ${RESTAURANT_INFO.directLine} / WhatsApp : ${RESTAURANT_INFO.whatsapp}`,
-    suggestedPromo: 'BUFFETPRO'
-  },
-  {
-    id: 'tpl-fidelite-vip',
-    title: '💎 Relance & Récompense Clients VIP',
-    category: 'FIDELITE' as const,
-    headline: '🎁 1 000 F CFA offerts pour vous remercier de votre fidélité',
-    bodyText: `*MERCI POUR VOTRE FIDÉLITÉ CHEZ KHADY'S FOOD !* 💖🍲\n\n` +
-      `Nous avons le plaisir de vous offrir un bon d'achat exclusif de *1 000 F CFA* à valoir dès aujourd'hui sur votre prochain festin avec le code personnel : *BIENVENUE*.\n\n` +
-      `🛵 Nos livreurs Billo Express sont prêts à vous livrer en un éclair !\n` +
-      `👉 Cliquez ici pour commander : https://wa.me/${RESTAURANT_INFO.whatsappClean}\n` +
-      `_Excellente dégustation de la part de toute l'équipe de Cheffe Khady !_`,
-    suggestedPromo: 'BIENVENUE'
-  }
-];
+// Campaign Templates for Fast Marketing Broadcast (Dynamically conforming to active Plat du Jour)
+export const getMarketingTemplates = (plat?: Partial<PlatDuJourConfig>): MarketingCampaign[] => {
+  const currentDishName = plat?.dishName || 'Tiep Royal Khady';
+  const currentPrice = plat?.promoPrice 
+    ? `${plat.promoPrice.toLocaleString('fr-FR')} F CFA` 
+    : (plat?.price ? `${plat.price.toLocaleString('fr-FR')} F CFA` : '4 500 F CFA');
+  const currentDesc = plat?.description || 'Préparé avec amour par Cheffe Khady avec des ingrédients frais du jour.';
+  const currentAcc = plat?.accompaniments || 'Bananes Alloco croustillantes & 1 Jus Bissap frais offert';
+
+  return [
+    {
+      id: 'tpl-plat-du-jour-midi',
+      title: `🍲 Vente Flash ${currentDishName} (Midi)`,
+      category: 'FLASH' as const,
+      headline: `⚡ Vente Flash Déjeuner — ${currentDishName} Khady's Food !`,
+      bodyText: `*BON APPÉTIT NIAMEY ! LE ${currentDishName.toUpperCase()} DU MIDI EST PRÊT !* 🥘🔥\n\n` +
+        `Envie d'un déjeuner gourmand et authentique au bureau ou à la maison ?\n` +
+        `Nos marmites bouillonnent chez *Khady's Food* avec notre savoureux *${currentDishName}* :\n` +
+        `😋 ${currentDesc}\n` +
+        `🎁 *Bonus inclus :* ${currentAcc}\n` +
+        `💰 *Tarif Spécial Déjeuner :* *${currentPrice}*\n\n` +
+        `🎁 *Offre Spéciale Déjeuner :* -15% sur toutes les commandes passées avant 14h avec le code *KHADY24* !\n` +
+        `🛵 Livraison express assurée partout à Niamey par *Billo Express*.\n\n` +
+        `👉 Cliquez ici pour commander : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20veux%20commander%20${encodeURIComponent(currentDishName)}\n` +
+        `_Khady's Food & Event — L'art culinaire au Sahel_`,
+      suggestedPromo: 'KHADY24'
+    },
+    {
+      id: 'tpl-sauce-box',
+      title: '🥫 Promotion Box Sauces Africaines',
+      category: 'MENU_DU_JOUR' as const,
+      headline: '🔥 Promo Spéciale Box Sauces — Mafé, Gombo & Feuilles',
+      bodyText: `*DÉCOUVREZ NOS BOX SAUCES TRADITIONNELLES KHADY'S FOOD !* 🥘✨\n\n` +
+        `Faites le plein de saveurs avec nos Box Sauces préparées dans la pure tradition africaine :\n` +
+        `• *Box Sauce Mafé Onctueuse* aux cacahuètes grillées\n` +
+        `• *Box Sauce Gombo Frais & Viande Tendre*\n` +
+        `• *Box Sauce Feuille & Poisson Fumé*\n\n` +
+        `🎁 *Pack Découverte :* 3 Box commandées = 1 Grande Bouteille de Jus Bissap offerte !\n` +
+        `📞 Commandes rapides : ${RESTAURANT_INFO.whatsapp}\n` +
+        `_Livraison chaude et soignée à domicile ou au bureau._`,
+      suggestedPromo: 'BISSAPFREE'
+    },
+    {
+      id: 'tpl-weekend-dibi',
+      title: '🥩 Festin Week-end Grillades & Dibi',
+      category: 'WEEKEND' as const,
+      headline: '🍖 Soirée Dibi d’Agneau & Grillades au Feu de Bois',
+      bodyText: `*WEEK-END GOURMAND CHEZ KHADY'S FOOD !* 🥩🔥\n\n` +
+        `Ce week-end, offrez-vous le meilleur Dibi d'Agneau de Niamey, assaisonné aux épices secrètes du Chef et grillé lentement au feu de bois avec ses bananes plantains (Aloko) et oignons caramélisés.\n\n` +
+        `⚡ *Code Promo VIP Week-end :* Utilisez *FLASH20* pour 20% de remise immédiate !\n` +
+        `🛵 Commandez pour votre famille ou vos amis, livraison express par Billo !\n\n` +
+        `📲 Commandes WhatsApp directes : https://wa.me/${RESTAURANT_INFO.whatsappClean}`,
+      suggestedPromo: 'FLASH20'
+    },
+    {
+      id: 'tpl-buffet-event',
+      title: '👑 Buffets & Événements Entreprise',
+      category: 'BUFFET' as const,
+      headline: '✨ Buffets Haut de Gamme pour Séminaires & Cérémonies',
+      bodyText: `*VOUS ORGANISEZ UN ÉVÉNEMENT, RÉUNION OU MARIAGE À NIAMEY ?* 👑🎉\n\n` +
+        `Confiez votre service traiteur à *Khady's Food & Event* :\n` +
+        `✅ Menus gastronomiques africains et européens sur-mesure\n` +
+        `✅ Présentation soignée, nappage et vaisselle de standing\n` +
+        `✅ Équipe de service dynamique et professionnelle\n\n` +
+        `💼 *Offre Entreprise :* Devis personnalisé en moins de 2 heures + 15% de remise avec le code *BUFFETPRO*.\n\n` +
+        `📞 Contact Direct Traiteur : ${RESTAURANT_INFO.directLine} / WhatsApp : ${RESTAURANT_INFO.whatsapp}`,
+      suggestedPromo: 'BUFFETPRO'
+    },
+    {
+      id: 'tpl-fidelite-vip',
+      title: '💎 Relance & Récompense Clients VIP',
+      category: 'FIDELITE' as const,
+      headline: '🎁 1 000 F CFA offerts pour vous remercier de votre fidélité',
+      bodyText: `*MERCI POUR VOTRE FIDÉLITÉ CHEZ KHADY'S FOOD !* 💖🍲\n\n` +
+        `Nous avons le plaisir de vous offrir un bon d'achat exclusif de *1 000 F CFA* à valoir dès aujourd'hui sur votre prochain festin avec le code personnel : *BIENVENUE*.\n\n` +
+        `🛵 Nos livreurs Billo Express sont prêts à vous livrer en un éclair !\n` +
+        `👉 Cliquez ici pour commander : https://wa.me/${RESTAURANT_INFO.whatsappClean}\n` +
+        `_Excellente dégustation de la part de toute l'équipe de Cheffe Khady !_`,
+      suggestedPromo: 'BIENVENUE'
+    }
+  ];
+};
+
+export const MARKETING_TEMPLATES = getMarketingTemplates();
 
 // Broadcast action to WhatsApp Status or Contacts
 export const broadcastToWhatsApp = (message: string, targetPhone?: string): void => {

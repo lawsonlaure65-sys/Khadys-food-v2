@@ -38,7 +38,7 @@ export const db = {
         .select('*')
         .order('category', { ascending: true });
       if (error) {
-        console.warn('⚠️ Supabase fetchMenu error:', error.message);
+        // En cas d'erreur de requête, basculer silencieusement sur le stockage local
         return null;
       }
       if (!data) return null;
@@ -54,8 +54,8 @@ export const db = {
         isSpicy: row.is_spicy ?? row.isSpicy ?? false,
         isSpécialitéMaison: row.is_specialite_maison ?? row.isSpécialitéMaison ?? false
       })) as MenuItem[];
-    } catch (e: any) {
-      console.warn('⚠️ Exception Supabase fetchMenu:', e);
+    } catch {
+      // Échec réseau ou Supabase inaccessible : repli automatique vers la base locale sans bloquer l'app
       return null;
     }
   },
