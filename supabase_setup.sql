@@ -1,10 +1,14 @@
 
 -- ==========================================
--- CONFIGURATION KHADY'S ELITE - SUPABASE COMPLETE
+-- CONFIGURATION KHADY'S ELITE - SUPABASE
 -- ==========================================
 
--- 1. CRÉATION DE LA TABLE DES PRODUITS (MENU)
-CREATE TABLE IF NOT EXISTS menu_items (
+-- 1. NETTOYAGE (Optionnel : à n'utiliser que pour réinitialiser)
+DROP TABLE IF EXISTS orders;
+DROP TABLE IF EXISTS menu_items;
+
+-- 2. CRÉATION DE LA TABLE DES PRODUITS (MENU)
+CREATE TABLE menu_items (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT,
@@ -18,14 +22,14 @@ CREATE TABLE IF NOT EXISTS menu_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. CRÉATION DE LA TABLE DES COMMANDES
-CREATE TABLE IF NOT EXISTS orders (
+-- 3. CRÉATION DE LA TABLE DES COMMANDES
+CREATE TABLE orders (
     id TEXT PRIMARY KEY,
     customer_name TEXT NOT NULL,
     phone TEXT NOT NULL,
-    items JSONB NOT NULL,
+    items JSONB NOT NULL, -- Stockage des produits commandés en format JSON
     total NUMERIC NOT NULL,
-    delivery_fee NUMERIC NOT NULL DEFAULT 0,
+    delivery_fee NUMERIC NOT NULL,
     status TEXT DEFAULT 'RECEIVED',
     payment_method TEXT NOT NULL,
     district TEXT,
@@ -33,44 +37,32 @@ CREATE TABLE IF NOT EXISTS orders (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 3. POLITIQUES DE SÉCURITÉ (RLS)
+-- 4. POLITIQUES DE SÉCURITÉ (RLS)
+-- Active la sécurité sur les tables
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 
--- Supprimer les anciennes politiques pour éviter les doublons
-DROP POLICY IF EXISTS "Lecture publique du menu" ON menu_items;
-DROP POLICY IF EXISTS "Gestion publique du menu" ON menu_items;
-DROP POLICY IF EXISTS "Modification du menu" ON menu_items;
-DROP POLICY IF EXISTS "Suppression du menu" ON menu_items;
-DROP POLICY IF EXISTS "Insertion du menu" ON menu_items;
-DROP POLICY IF EXISTS "Envoi public de commandes" ON orders;
-DROP POLICY IF EXISTS "Lecture publique des commandes" ON orders;
-DROP POLICY IF EXISTS "Mise a jour des commandes" ON orders;
-
--- Politiques complètes pour menu_items (Lecture, Ajout, Modification, Suppression)
+-- Autoriser tout le monde (Public) à lire le menu
 CREATE POLICY "Lecture publique du menu" ON menu_items 
 FOR SELECT USING (true);
 
-CREATE POLICY "Insertion du menu" ON menu_items 
-FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Modification du menu" ON menu_items 
-FOR UPDATE USING (true) WITH CHECK (true);
-
-CREATE POLICY "Suppression du menu" ON menu_items 
-FOR DELETE USING (true);
-
--- Politiques complètes pour orders
-CREATE POLICY "Lecture publique des commandes" ON orders 
-FOR SELECT USING (true);
-
+-- Autoriser tout le monde (Public) à envoyer une commande
 CREATE POLICY "Envoi public de commandes" ON orders 
 FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "Mise a jour des commandes" ON orders 
-FOR UPDATE USING (true) WITH CHECK (true);
+-- Autoriser tout le monde (Public) à voir l'historique (Note: En prod, on filtrerait par téléphone ou user_id)
+CREATE POLICY "Lecture publique des commandes" ON orders 
+FOR SELECT USING (true);
 
--- 4. ACTIVER LA SYNCHRONISATION EN TEMPS RÉEL (REALTIME)
-ALTER PUBLICATION supabase_realtime ADD TABLE menu_items;
-ALTER PUBLICATION supabase_realtime ADD TABLE orders;
+-- 5. INSERTION DU MENU INITIAL (SEEDS)
+INSERT INTO menu_items (id, name, description, price, image, category, rating, is_specialite_maison, is_spicy)
+VALUES 
+('sp1', 'Tiep Royal Khady', 'Le chef-d''œuvre de la maison au poisson capitaine, riz rouge parfumé et légumes fondants.', 5500, 'https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=800', 'Spécialité Maison', 5, true, true),
+('sp2', 'Plateau Prestige Event', 'Assortiment géant de grillades, pastels et alloco pour 4 personnes.', 15000, 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800', 'Spécialité Maison', 5, true, false),
+('dj1', 'Dambou du Jour', 'Couscous de moringa frais aux arachides grillées, servi avec du poulet braisé.', 2500, 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800', 'Plat Africain', 4.9, false, false),
+('af3', 'Attiéké Poisson Grillé', 'Semoule de manioc, poisson capitaine grillé, alloco.', 5000, 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800', 'Plat Africain', 5, false, false),
+('bx1', 'Box Sauce Mafé', 'Onctueuse sauce à l''arachide, prête à réchauffer. Format familial 1L.', 4500, 'https://images.unsplash.com/photo-1541518763531-4a949439a3f8?w=800', 'Box Sauce', 4.8, false, false),
+('de1', 'Dégué Royal', 'Couscous de mil au yaourt onctueux, miel et coco.', 1500, 'https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=800', 'Dessert', 4.9, false, false),
+('bo1', 'Bissap Rouge Glacé', 'Infusion hibiscus et menthe fraîche.', 500, 'https://images.unsplash.com/photo-1556881286-fc6915169721?w=800', 'Boisson Froide', 5, false, false);
 
+-- Fin du script
