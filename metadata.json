@@ -1,10 +1,13 @@
 {
-  "name": "Remix KHADY\u0027S FOOD \u0026 EVENT",
-  "short_name": "Khady\u0027s",
-  "description": "L\u0027excellence de la gastronomie africaine à Niamey. Restaurant, Box Sauces et Traiteur.",
+  "name": "KHADY'S FOOD & EVENT",
+  "short_name": "Khady's",
+  "description": "L'excellence de la gastronomie africaine à Niamey. Restaurant, Box Sauces et Traiteur.",
   "requestFramePermissions": [
     "camera",
     "microphone",
     "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }
