@@ -43,6 +43,7 @@ import {
 } from './utils/offlineDB';
 
 import { getStoredBanner, AnnouncementBanner } from './utils/marketing';
+import { decodeSharedCart } from './utils/cartShare';
 
 const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
@@ -195,12 +196,42 @@ const App: React.FC = () => {
       };
     }
 
-    // Synchronisation IndexedDB, LocalStorage & Cloud Supabase au démarrage
+    // Synchronisation IndexedDB, LocalStorage, Panier Partagé & Cloud Supabase au démarrage
     const initStorageAndCloudSync = async () => {
-      // 1. Charger le panier sauvegardé en local dans IndexedDB
-      const cachedCart = await getCartFromIDB();
-      if (cachedCart && cachedCart.length > 0) {
-        setCart(cachedCart);
+      // 0. Vérifier la présence d'un panier partagé via lien URL (?shared_cart=... ou ?cart=...)
+      let hasLoadedSharedCart = false;
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedCartData = urlParams.get('shared_cart') || urlParams.get('cart');
+        if (sharedCartData) {
+          const decodedItems = decodeSharedCart(sharedCartData);
+          if (decodedItems && decodedItems.length > 0) {
+            setCart(decodedItems);
+            await saveCartToIDB(decodedItems);
+            setCurrentPage(Page.CART);
+            hasLoadedSharedCart = true;
+            playSound('cash');
+            setToast({
+              message: `🎁 Panier partagé chargé avec succès (${decodedItems.length} plat${decodedItems.length > 1 ? 's' : ''}) !`,
+              type: 'success'
+            });
+            // Nettoyer l'URL proprement sans recharger la page
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('shared_cart');
+            cleanUrl.searchParams.delete('cart');
+            window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.hash);
+          }
+        }
+      } catch (e) {
+        console.warn('Erreur lecture panier partagé:', e);
+      }
+
+      // 1. Charger le panier sauvegardé en local dans IndexedDB si aucun panier partagé reçu
+      if (!hasLoadedSharedCart) {
+        const cachedCart = await getCartFromIDB();
+        if (cachedCart && cachedCart.length > 0) {
+          setCart(cachedCart);
+        }
       }
 
       // 2. Synchronisation globale Cloud (Menu, Plat du Jour, Photo Admin, Bannières)

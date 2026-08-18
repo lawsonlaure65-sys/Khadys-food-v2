@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { CartItem, Order, PaymentMethod, UserProfile } from '../types';
-import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send, MessageSquare, Tag, Gift, Check, X } from 'lucide-react';
+import { Trash2, ShoppingBag, ArrowRight, MapPin, Smartphone, ChevronLeft, ShieldCheck, Wallet, CreditCard, Banknote, Sparkles, Upload, CheckCircle2, FileText, Camera, AlertTriangle, Send, MessageSquare, Tag, Gift, Check, X, Share2, Copy, Link2, ExternalLink } from 'lucide-react';
 import { PhoneInput } from './PhoneInput';
 import { playSound } from '../utils/audio';
 import { BILLO_INFO, RESTAURANT_INFO, DISTRICTS, DISCOUNT_PER_100_POINTS } from '../constants';
 import { getStoredRestaurantWhatsApp, buildKitchenOrderMessage, openWhatsApp } from '../utils/whatsapp';
 import { applyPromoCode, PromoValidationResult, getStoredPromoCodes } from '../utils/marketing';
+import { generateCartShareUrl, generateCartShareWhatsAppText } from '../utils/cartShare';
 
 interface CartViewProps {
   cart: CartItem[];
@@ -21,6 +22,10 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
   const [payment, setPayment] = useState<PaymentMethod>('MYNITA');
   const [usePoints, setUsePoints] = useState(false);
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
+
+  // Share Cart Modal States
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
 
   // Promo Code State
   const [promoInput, setPromoInput] = useState('');
@@ -235,14 +240,32 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
 
   return (
     <div className="animate-fade-in p-4 sm:p-6 pb-36 max-w-2xl mx-auto">
-      <header className="mb-8 flex items-center gap-4">
-        <button onClick={onClose} className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-brand-brown hover:bg-gray-50 transition-all">
-           <ChevronLeft size={24} />
-        </button>
-        <div>
-          <span className="text-[9px] font-black uppercase text-brand-orange tracking-[0.2em]">Finalisation</span>
-          <h2 className="text-3xl font-black italic uppercase text-brand-brown leading-none">Mon <span className="text-brand-orange">Panier</span></h2>
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button onClick={onClose} className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-center text-brand-brown hover:bg-gray-50 transition-all">
+             <ChevronLeft size={24} />
+          </button>
+          <div>
+            <span className="text-[9px] font-black uppercase text-brand-orange tracking-[0.2em]">Finalisation</span>
+            <h2 className="text-3xl font-black italic uppercase text-brand-brown leading-none">Mon <span className="text-brand-orange">Panier</span></h2>
+          </div>
         </div>
+
+        {cart.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              playSound('pop');
+              setShowShareModal(true);
+            }}
+            className="px-3.5 py-2.5 bg-brand-orange/10 hover:bg-brand-orange text-brand-orange hover:text-white rounded-2xl text-[9px] font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95 border border-brand-orange/20 shadow-sm shrink-0"
+            title="Partager mon panier avec un ami ou collègue"
+          >
+            <Share2 size={15} />
+            <span className="hidden sm:inline">Partager mon panier</span>
+            <span className="sm:hidden">Partager</span>
+          </button>
+        )}
       </header>
 
       {cart.length === 0 ? (
@@ -253,6 +276,30 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Share Cart Quick Action Card */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-brand-gold/10 to-brand-orange/10 p-4 sm:p-5 rounded-[2.2rem] border-2 border-brand-gold/30 flex items-center justify-between gap-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-brand-orange text-white flex items-center justify-center shadow-md shrink-0">
+                <Share2 size={18} />
+              </div>
+              <div>
+                <h4 className="font-black text-xs text-brand-brown uppercase italic">Partager ce festin 🎁</h4>
+                <p className="text-[9px] text-gray-600">Générez un lien pour pré-remplir le panier d'un autre utilisateur</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                playSound('pop');
+                setShowShareModal(true);
+              }}
+              className="bg-brand-brown hover:bg-brand-orange text-brand-gold hover:text-white px-4 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95 shrink-0 flex items-center gap-1.5"
+            >
+              <Link2 size={13} />
+              <span>Partager</span>
+            </button>
+          </div>
+
           {/* Cart items list */}
           <div className="space-y-3">
              {cart.map((item, idx) => (
@@ -676,6 +723,139 @@ export const CartView: React.FC<CartViewProps> = ({ cart, setCart, onOrderPlace,
              <p className="text-center text-[8px] text-white/20 font-black uppercase tracking-widest mt-6">Paiement Vérifié & Sécurisé par Khady's Terminal</p>
           </div>
         </form>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL PARTAGER MON PANIER : LIEN URL MAGIQUE & WHATSAPP                   */}
+      {/* ========================================================================= */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-[120] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fade-in">
+          <div className="bg-[#1A0F0D] border-2 border-brand-gold/40 w-full max-w-lg rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative text-white">
+            
+            {/* Bouton Fermer */}
+            <button 
+              onClick={() => { playSound('pop'); setShowShareModal(false); }}
+              className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all"
+              title="Fermer"
+            >
+              <X size={20} />
+            </button>
+
+            {/* En-tête Modal */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 bg-brand-orange/20 text-brand-orange rounded-2xl border border-brand-orange/30">
+                <Share2 size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold tracking-tight">
+                  Partager mon Panier
+                </h3>
+                <p className="text-[10px] text-white/60">
+                  Transmettez votre sélection en 1 clic à vos amis ou proches
+                </p>
+              </div>
+            </div>
+
+            {/* Aperçu du Panier à partager */}
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/10 mb-5 space-y-2">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase text-brand-gold">
+                <span>{cart.length} plat{cart.length > 1 ? 's' : ''} inclus</span>
+                <span>Total : {subtotal.toLocaleString('fr-FR')} F CFA</span>
+              </div>
+              <div className="max-h-32 overflow-y-auto no-scrollbar space-y-1.5 pt-1">
+                {cart.map((item, i) => (
+                  <div key={i} className="flex justify-between items-center text-[10px] text-white/80 bg-black/30 p-2 rounded-xl border border-white/5">
+                    <span className="font-bold truncate pr-2">{item.quantity}x {item.name}</span>
+                    <span className="font-mono text-brand-orange shrink-0">{(item.price * item.quantity).toLocaleString('fr-FR')} F</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Champ Lien URL & Bouton Copier */}
+            <div className="space-y-2 mb-6">
+              <label className="text-[9px] font-black uppercase text-white/50 tracking-wider">
+                Lien magique de pré-remplissage du panier :
+              </label>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  readOnly
+                  value={generateCartShareUrl(cart)}
+                  className="w-full p-3.5 bg-black/50 border border-white/15 rounded-xl text-brand-gold font-mono text-xs outline-none select-all truncate"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = generateCartShareUrl(cart);
+                    navigator.clipboard.writeText(url);
+                    setCopiedShareLink(true);
+                    playSound('success');
+                    setTimeout(() => setCopiedShareLink(false), 3000);
+                  }}
+                  className={`px-4 py-3.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shrink-0 transition-all active:scale-95 shadow-md ${
+                    copiedShareLink 
+                      ? 'bg-emerald-600 text-white' 
+                      : 'bg-brand-gold hover:bg-yellow-400 text-brand-brown'
+                  }`}
+                  title="Copier le lien dans le presse-papier"
+                >
+                  {copiedShareLink ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                  <span>{copiedShareLink ? 'Copié !' : 'Copier'}</span>
+                </button>
+              </div>
+              {copiedShareLink && (
+                <p className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 animate-fade-in">
+                  <CheckCircle2 size={12} /> Lien copié ! Vous pouvez l'envoyer par SMS, message ou réseau social.
+                </p>
+              )}
+            </div>
+
+            {/* Boutons d'Action Rapide : WhatsApp & Partage Système */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  const url = generateCartShareUrl(cart);
+                  const waText = generateCartShareWhatsAppText(cart, url);
+                  window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank');
+                }}
+                className="py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+              >
+                <MessageSquare size={16} />
+                <span>Partager via WhatsApp</span>
+              </button>
+
+              {typeof navigator !== 'undefined' && !!navigator.share && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    playSound('pop');
+                    const url = generateCartShareUrl(cart);
+                    try {
+                      await navigator.share({
+                        title: "Khady's Food & Event - Panier Partagé",
+                        text: `Voici ma commande gourmande Khady's Food (${cart.length} plats, ${subtotal.toLocaleString('fr-FR')} F CFA) :`,
+                        url: url
+                      });
+                    } catch (e) {}
+                  }}
+                  className="py-3.5 px-4 bg-white/10 hover:bg-white/20 text-white rounded-2xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2 border border-white/15 active:scale-95 transition-all"
+                >
+                  <Share2 size={16} />
+                  <span>Autres Applis</span>
+                </button>
+              )}
+            </div>
+
+            {/* Note d'information */}
+            <p className="text-[8px] text-center text-white/40 font-bold uppercase tracking-widest mt-6">
+              Quand votre destinataire clique sur le lien, son panier s'ouvre automatiquement avec tous ces plats !
+            </p>
+
+          </div>
+        </div>
       )}
     </div>
   );
