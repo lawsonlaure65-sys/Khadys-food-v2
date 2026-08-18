@@ -8,7 +8,8 @@ import {
 } from 'lucide-react';
 import { 
   PlatDuJourConfig, PosterTheme, PosterFormat, PublicationTiming, 
-  shareToSocialPlatform, broadcastToWhatsApp, shareImageAndText 
+  shareToSocialPlatform, broadcastToWhatsApp, shareImageAndText,
+  generatePlatDuJourMarketingTexts 
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
 import { playSound } from '../utils/audio';
@@ -126,20 +127,64 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     }
   };
 
-  // Get active text based on selected mode & timing
+  // Helper to ensure text matches the current dish on the poster
   const getActiveTextToShare = () => {
     const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+    const dishLower = (plat.dishName || '').toLowerCase().trim();
+    const firstWord = dishLower.split(/\s+/)[0];
+
+    // Helper to check if text is out of sync with current dish name
+    const isMismatch = (txt?: string) => {
+      if (!txt || !txt.trim()) return true;
+      const lower = txt.toLowerCase();
+      // If dish is not tiep but text mentions tiep
+      if (dishLower.indexOf('tiep') === -1 && lower.indexOf('tiep') !== -1) return true;
+      // If dish is tiep but text doesn't mention tiep
+      if (dishLower.indexOf('tiep') !== -1 && lower.indexOf('tiep') === -1) return true;
+      // If dish name's first word (length > 3) is missing from text
+      if (firstWord.length > 3 && lower.indexOf(firstWord) === -1) return true;
+      return false;
+    };
+
+    const freshTexts = generatePlatDuJourMarketingTexts(plat, 'GOURMAND');
+
     if (textMode === 'SHORT_STATUS') {
       if (isEvening) {
-        return plat.marketingTextEveningStatusShort || 
-          `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n👑 *${plat.dishName.toUpperCase()}*\n🎁 ${plat.accompaniments || 'Alloco + Jus Bissap 50cl offert'}\n💰 *${(plat.promoPrice || plat.price || 4500).toLocaleString('fr-FR')} F CFA* • Livré dès 12h par Billo\n👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
+        return (!isMismatch(plat.marketingTextEveningStatusShort) && plat.marketingTextEveningStatusShort)
+          ? plat.marketingTextEveningStatusShort
+          : freshTexts.eveningStatusShort;
       } else {
-        return plat.marketingTextStatusShort || 
-          `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n👑 *${plat.dishName.toUpperCase()}*\n🎁 ${plat.accompaniments || 'Alloco doré + Jus Bissap 50cl offert'}\n💰 *${(plat.promoPrice || plat.price || 4500).toLocaleString('fr-FR')} F CFA*\n🛵 Livré dès 12h par Billo Express\n👉 Commandez au ${RESTAURANT_INFO.whatsapp}`;
+        return (!isMismatch(plat.marketingTextStatusShort) && plat.marketingTextStatusShort)
+          ? plat.marketingTextStatusShort
+          : freshTexts.statusShort;
       }
     } else {
-      return isEvening ? (plat.marketingTextEveningTeaser || plat.marketingTextWhatsApp) : plat.marketingTextWhatsApp;
+      if (isEvening) {
+        return (!isMismatch(plat.marketingTextEveningTeaser) && plat.marketingTextEveningTeaser)
+          ? plat.marketingTextEveningTeaser
+          : freshTexts.eveningTeaser;
+      } else {
+        return (!isMismatch(plat.marketingTextWhatsApp) && plat.marketingTextWhatsApp)
+          ? plat.marketingTextWhatsApp
+          : freshTexts.whatsapp;
+      }
     }
+  };
+
+  // Force regenerate all texts for current dish
+  const handleRegenerateCurrentTexts = () => {
+    playSound('pop');
+    const texts = generatePlatDuJourMarketingTexts(plat, 'GOURMAND');
+    onChangePlat({
+      ...plat,
+      marketingTextWhatsApp: texts.whatsapp,
+      marketingTextStatusShort: texts.statusShort,
+      marketingTextGroups: texts.groups,
+      marketingTextSocial: texts.social,
+      marketingTextEveningTeaser: texts.eveningTeaser,
+      marketingTextEveningStatusShort: texts.eveningStatusShort,
+      hashtags: texts.hashtags
+    });
   };
 
   // Render poster on HTML5 Canvas in High Definition
@@ -903,15 +948,26 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
               </button>
             </div>
 
-            {/* Validation Indicator */}
-            <div className="flex items-center justify-between text-[10px] px-1">
+            {/* Validation Indicator & Regenerate Button */}
+            <div className="flex items-center justify-between text-[10px] px-1 gap-2 flex-wrap">
               <span className={`font-bold flex items-center gap-1 ${isStatusSafe ? 'text-emerald-400' : 'text-amber-400'}`}>
                 {isStatusSafe ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
                 {isStatusSafe ? 'Parfait pour Statut WhatsApp (< 700 car.)' : 'Texte long : idéal pour Groupes WhatsApp'}
               </span>
-              <span className="font-mono text-white/50 text-[9px]">
-                {textLineCount} lignes • {textCharCount} car.
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRegenerateCurrentTexts}
+                  className="text-[9px] font-black text-brand-gold hover:text-amber-300 uppercase flex items-center gap-1 bg-brand-gold/10 hover:bg-brand-gold/20 px-2 py-1 rounded-lg border border-brand-gold/30 transition-all active:scale-95"
+                  title="Régénérer automatiquement le texte pour ce plat"
+                >
+                  <RefreshCw size={11} />
+                  <span>Régénérer texte</span>
+                </button>
+                <span className="font-mono text-white/50 text-[9px]">
+                  {textLineCount} lig. • {textCharCount} car.
+                </span>
+              </div>
             </div>
 
             <textarea

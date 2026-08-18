@@ -533,7 +533,37 @@ export const getStoredPlatDuJour = (): PlatDuJourConfig => {
     const data = localStorage.getItem('khadys_plat_du_jour');
     if (data) {
       const parsed = JSON.parse(data);
-      if (parsed && parsed.dishName) return parsed;
+      if (parsed && parsed.dishName) {
+        // Auto-fix stale text if dishName doesn't match texts (e.g. dish is Spaghetti but text has old Tiep)
+        const dishLower = parsed.dishName.toLowerCase().trim();
+        const firstWord = dishLower.split(/\s+/)[0];
+        const statusShort = parsed.marketingTextStatusShort || '';
+        const whatsappTxt = parsed.marketingTextWhatsApp || '';
+
+        const isMismatched = 
+          (!statusShort) ||
+          (dishLower.indexOf('tiep') === -1 && (statusShort.toLowerCase().indexOf('tiep') !== -1 || whatsappTxt.toLowerCase().indexOf('tiep') !== -1)) ||
+          (firstWord.length > 3 && statusShort.toLowerCase().indexOf(firstWord) === -1 && whatsappTxt.toLowerCase().indexOf(firstWord) === -1);
+
+        if (isMismatched) {
+          const texts = generatePlatDuJourMarketingTexts(parsed, 'GOURMAND');
+          const synced: PlatDuJourConfig = {
+            ...parsed,
+            marketingTextWhatsApp: texts.whatsapp,
+            marketingTextStatusShort: texts.statusShort,
+            marketingTextGroups: texts.groups,
+            marketingTextSocial: texts.social,
+            marketingTextEveningTeaser: texts.eveningTeaser,
+            marketingTextEveningStatusShort: texts.eveningStatusShort,
+            hashtags: texts.hashtags
+          };
+          try {
+            localStorage.setItem('khadys_plat_du_jour', JSON.stringify(synced));
+          } catch (e) {}
+          return synced;
+        }
+        return parsed;
+      }
     }
   } catch (e) {}
   return INITIAL_PLAT_DU_JOUR;

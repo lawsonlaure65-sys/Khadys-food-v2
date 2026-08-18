@@ -246,9 +246,11 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
       dishImage: item.image,
       chefQuote: platDuJour.chefQuote || 'Cuisiné ce matin avec passion par Khady.',
       marketingTextWhatsApp: texts.whatsapp,
+      marketingTextStatusShort: texts.statusShort,
       marketingTextGroups: texts.groups,
       marketingTextSocial: texts.social,
       marketingTextEveningTeaser: texts.eveningTeaser,
+      marketingTextEveningStatusShort: texts.eveningStatusShort,
       hashtags: texts.hashtags,
       isActive: true
     };
@@ -309,9 +311,11 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
       dishImage: preset.image,
       chefQuote: preset.chefQuote,
       marketingTextWhatsApp: texts.whatsapp,
+      marketingTextStatusShort: texts.statusShort,
       marketingTextGroups: texts.groups,
       marketingTextSocial: texts.social,
       marketingTextEveningTeaser: texts.eveningTeaser,
+      marketingTextEveningStatusShort: texts.eveningStatusShort,
       hashtags: texts.hashtags
     };
 
@@ -329,18 +333,66 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
     setPlatDuJour(prev => ({
       ...prev,
       marketingTextWhatsApp: texts.whatsapp,
+      marketingTextStatusShort: texts.statusShort,
       marketingTextGroups: texts.groups,
       marketingTextSocial: texts.social,
       marketingTextEveningTeaser: texts.eveningTeaser,
+      marketingTextEveningStatusShort: texts.eveningStatusShort,
       hashtags: texts.hashtags
     }));
   };
 
-  // Save Plat du Jour
+  // Explicitly regenerate all marketing text variants for current plat configuration
+  const handleRegenerateAllPlatTexts = (target?: PlatDuJourConfig) => {
+    playSound('pop');
+    const base = target || platDuJour;
+    const texts = generatePlatDuJourMarketingTexts(base, selectedPlatStyle);
+    const updated: PlatDuJourConfig = {
+      ...base,
+      marketingTextWhatsApp: texts.whatsapp,
+      marketingTextStatusShort: texts.statusShort,
+      marketingTextGroups: texts.groups,
+      marketingTextSocial: texts.social,
+      marketingTextEveningTeaser: texts.eveningTeaser,
+      marketingTextEveningStatusShort: texts.eveningStatusShort,
+      hashtags: texts.hashtags
+    };
+    setPlatDuJour(updated);
+    saveStoredPlatDuJour(updated);
+    return updated;
+  };
+
+  // Save Plat du Jour with guaranteed text synchronization
   const handleSavePlat = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     playSound('cash');
-    saveStoredPlatDuJour(platDuJour);
+
+    // Check if texts need auto-synchronization for this dish name
+    const dishLower = (platDuJour.dishName || '').toLowerCase().trim();
+    const firstWord = dishLower.split(/\s+/)[0];
+    const statusShort = platDuJour.marketingTextStatusShort || '';
+    const isMismatched = 
+      !statusShort ||
+      (dishLower.indexOf('tiep') === -1 && statusShort.toLowerCase().indexOf('tiep') !== -1) ||
+      (firstWord.length > 3 && statusShort.toLowerCase().indexOf(firstWord) === -1);
+
+    let toSave = platDuJour;
+    if (isMismatched) {
+      const texts = generatePlatDuJourMarketingTexts(platDuJour, selectedPlatStyle);
+      toSave = {
+        ...platDuJour,
+        marketingTextWhatsApp: texts.whatsapp,
+        marketingTextStatusShort: texts.statusShort,
+        marketingTextGroups: texts.groups,
+        marketingTextSocial: texts.social,
+        marketingTextEveningTeaser: texts.eveningTeaser,
+        marketingTextEveningStatusShort: texts.eveningStatusShort,
+        hashtags: texts.hashtags
+      };
+      setPlatDuJour(toSave);
+    }
+
+    saveStoredPlatDuJour(toSave);
     setPlatSaved(true);
     setTimeout(() => setPlatSaved(false), 3000);
 
@@ -1105,15 +1157,27 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                   </div>
                 </div>
 
-                {/* Instant Save & Publish Button */}
-                <button
-                  type="button"
-                  onClick={() => handleSavePlat()}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-4 rounded-2xl font-black uppercase text-xs tracking-wider shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95 transition-all mt-4"
-                >
-                  {platSaved ? <CheckCircle2 size={18} className="text-white" /> : <Save size={18} />}
-                  <span>{platSaved ? 'Plat du Jour Enregistré & Synchronisé !' : 'Enregistrer & Activer sur l\'App'}</span>
-                </button>
+                {/* Actions & Sync Buttons */}
+                <div className="flex flex-col sm:flex-row gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => handleRegenerateAllPlatTexts()}
+                    className="bg-brand-gold/15 hover:bg-brand-gold/25 text-brand-gold border border-brand-gold/40 py-3.5 px-4 rounded-2xl font-black uppercase text-[10px] tracking-wider flex items-center justify-center gap-2 active:scale-95 transition-all"
+                    title="Génère automatiquement tous les formats de messages pour ce plat"
+                  >
+                    <RefreshCw size={14} />
+                    <span>🔄 Synchroniser Textes</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSavePlat()}
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white py-3.5 px-4 rounded-2xl font-black uppercase text-xs tracking-wider shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    {platSaved ? <CheckCircle2 size={18} className="text-white" /> : <Save size={18} />}
+                    <span>{platSaved ? 'Enregistré & Synchronisé !' : 'Enregistrer & Activer'}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
