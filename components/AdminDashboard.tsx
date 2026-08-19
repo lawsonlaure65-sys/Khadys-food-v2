@@ -11,7 +11,7 @@ import {
   MapPin, Clock, Heart, Sliders, DollarSign, MessageCircle, AlertCircle,
   UserRound, Save, ToggleLeft as Toggle, Image as ImageIcon, BookOpen, HelpCircle,
   ShieldAlert, AlertTriangle, BarChart3, LineChart as LineChartIcon, ArrowUpRight, Database,
-  Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight
+  Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight, Keyboard, Command
 } from 'lucide-react';
 import { MenuItem, AdminView, Order, Review, MenuCategory, OrderStatus, BlogArticle, FaqItem } from '../types';
 import { KhadyLogo } from './KhadyLogo';
@@ -24,7 +24,9 @@ import {
   getSupabaseConfig, 
   getSupabaseClient, 
   setCustomSupabaseCredentials, 
-  testSupabaseConnection 
+  testSupabaseConnection,
+  DEFAULT_SUPABASE_URL,
+  DEFAULT_SUPABASE_KEY
 } from '../lib/supabase';
 import { compressImage } from '../utils/imageCompressor';
 import { AdminMarketingCenter } from './AdminMarketingCenter';
@@ -114,6 +116,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Supabase Cloud Modal & Sync State
   const [showCloudModal, setShowCloudModal] = useState(false);
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [activeShortcutToast, setActiveShortcutToast] = useState<{ title: string; subtitle: string; icon?: string } | null>(null);
+  const toastTimeoutRef = useRef<any>(null);
   const [cloudConfig, setCloudConfig] = useState(() => getSupabaseConfig());
   const [inputUrl, setInputUrl] = useState(() => getSupabaseConfig().url);
   const [inputKey, setInputKey] = useState(() => getSupabaseConfig().key);
@@ -123,6 +128,191 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [masterSyncResult, setMasterSyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const [sqlCopied, setSqlCopied] = useState(false);
   const [activeCloudTab, setActiveCloudTab] = useState<'sync' | 'credentials' | 'sql' | 'vercel'>('sync');
+
+  // Trigger brief visual & audio feedback on shortcut execution
+  const triggerShortcutFeedback = (title: string, subtitle: string) => {
+    playSound('pop');
+    setActiveShortcutToast({ title, subtitle });
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      setActiveShortcutToast(null);
+    }, 2200);
+  };
+
+  // Keyboard Shortcuts Listener for rapid tab switching (e.g. Ctrl+Shift+A, Ctrl+Shift+M, etc.)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+
+      // Escape closes open modals in priority order
+      if (e.key === 'Escape') {
+        if (showShortcutsModal) {
+          setShowShortcutsModal(false);
+          playSound('pop');
+          return;
+        }
+        if (showCloudModal) {
+          setShowCloudModal(false);
+          playSound('pop');
+          return;
+        }
+        if (deleteConfirmTarget) {
+          setDeleteConfirmTarget(null);
+          playSound('pop');
+          return;
+        }
+        if (editingItem) {
+          setEditingItem(null);
+          playSound('pop');
+          return;
+        }
+        if (editingArticle) {
+          setEditingArticle(null);
+          playSound('pop');
+          return;
+        }
+        if (editingFaq) {
+          setEditingFaq(null);
+          playSound('pop');
+          return;
+        }
+      }
+
+      // Quick Help shortcut: '?' when not focused on an input
+      if (!isInput && e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        setShowShortcutsModal(prev => !prev);
+        playSound('pop');
+        return;
+      }
+
+      // Key combos requiring modifier: (Ctrl + Shift) or (Cmd + Shift on Mac)
+      const hasModifiers = (e.ctrlKey || e.metaKey) && e.shiftKey;
+      if (!hasModifiers) return;
+
+      const key = e.key.toUpperCase();
+
+      switch (key) {
+        // 1. Dashboard / Accueil: Ctrl+Shift+A ou Ctrl+Shift+D
+        case 'A':
+        case 'D':
+          e.preventDefault();
+          setCurrentView(AdminView.DASHBOARD);
+          triggerShortcutFeedback('Tableau de Bord Principal', 'Ctrl + Shift + A');
+          break;
+
+        // 2. Plat du Jour: Ctrl+Shift+P
+        case 'P':
+          e.preventDefault();
+          setCurrentView(AdminView.PLAT_DU_JOUR);
+          triggerShortcutFeedback('Plat du Jour & Studio Affiche', 'Ctrl + Shift + P');
+          break;
+
+        // 3. Menu / Carte: Ctrl+Shift+M ou Ctrl+Shift+C
+        case 'M':
+        case 'C':
+          e.preventDefault();
+          setCurrentView(AdminView.MENU_MGMT);
+          triggerShortcutFeedback('Gestion de la Carte & Plats', 'Ctrl + Shift + M');
+          break;
+
+        // 4. Commandes: Ctrl+Shift+O
+        case 'O':
+          e.preventDefault();
+          setCurrentView(AdminView.ORDERS);
+          triggerShortcutFeedback('Gestion des Commandes & Statuts', 'Ctrl + Shift + O');
+          break;
+
+        // 5. Blog: Ctrl+Shift+B
+        case 'B':
+          e.preventDefault();
+          setCurrentView(AdminView.BLOG_MGMT);
+          triggerShortcutFeedback('Articles de Blog & Recettes', 'Ctrl + Shift + B');
+          break;
+
+        // 6. FAQ: Ctrl+Shift+F
+        case 'F':
+          e.preventDefault();
+          setCurrentView(AdminView.FAQ_MGMT);
+          triggerShortcutFeedback('Foire Aux Questions (FAQ)', 'Ctrl + Shift + F');
+          break;
+
+        // 7. Livreurs: Ctrl+Shift+L
+        case 'L':
+          e.preventDefault();
+          setCurrentView(AdminView.DELIVERY);
+          triggerShortcutFeedback('Livreurs & Logistique Express', 'Ctrl + Shift + L');
+          break;
+
+        // 8. Clients: Ctrl+Shift+U
+        case 'U':
+          e.preventDefault();
+          setCurrentView(AdminView.CLIENTS);
+          triggerShortcutFeedback('Clients & Programme Fidélité', 'Ctrl + Shift + U');
+          break;
+
+        // 9. Marketing & IA: Ctrl+Shift+K
+        case 'K':
+          e.preventDefault();
+          setCurrentView(AdminView.AI_MARKETING);
+          triggerShortcutFeedback('Marketing & IA Studio', 'Ctrl + Shift + K');
+          break;
+
+        // 10. Événements / Traiteur: Ctrl+Shift+E
+        case 'E':
+          e.preventDefault();
+          setCurrentView(AdminView.EVENT);
+          triggerShortcutFeedback('Événements & Traiteur', 'Ctrl + Shift + E');
+          break;
+
+        // 11. Buffet & Packs: Ctrl+Shift+T
+        case 'T':
+          e.preventDefault();
+          setCurrentView(AdminView.BUFFET);
+          triggerShortcutFeedback('Buffets & Packs', 'Ctrl + Shift + T');
+          break;
+
+        // 12. Paramètres: Ctrl+Shift+S
+        case 'S':
+          e.preventDefault();
+          setCurrentView(AdminView.SETTINGS);
+          triggerShortcutFeedback('Paramètres & Configuration', 'Ctrl + Shift + S');
+          break;
+
+        // 13. Cloud Supabase Modal: Ctrl+Shift+Z
+        case 'Z':
+        case 'G':
+          e.preventDefault();
+          setShowCloudModal(prev => !prev);
+          triggerShortcutFeedback('Centre Cloud Supabase', 'Ctrl + Shift + Z');
+          break;
+
+        // 14. Aide Raccourcis: Ctrl+Shift+H
+        case 'H':
+          e.preventDefault();
+          setShowShortcutsModal(prev => !prev);
+          triggerShortcutFeedback('Guide des Raccourcis Clavier', 'Ctrl + Shift + H');
+          break;
+
+        // 15. Quitter Admin: Ctrl+Shift+Q
+        case 'Q':
+          e.preventDefault();
+          triggerShortcutFeedback('Quitter l\'Espace Admin', 'Ctrl + Shift + Q');
+          setTimeout(() => onExit(), 350);
+          break;
+
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, [showShortcutsModal, showCloudModal, deleteConfirmTarget, editingItem, editingArticle, editingFaq, onExit]);
 
   // Synchronisation avatar et config Supabase en temps réel
   React.useEffect(() => {
@@ -1044,22 +1234,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   const navItems = [
-    { v: AdminView.DASHBOARD, i: LayoutDashboard, l: 'Home' },
-    { v: AdminView.PLAT_DU_JOUR, i: Sun, l: 'Plat du Jour' },
-    { v: AdminView.MENU_MGMT, i: Utensils, l: 'Carte' },
-    { v: AdminView.BLOG_MGMT, i: BookOpen, l: 'Blog' },
-    { v: AdminView.FAQ_MGMT, i: HelpCircle, l: 'FAQ' },
-    { v: AdminView.ORDERS, i: ShoppingBag, l: 'Orders' },
-    { v: AdminView.DELIVERY, i: Bike, l: 'Livreurs' },
-    { v: AdminView.CLIENTS, i: Users, l: 'Clients' },
-    { v: AdminView.AI_MARKETING, i: Zap, l: 'Marketing' },
-    { v: AdminView.EVENT, i: Calendar, l: 'Évents' },
-    { v: AdminView.BUFFET, i: ChefHat, l: 'Buffet' },
-    { v: AdminView.SETTINGS, i: Settings, l: 'Settings' }
+    { v: AdminView.DASHBOARD, i: LayoutDashboard, l: 'Home', shortcut: 'A', keyDisplay: '⌃⇧A' },
+    { v: AdminView.PLAT_DU_JOUR, i: Sun, l: 'Plat du Jour', shortcut: 'P', keyDisplay: '⌃⇧P' },
+    { v: AdminView.MENU_MGMT, i: Utensils, l: 'Carte', shortcut: 'M', keyDisplay: '⌃⇧M' },
+    { v: AdminView.BLOG_MGMT, i: BookOpen, l: 'Blog', shortcut: 'B', keyDisplay: '⌃⇧B' },
+    { v: AdminView.FAQ_MGMT, i: HelpCircle, l: 'FAQ', shortcut: 'F', keyDisplay: '⌃⇧F' },
+    { v: AdminView.ORDERS, i: ShoppingBag, l: 'Orders', shortcut: 'O', keyDisplay: '⌃⇧O' },
+    { v: AdminView.DELIVERY, i: Bike, l: 'Livreurs', shortcut: 'L', keyDisplay: '⌃⇧L' },
+    { v: AdminView.CLIENTS, i: Users, l: 'Clients', shortcut: 'U', keyDisplay: '⌃⇧U' },
+    { v: AdminView.AI_MARKETING, i: Zap, l: 'Marketing', shortcut: 'K', keyDisplay: '⌃⇧K' },
+    { v: AdminView.EVENT, i: Calendar, l: 'Évents', shortcut: 'E', keyDisplay: '⌃⇧E' },
+    { v: AdminView.BUFFET, i: ChefHat, l: 'Buffet', shortcut: 'T', keyDisplay: '⌃⇧T' },
+    { v: AdminView.SETTINGS, i: Settings, l: 'Settings', shortcut: 'S', keyDisplay: '⌃⇧S' }
   ];
 
   return (
-    <div className="min-h-screen w-full bg-[#0F0807] text-white flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="min-h-screen w-full bg-[#0F0807] text-white flex flex-col md:flex-row overflow-hidden font-sans relative">
       <input 
         type="file" 
         ref={adminPhotoInputRef} 
@@ -1069,29 +1259,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       />
 
       {/* Desktop Sidebar Admin (md:flex) */}
-      <div className="hidden md:flex w-24 bg-black/40 border-r border-white/5 flex-col items-center py-8 gap-5 overflow-y-auto no-scrollbar flex-shrink-0">
+      <div className="hidden md:flex w-24 bg-black/40 border-r border-white/5 flex-col items-center py-8 gap-4 overflow-y-auto no-scrollbar flex-shrink-0">
         <KhadyLogo variant="light" className="scale-75 mb-2" />
         {navItems.map(n => (
-          <button key={n.l} onClick={() => { setCurrentView(n.v); playSound('pop'); }} className={`flex flex-col items-center transition-all duration-300 ${currentView === n.v ? 'scale-110 opacity-100' : 'opacity-20 hover:opacity-100'}`}>
-             <div className={`p-3 rounded-2xl ${currentView === n.v ? 'bg-brand-orange text-white shadow-xl' : 'bg-white/5'}`}><n.i size={20} /></div>
-             <span className="text-[6px] mt-1.5 font-black tracking-widest uppercase text-center w-20 leading-tight">{n.l}</span>
+          <button 
+            key={n.l} 
+            onClick={() => { setCurrentView(n.v); playSound('pop'); }} 
+            title={`${n.l} (Raccourci: Ctrl + Shift + ${n.shortcut})`}
+            className={`flex flex-col items-center transition-all duration-300 relative group ${currentView === n.v ? 'scale-110 opacity-100' : 'opacity-25 hover:opacity-100'}`}
+          >
+             <div className={`p-3 rounded-2xl relative ${currentView === n.v ? 'bg-brand-orange text-white shadow-xl ring-2 ring-brand-gold/30' : 'bg-white/5'}`}>
+               <n.i size={20} />
+               <span className="hidden group-hover:flex absolute -top-1 -right-1 bg-black/90 text-brand-gold text-[7px] font-mono px-1 py-0.2 rounded border border-brand-gold/40 shadow-lg pointer-events-none">
+                 {n.keyDisplay}
+               </span>
+             </div>
+             <span className="text-[6px] mt-1 font-black tracking-widest uppercase text-center w-20 leading-tight">{n.l}</span>
           </button>
         ))}
-        <button onClick={onExit} title="Quitter le Dashboard Admin" className="mt-auto p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex flex-col items-center gap-1">
+
+        {/* Bouton Guide Raccourcis Sidebar */}
+        <button 
+          onClick={() => { playSound('pop'); setShowShortcutsModal(true); }}
+          title="Guide des Raccourcis Clavier (Ctrl + Shift + H ou ?)"
+          className="p-3 bg-white/5 hover:bg-brand-gold/20 text-white/50 hover:text-brand-gold rounded-2xl transition-all active:scale-90 flex flex-col items-center gap-1 mt-2 border border-white/5 hover:border-brand-gold/30"
+        >
+          <Keyboard size={18} />
+          <span className="text-[6px] font-black uppercase tracking-widest text-center">Clavier</span>
+        </button>
+
+        <button onClick={onExit} title="Quitter le Dashboard Admin (Ctrl + Shift + Q)" className="mt-auto p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex flex-col items-center gap-1">
           <Power size={22}/>
           <span className="text-[6px] font-black uppercase tracking-widest">Quitter</span>
         </button>
       </div>
 
       {/* Mobile Horizontal Navigation Header (md:hidden) */}
-      <div className="flex md:hidden bg-black/60 border-b border-white/10 px-3 py-2.5 overflow-x-auto no-scrollbar flex-shrink-0 items-center gap-2 z-30">
-        <KhadyLogo variant="light" className="scale-50 shrink-0 -mr-2" />
+      <div className="flex md:hidden bg-black/80 border-b border-white/10 px-2.5 py-2 overflow-x-auto no-scrollbar flex-shrink-0 items-center gap-1.5 z-30 sticky top-0 backdrop-blur-md">
+        <KhadyLogo variant="light" className="scale-[0.6] shrink-0 -mr-2" />
         {navItems.map(n => (
           <button 
             key={n.l} 
             onClick={() => { setCurrentView(n.v); playSound('pop'); }} 
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shrink-0 transition-all text-[10px] font-black uppercase tracking-wider ${
-              currentView === n.v ? 'bg-brand-orange text-white shadow-lg' : 'bg-white/5 text-white/50 hover:text-white'
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shrink-0 transition-all text-[10px] font-black uppercase tracking-wider min-h-[38px] ${
+              currentView === n.v ? 'bg-brand-orange text-white shadow-lg' : 'bg-white/5 text-white/60 hover:text-white'
             }`}
           >
             <n.i size={14} />
@@ -1100,30 +1311,44 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         ))}
         <button 
           onClick={onExit} 
-          className="px-3 py-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0 text-[10px] font-black uppercase flex items-center gap-1 border border-rose-500/30"
+          className="px-3 py-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0 text-[10px] font-black uppercase flex items-center gap-1 border border-rose-500/30 min-h-[38px]"
         >
           <Power size={14} /> Quitter
         </button>
       </div>
 
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        <header className="p-4 md:p-8 flex justify-between items-center border-b border-white/5 bg-black/20 backdrop-blur-md relative z-20 gap-2">
-           <div>
-              <h2 className="text-xs md:text-sm font-black italic uppercase text-brand-gold tracking-[0.2em] leading-none">Console Admin Elite</h2>
-              <p className="text-[7px] md:text-[8px] text-white/40 font-black uppercase mt-1 tracking-wider">Terminal de Gestion — Khady's Food</p>
+        <header className="p-3 sm:p-5 md:p-8 flex flex-wrap sm:flex-nowrap justify-between items-center border-b border-white/5 bg-black/20 backdrop-blur-md relative z-20 gap-2.5">
+           <div className="min-w-0">
+              <h2 className="text-xs sm:text-sm font-black italic uppercase text-brand-gold tracking-[0.15em] leading-none truncate">Console Admin Elite</h2>
+              <p className="text-[7px] sm:text-[8px] text-white/40 font-black uppercase mt-1 tracking-wider truncate">Terminal de Gestion — Khady's Food</p>
            </div>
            
-           <div className="flex items-center gap-2 md:gap-3">
+           <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap sm:flex-nowrap shrink-0">
+              {/* Bouton Raccourcis Clavier Header */}
+              <button 
+                type="button"
+                onClick={() => { playSound('pop'); setShowShortcutsModal(true); }}
+                className="px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-2xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-md shrink-0 border bg-white/5 hover:bg-brand-gold/15 text-white/70 hover:text-brand-gold border-white/10 hover:border-brand-gold/30 min-h-[38px]"
+                title="Afficher le panneau des raccourcis clavier (Ctrl+Shift+H ou ?)"
+              >
+                <Keyboard size={14} className="text-brand-gold" />
+                <span className="hidden sm:inline">Raccourcis</span>
+                <span className="hidden lg:inline-block text-[7px] font-mono bg-black/60 text-brand-gold/80 px-1.5 py-0.5 rounded border border-white/10">
+                  ^⇧H
+                </span>
+              </button>
+
               {/* Bouton Cloud Supabase */}
               <button 
                 type="button"
                 onClick={() => { playSound('pop'); setShowCloudModal(true); }}
-                className={`px-3 md:px-4 py-2 md:py-2.5 rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0 border ${
+                className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0 border min-h-[38px] ${
                   cloudConfig.isValid 
                     ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
                     : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 animate-pulse'
                 }`}
-                title="Gérer la synchronisation Supabase Cloud"
+                title="Gérer la synchronisation Supabase Cloud (Ctrl+Shift+Z)"
               >
                 <Database size={14} className={cloudConfig.isValid ? 'text-emerald-400' : 'text-amber-400'} />
                 <span className="hidden sm:inline">
@@ -1135,45 +1360,45 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
               <button 
                 onClick={onExit}
-                className="px-3 md:px-4 py-2 md:py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0"
+                className="px-2.5 sm:px-4 py-2 sm:py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0 min-h-[38px]"
               >
                  <Power size={14} /> <span className="hidden sm:inline">Quitter Admin</span>
               </button>
 
               <div 
                 onClick={() => adminPhotoInputRef.current?.click()}
-                className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-2xl hover:border-brand-orange transition-all flex-shrink-0"
+                className="w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center relative group cursor-pointer overflow-hidden shadow-2xl hover:border-brand-orange transition-all flex-shrink-0"
                 title="Changer la photo de profil Admin (Synchronisée sur le Cloud)"
               >
-                 {adminAvatar ? <img src={adminAvatar} className="w-full h-full object-cover" alt="Admin Avatar" /> : <Camera className="text-brand-gold opacity-20" size={20} />}
+                 {adminAvatar ? <img src={adminAvatar} className="w-full h-full object-cover" alt="Admin Avatar" /> : <Camera className="text-brand-gold opacity-20" size={18} />}
                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all">
                     <Camera size={14} className="text-white" />
                  </div>
               </div>
            </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 md:p-10 no-scrollbar bg-gradient-to-br from-transparent to-brand-orange/[0.02]">{renderContent()}</div>
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 md:p-10 no-scrollbar bg-gradient-to-br from-transparent to-brand-orange/[0.02]">{renderContent()}</div>
       </div>
 
       {/* Modal d'édition/ajout de plat */}
       {editingItem && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
-           <div className="bg-brand-brown w-full max-w-sm rounded-[3.5rem] p-10 border-4 border-white/10 shadow-2xl relative overflow-y-auto max-h-[90vh] no-scrollbar">
-              <button onClick={() => setEditingItem(null)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors"><X size={24}/></button>
-              <h3 className="text-xl font-black italic uppercase text-brand-gold mb-8 tracking-tighter leading-none">{editingItem.id ? 'Éditer le Plat' : 'Nouveau Plat'}</h3>
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+           <div className="bg-brand-brown w-full max-w-lg rounded-3xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 border-2 border-white/10 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[90vh] no-scrollbar">
+              <button onClick={() => setEditingItem(null)} className="absolute top-4 right-4 sm:top-7 sm:right-7 text-white/30 hover:text-white transition-colors p-2"><X size={22}/></button>
+              <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold mb-6 sm:mb-8 tracking-tighter leading-none">{editingItem.id ? 'Éditer le Plat' : 'Nouveau Plat'}</h3>
               <form onSubmit={handleSaveItem} className="space-y-4">
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Nom du plat</label>
-                    <input required value={editingItem.name || ''} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Tiep Royal" />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Nom du plat</label>
+                    <input required value={editingItem.name || ''} onChange={e => setEditingItem({...editingItem, name: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Tiep Royal" />
                  </div>
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1">
-                       <label className="text-[8px] font-black uppercase text-white/30 ml-4">Prix (F CFA)</label>
-                       <input type="number" required value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: Number(e.target.value)})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10" />
+                       <label className="text-[8px] font-black uppercase text-white/30 ml-3">Prix (F CFA)</label>
+                       <input type="number" required value={editingItem.price || ''} onChange={e => setEditingItem({...editingItem, price: Number(e.target.value)})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10" />
                     </div>
                     <div className="space-y-1">
-                       <label className="text-[8px] font-black uppercase text-white/30 ml-4">Catégorie</label>
-                       <select value={editingItem.category || 'Plat Africain'} onChange={e => setEditingItem({...editingItem, category: e.target.value as any})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
+                       <label className="text-[8px] font-black uppercase text-white/30 ml-3">Catégorie</label>
+                       <select value={editingItem.category || 'Plat Africain'} onChange={e => setEditingItem({...editingItem, category: e.target.value as any})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
                           <option value="Plat Africain">Plat Africain</option>
                           <option value="Spécialité Maison">Spécialité</option>
                           <option value="Box Sauce">Box Sauce</option>
@@ -1184,7 +1409,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Photo du Plat</label>
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Photo du Plat</label>
                     <input 
                        type="file" 
                        ref={dishPhotoInputRef} 
@@ -1194,7 +1419,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
                     
                     {editingItem.image && (
-                       <div className="relative w-full h-28 rounded-2xl overflow-hidden border border-white/20 mb-2 group">
+                       <div className="relative w-full h-28 sm:h-36 rounded-2xl overflow-hidden border border-white/20 mb-2 group">
                           <img src={editingItem.image} alt="Aperçu plat" className="w-full h-full object-cover" />
                           <button 
                              type="button" 
@@ -1221,7 +1446,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button 
                        type="button" 
                        onClick={() => dishPhotoInputRef.current?.click()} 
-                       className="w-full p-4 bg-brand-gold/15 border border-brand-gold/40 hover:bg-brand-gold/25 text-brand-gold rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                       className="w-full p-3.5 sm:p-4 bg-brand-gold/15 border border-brand-gold/40 hover:bg-brand-gold/25 text-brand-gold rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-lg min-h-[44px]"
                     >
                        <Camera size={18} /> Importer depuis Galerie / Appareil
                     </button>
@@ -1232,13 +1457,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Description</label>
-                    <textarea value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] h-24 border border-white/10 resize-none" placeholder="Détails du plat..." />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Description</label>
+                    <textarea value={editingItem.description || ''} onChange={e => setEditingItem({...editingItem, description: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] h-24 border border-white/10 resize-none" placeholder="Détails du plat..." />
                  </div>
 
                  {/* Tags & Attribute Filters */}
                  <div className="space-y-2 pt-1">
-                    <label className="text-[8px] font-black uppercase text-brand-gold ml-4">Tags & Filtres de Sélection</label>
+                    <label className="text-[8px] font-black uppercase text-brand-gold ml-3">Tags & Filtres de Sélection</label>
                     <div className="grid grid-cols-2 gap-2 bg-white/5 p-3.5 rounded-2xl border border-white/10">
                        <label className="flex items-center gap-2 cursor-pointer text-[10px] font-bold text-white/80 hover:text-white">
                           <input 
@@ -1288,7 +1513,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
 
-                 <button type="submit" className="w-full bg-brand-orange text-white py-6 rounded-[2.5rem] font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4">
+                 <button type="submit" className="w-full bg-brand-orange text-white py-4 sm:py-5 rounded-2xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4 min-h-[48px]">
                     {editingItem.id ? 'Mettre à jour' : 'Ajouter à la Carte'} <CheckCircle2 size={20}/>
                  </button>
               </form>
@@ -1298,18 +1523,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Modal d'édition/ajout d'article de blog */}
       {editingArticle && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
-           <div className="bg-brand-brown w-full max-w-sm rounded-[3.5rem] p-10 border-4 border-white/10 shadow-2xl relative overflow-y-auto max-h-[90vh] no-scrollbar">
-              <button onClick={() => setEditingArticle(null)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors"><X size={24}/></button>
-              <h3 className="text-xl font-black italic uppercase text-brand-gold mb-8 tracking-tighter leading-none">{editingArticle.id ? 'Éditer l\'Article' : 'Nouveau Billet Blog'}</h3>
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+           <div className="bg-brand-brown w-full max-w-lg rounded-3xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 border-2 border-white/10 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[90vh] no-scrollbar">
+              <button onClick={() => setEditingArticle(null)} className="absolute top-4 right-4 sm:top-7 sm:right-7 text-white/30 hover:text-white transition-colors p-2"><X size={22}/></button>
+              <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold mb-6 sm:mb-8 tracking-tighter leading-none">{editingArticle.id ? 'Éditer l\'Article' : 'Nouveau Billet Blog'}</h3>
               <form onSubmit={handleSaveArticle} className="space-y-4">
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Titre de l'article</label>
-                    <input required value={editingArticle.title || ''} onChange={e => setEditingArticle({...editingArticle, title: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Les secrets du Dambou" />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Titre de l'article</label>
+                    <input required value={editingArticle.title || ''} onChange={e => setEditingArticle({...editingArticle, title: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Les secrets du Dambou" />
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Catégorie</label>
-                    <select value={editingArticle.category || 'Secrets du Chef'} onChange={e => setEditingArticle({...editingArticle, category: e.target.value as any})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Catégorie</label>
+                    <select value={editingArticle.category || 'Secrets du Chef'} onChange={e => setEditingArticle({...editingArticle, category: e.target.value as any})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
                        <option value="Secrets du Chef">Secrets du Chef</option>
                        <option value="Recettes">Recettes</option>
                        <option value="Nutrition Sahel">Nutrition Sahel</option>
@@ -1317,7 +1542,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </select>
                  </div>
                  <div className="space-y-2">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Photo d'Illustration HD</label>
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Photo d'Illustration HD</label>
                     <input 
                        type="file" 
                        ref={articlePhotoInputRef} 
@@ -1327,7 +1552,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     />
 
                     {editingArticle.image && (
-                       <div className="relative w-full h-28 rounded-2xl overflow-hidden border border-white/20 mb-2 group">
+                       <div className="relative w-full h-28 sm:h-36 rounded-2xl overflow-hidden border border-white/20 mb-2 group">
                           <img src={editingArticle.image} alt="Aperçu article" className="w-full h-full object-cover" />
                           <button 
                              type="button" 
@@ -1354,7 +1579,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <button 
                        type="button" 
                        onClick={() => articlePhotoInputRef.current?.click()} 
-                       className="w-full p-4 bg-brand-gold/15 border border-brand-gold/40 hover:bg-brand-gold/25 text-brand-gold rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-lg"
+                       className="w-full p-3.5 sm:p-4 bg-brand-gold/15 border border-brand-gold/40 hover:bg-brand-gold/25 text-brand-gold rounded-2xl flex items-center justify-center gap-2 font-black text-[10px] uppercase tracking-wider transition-all active:scale-95 shadow-lg min-h-[44px]"
                     >
                        <Camera size={18} /> Importer depuis Galerie
                     </button>
@@ -1365,10 +1590,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Contenu Complet</label>
-                    <textarea required value={editingArticle.content || ''} onChange={e => setEditingArticle({...editingArticle, content: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] h-32 border border-white/10 resize-none" placeholder="Rédigez l'article..." />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Contenu Complet</label>
+                    <textarea required value={editingArticle.content || ''} onChange={e => setEditingArticle({...editingArticle, content: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] h-32 border border-white/10 resize-none" placeholder="Rédigez l'article..." />
                  </div>
-                 <button type="submit" className="w-full bg-brand-orange text-white py-6 rounded-[2.5rem] font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4">
+                 <button type="submit" className="w-full bg-brand-orange text-white py-4 sm:py-5 rounded-2xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4 min-h-[48px]">
                     {editingArticle.id ? 'Mettre à jour' : 'Publier sur le Blog'} <CheckCircle2 size={20}/>
                  </button>
               </form>
@@ -1378,14 +1603,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Modal d'édition/ajout de FAQ */}
       {editingFaq && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-6 animate-fade-in">
-           <div className="bg-brand-brown w-full max-w-sm rounded-[3.5rem] p-10 border-4 border-white/10 shadow-2xl relative overflow-y-auto max-h-[90vh] no-scrollbar">
-              <button onClick={() => setEditingFaq(null)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors"><X size={24}/></button>
-              <h3 className="text-xl font-black italic uppercase text-brand-gold mb-8 tracking-tighter leading-none">{editingFaq.id ? 'Éditer la Question' : 'Nouvelle Question FAQ'}</h3>
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+           <div className="bg-brand-brown w-full max-w-lg rounded-3xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 border-2 border-white/10 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[90vh] no-scrollbar">
+              <button onClick={() => setEditingFaq(null)} className="absolute top-4 right-4 sm:top-7 sm:right-7 text-white/30 hover:text-white transition-colors p-2"><X size={22}/></button>
+              <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold mb-6 sm:mb-8 tracking-tighter leading-none">{editingFaq.id ? 'Éditer la Question' : 'Nouvelle Question FAQ'}</h3>
               <form onSubmit={handleSaveFaq} className="space-y-4">
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Catégorie</label>
-                    <select value={editingFaq.category || 'Paiement'} onChange={e => setEditingFaq({...editingFaq, category: e.target.value as any})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Catégorie</label>
+                    <select value={editingFaq.category || 'Paiement'} onChange={e => setEditingFaq({...editingFaq, category: e.target.value as any})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] font-black border border-white/10 outline-none">
                        <option value="Paiement">Paiement</option>
                        <option value="Livraison">Livraison</option>
                        <option value="Commandes">Commandes</option>
@@ -1394,14 +1619,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </select>
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Question</label>
-                    <input required value={editingFaq.question || ''} onChange={e => setEditingFaq({...editingFaq, question: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Livrez-vous à Goudel ?" />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Question</label>
+                    <input required value={editingFaq.question || ''} onChange={e => setEditingFaq({...editingFaq, question: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-xs font-bold border border-white/10 outline-none focus:border-brand-gold" placeholder="Ex: Livrez-vous à Goudel ?" />
                  </div>
                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase text-white/30 ml-4">Réponse détaillée</label>
-                    <textarea required value={editingFaq.answer || ''} onChange={e => setEditingFaq({...editingFaq, answer: e.target.value})} className="w-full p-4 bg-white/5 rounded-2xl text-white text-[10px] h-28 border border-white/10 resize-none" placeholder="Expliquez la réponse..." />
+                    <label className="text-[8px] font-black uppercase text-white/30 ml-3">Réponse détaillée</label>
+                    <textarea required value={editingFaq.answer || ''} onChange={e => setEditingFaq({...editingFaq, answer: e.target.value})} className="w-full p-3.5 sm:p-4 bg-white/5 rounded-2xl text-white text-[10px] h-28 border border-white/10 resize-none" placeholder="Expliquez la réponse..." />
                  </div>
-                 <button type="submit" className="w-full bg-brand-gold text-brand-brown py-6 rounded-[2.5rem] font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4">
+                 <button type="submit" className="w-full bg-brand-gold text-brand-brown py-4 sm:py-5 rounded-2xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4 min-h-[48px]">
                     {editingFaq.id ? 'Mettre à jour' : 'Enregistrer la FAQ'} <CheckCircle2 size={20}/>
                  </button>
               </form>
@@ -1411,8 +1636,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Dialogue Visuel Sécurisé de Confirmation de Suppression */}
       {deleteConfirmTarget && (
-        <div className="fixed inset-0 z-[160] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-[#1C0F0D] border-2 border-rose-500/40 w-full max-w-sm rounded-[3.5rem] p-6 sm:p-8 shadow-2xl space-y-6 text-center relative overflow-hidden">
+        <div className="fixed inset-0 z-[160] bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+          <div className="bg-[#1C0F0D] border-2 border-rose-500/40 w-full max-w-sm rounded-3xl sm:rounded-[3.5rem] p-5 sm:p-8 shadow-2xl space-y-5 text-center relative overflow-hidden">
             {/* Arrière plan lumineux dynamique rouge */}
             <div className="absolute -top-16 -left-16 w-32 h-32 bg-rose-500/20 rounded-full blur-2xl pointer-events-none" />
             <div className="absolute -bottom-16 -right-16 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -1420,14 +1645,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* Bouton Fermer */}
             <button 
               onClick={() => { playSound('pop'); setDeleteConfirmTarget(null); }}
-              className="absolute top-6 right-6 text-white/30 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10"
+              className="absolute top-4 right-4 text-white/30 hover:text-white transition-colors p-2 rounded-full hover:bg-white/10"
             >
               <X size={20} />
             </button>
 
             {/* Icône Corbeille / Alerte Animée */}
-            <div className="w-16 h-16 rounded-3xl bg-rose-500/20 border border-rose-500/40 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
-              <Trash2 size={32} className="animate-bounce" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-3xl bg-rose-500/20 border border-rose-500/40 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+              <Trash2 size={28} className="animate-bounce" />
             </div>
 
             {/* Titre & Type d'élément */}
@@ -1438,18 +1663,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {deleteConfirmTarget.type === 'faq' && '🗑️ Question FAQ'}
                 {deleteConfirmTarget.type === 'media' && '🖼️ Fichier Média / Photo'}
               </span>
-              <h3 className="text-lg font-black text-white italic uppercase tracking-tight">
+              <h3 className="text-base sm:text-lg font-black text-white italic uppercase tracking-tight">
                 Confirmer la suppression ?
               </h3>
-              <p className="text-[11px] font-medium text-white/60 mt-1">
+              <p className="text-[10px] sm:text-[11px] font-medium text-white/60 mt-1">
                 Cette opération supprimera définitivement cet élément.
               </p>
             </div>
 
             {/* Carte Aperçu de l'élément à supprimer */}
-            <div className="bg-black/50 p-4 rounded-2xl border border-white/10 text-left space-y-3">
+            <div className="bg-black/50 p-3.5 rounded-2xl border border-white/10 text-left space-y-2.5">
               {deleteConfirmTarget.image && (
-                <div className="w-full h-28 rounded-xl overflow-hidden border border-white/10 relative">
+                <div className="w-full h-24 sm:h-28 rounded-xl overflow-hidden border border-white/10 relative">
                   <img src={deleteConfirmTarget.image} alt={deleteConfirmTarget.name} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                   <span className="absolute bottom-2 left-2 text-[8px] font-black uppercase bg-rose-950/80 text-rose-300 px-2 py-0.5 rounded-full border border-rose-500/30">
@@ -1471,16 +1696,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {/* Message de Sécurité */}
-            <div className="flex items-center gap-2 bg-rose-950/50 p-3 rounded-xl border border-rose-500/30 text-rose-300 text-[10px] text-left font-semibold">
-              <ShieldAlert size={18} className="shrink-0 text-rose-400" />
+            <div className="flex items-center gap-2 bg-rose-950/50 p-2.5 rounded-xl border border-rose-500/30 text-rose-300 text-[9px] sm:text-[10px] text-left font-semibold">
+              <ShieldAlert size={16} className="shrink-0 text-rose-400" />
               <span>Suppression sécurisée instantanée dans le système.</span>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 pt-2">
+            <div className="flex gap-2.5 pt-1">
               <button
                 onClick={() => { playSound('pop'); setDeleteConfirmTarget(null); }}
-                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase py-4 rounded-2xl tracking-wider active:scale-95 transition-all"
+                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase py-3.5 rounded-2xl tracking-wider active:scale-95 transition-all min-h-[44px]"
               >
                 Annuler
               </button>
@@ -1489,9 +1714,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   deleteConfirmTarget.onConfirm();
                   setDeleteConfirmTarget(null);
                 }}
-                className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase py-4 rounded-2xl tracking-wider shadow-lg shadow-rose-600/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                className="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase py-3.5 rounded-2xl tracking-wider shadow-lg shadow-rose-600/30 active:scale-95 transition-all flex items-center justify-center gap-1.5 min-h-[44px]"
               >
-                <Trash2 size={16} /> Supprimer
+                <Trash2 size={15} /> Supprimer
               </button>
             </div>
           </div>
@@ -1502,13 +1727,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* MODAL CLOUD SUPABASE : SYNCHRONISATION TOTALE & GESTION DES CLÉS          */}
       {/* ========================================================================= */}
       {showCloudModal && (
-        <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-6 animate-fade-in">
-          <div className="bg-[#1C0F0D] border-2 border-brand-gold/40 w-full max-w-2xl rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative max-h-[90vh] overflow-y-auto no-scrollbar text-white">
+        <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+          <div className="bg-[#1C0F0D] border-2 border-brand-gold/40 w-full max-w-2xl rounded-3xl sm:rounded-[2.5rem] shadow-2xl p-4 sm:p-8 relative max-h-[92vh] sm:max-h-[90vh] overflow-y-auto no-scrollbar text-white">
             
             {/* Bouton Fermer */}
             <button 
               onClick={() => { playSound('pop'); setShowCloudModal(false); }}
-              className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all"
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all min-h-[38px] min-w-[38px] flex items-center justify-center"
               title="Fermer"
             >
               <X size={20} />
@@ -1689,18 +1914,116 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {/* TAB 2: CLÉS & CONNEXION DIRECTE */}
             {activeCloudTab === 'credentials' && (
               <div className="space-y-4 animate-fade-in">
+                
+                {/* CARTE 1-CLIC : PROJET SUPABASE ACTIF KHADY'S FOOD */}
+                <div className="bg-gradient-to-r from-brand-orange/20 via-brand-gold/15 to-transparent p-5 rounded-2xl border-2 border-brand-gold/50 space-y-3 shadow-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={18} className="text-brand-gold animate-pulse" />
+                      <h4 className="text-xs font-black italic uppercase text-brand-gold">
+                        Projet Supabase Officiel Khady's Food
+                      </h4>
+                    </div>
+                    <span className="text-[8px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      Prêt & Actif
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/70">
+                    Plus besoin de copier-coller manuellement ! Cliquez ci-dessous pour injecter instantanément votre projet <code className="text-brand-gold font-mono font-bold">veygphkhehdnxefnnlwo</code> et connecter l'application en 1 seconde :
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      playSound('pop');
+                      setInputUrl(DEFAULT_SUPABASE_URL);
+                      setInputKey(DEFAULT_SUPABASE_KEY);
+                      setCustomSupabaseCredentials(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY);
+                      setCloudConfig(getSupabaseConfig());
+                      setIsTestingCloud(true);
+                      setTestResult(null);
+                      const res = await testSupabaseConnection(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY);
+                      setIsTestingCloud(false);
+                      setTestResult(res);
+                      if (res.success) {
+                        playSound('success');
+                      } else {
+                        playSound('error');
+                      }
+                    }}
+                    className="w-full py-3.5 bg-gradient-to-r from-brand-gold to-amber-400 hover:from-amber-400 hover:to-brand-gold text-brand-brown rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-all active:scale-95"
+                  >
+                    <Zap size={16} /> ⚡ Connecter & Valider le Projet Actif (veygphkhehdnxefnnlwo)
+                  </button>
+                </div>
+
                 <div className="bg-white/5 p-5 rounded-2xl border border-white/10 space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-black italic uppercase text-brand-gold">
-                      Configuration des Clés Supabase
+                      Configuration Manuelle des Clés
                     </h4>
-                    <span className="text-[9px] text-white/40">Connexion instantanée sans redéploiement</span>
+                    <span className="text-[9px] text-white/40">Personnalisation libre</span>
                   </div>
 
+                  {inputUrl.includes('ldlwtoktwubucmbsfurw') && (
+                    <div className="p-3.5 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-200 text-[10px] flex items-start gap-2.5">
+                      <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <b>Ancien projet détecté :</b> L'adresse <code className="font-mono text-white">ldlwtoktwubucmbsfurw</code> est votre ancien projet supprimé.
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInputUrl(DEFAULT_SUPABASE_URL);
+                            setInputKey(DEFAULT_SUPABASE_KEY);
+                            setCustomSupabaseCredentials(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY);
+                            setCloudConfig(getSupabaseConfig());
+                            playSound('pop');
+                          }}
+                          className="block mt-1 font-black text-brand-gold underline uppercase text-[9px]"
+                        >
+                          → Cliquer ici pour basculer sur le nouveau projet veygphkhehdnxefnnlwo
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
-                      URL du Projet Supabase (Project URL)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
+                        URL du Projet Supabase (Project URL)
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const text = await navigator.clipboard.readText();
+                              if (text) {
+                                setInputUrl(text.trim());
+                                playSound('pop');
+                              }
+                            } catch (e) {
+                              const manual = window.prompt("Collez l'URL de votre projet Supabase ici :");
+                              if (manual) {
+                                setInputUrl(manual.trim());
+                                playSound('pop');
+                              }
+                            }
+                          }}
+                          className="px-2 py-0.5 bg-brand-gold/20 hover:bg-brand-gold/30 text-brand-gold rounded text-[8px] font-black uppercase flex items-center gap-1 border border-brand-gold/30 transition-all"
+                        >
+                          📋 Coller
+                        </button>
+                        {inputUrl && (
+                          <button
+                            type="button"
+                            onClick={() => { setInputUrl(''); playSound('pop'); }}
+                            className="px-2 py-0.5 bg-white/10 hover:bg-rose-500/20 text-white/60 hover:text-rose-300 rounded text-[8px] font-black uppercase transition-all"
+                          >
+                            ✕ Effacer
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <input 
                       type="url"
                       value={inputUrl}
@@ -1711,9 +2034,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
-                      Clé Publique Anon (API Key / anon public)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black uppercase text-white/40 tracking-wider">
+                        Clé Publique Anon (API Key / anon public)
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const text = await navigator.clipboard.readText();
+                              if (text) {
+                                setInputKey(text.trim());
+                                playSound('pop');
+                              }
+                            } catch (e) {
+                              const manual = window.prompt("Collez la clé publique Anon Supabase ici :");
+                              if (manual) {
+                                setInputKey(manual.trim());
+                                playSound('pop');
+                              }
+                            }
+                          }}
+                          className="px-2 py-0.5 bg-brand-gold/20 hover:bg-brand-gold/30 text-brand-gold rounded text-[8px] font-black uppercase flex items-center gap-1 border border-brand-gold/30 transition-all"
+                        >
+                          📋 Coller
+                        </button>
+                        {inputKey && (
+                          <button
+                            type="button"
+                            onClick={() => { setInputKey(''); playSound('pop'); }}
+                            className="px-2 py-0.5 bg-white/10 hover:bg-rose-500/20 text-white/60 hover:text-rose-300 rounded text-[8px] font-black uppercase transition-all"
+                          >
+                            ✕ Effacer
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <textarea 
                       rows={2}
                       value={inputKey}
@@ -1929,6 +2286,251 @@ ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
                 className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[10px] font-black uppercase tracking-wider"
               >
                 Fermer
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* NOTIFICATION TOAST : FEEDBACK VISUEL INSTANTANÉ SUR RACCOURCI             */}
+      {/* ========================================================================= */}
+      {activeShortcutToast && (
+        <div className="fixed top-6 right-6 z-[160] animate-fade-in flex items-center gap-3.5 bg-[#1A0C0A]/95 border-2 border-brand-gold/60 text-white px-5 py-3.5 rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.8)] backdrop-blur-xl pointer-events-none">
+          <div className="p-2.5 bg-brand-gold/20 text-brand-gold rounded-xl border border-brand-gold/40 shrink-0">
+            <Zap size={18} className="animate-pulse text-brand-gold" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-wider text-brand-gold">Raccourci Clavier</span>
+              <span className="bg-black/70 text-[8px] font-mono text-white/80 px-2 py-0.5 rounded border border-white/15">
+                {activeShortcutToast.subtitle}
+              </span>
+            </div>
+            <div className="text-xs font-black italic uppercase text-white tracking-wide mt-0.5">
+              {activeShortcutToast.title}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL GUIDE DES RACCOURCIS CLAVIER ADMIN                                  */}
+      {/* ========================================================================= */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
+          <div className="bg-[#1C0F0D] border-2 border-brand-gold/40 w-full max-w-3xl rounded-3xl sm:rounded-[2.5rem] shadow-2xl p-4 sm:p-8 relative max-h-[92vh] sm:max-h-[90vh] overflow-y-auto no-scrollbar text-white">
+            
+            {/* Bouton Fermer */}
+            <button 
+              onClick={() => { playSound('pop'); setShowShortcutsModal(false); }}
+              className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-xl bg-white/5 hover:bg-white/15 text-white/60 hover:text-white transition-all min-h-[38px] min-w-[38px] flex items-center justify-center"
+              title="Fermer (Échap)"
+            >
+              <X size={20} />
+            </button>
+
+            {/* En-tête Guide */}
+            <div className="flex items-center gap-3.5 mb-6">
+              <div className="p-3 bg-brand-gold/15 text-brand-gold rounded-2xl border border-brand-gold/30 shadow-lg">
+                <Keyboard size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold tracking-tight flex items-center gap-2">
+                  <span>Raccourcis Clavier Admin</span>
+                  <span className="text-[9px] font-mono bg-brand-gold/20 text-brand-gold px-2.5 py-0.5 rounded-full border border-brand-gold/30 font-normal">
+                    Ctrl + Shift + Touche
+                  </span>
+                </h3>
+                <p className="text-[10px] text-white/50">
+                  Naviguez instantanément entre tous les modules et données sans toucher à la souris.
+                </p>
+              </div>
+            </div>
+
+            {/* Grilles de Raccourcis */}
+            <div className="space-y-6">
+              {/* Section 1 : Navigation & Gestion des Données */}
+              <div>
+                <h4 className="text-[10px] font-black uppercase text-brand-gold/80 tracking-widest mb-3 flex items-center gap-1.5">
+                  <Utensils size={13} className="text-brand-orange" /> Données, Menu & Commandes
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {[
+                    { key: 'Ctrl + Shift + A', alt: 'Ctrl + Shift + D', label: 'Tableau de Bord / Accueil', desc: 'Vue globale, KPIs et métriques live', view: AdminView.DASHBOARD },
+                    { key: 'Ctrl + Shift + P', label: 'Plat du Jour', desc: 'Affiche interactive, promotion et timing', view: AdminView.PLAT_DU_JOUR },
+                    { key: 'Ctrl + Shift + M', alt: 'Ctrl + Shift + C', label: 'Carte & Plats', desc: 'Gestion du catalogue des plats et prix', view: AdminView.MENU_MGMT },
+                    { key: 'Ctrl + Shift + O', label: 'Commandes (Orders)', desc: 'Suivi live, validation et statuts', view: AdminView.ORDERS },
+                    { key: 'Ctrl + Shift + B', label: 'Blog & Recettes', desc: 'Édition des articles culinaires', view: AdminView.BLOG_MGMT },
+                    { key: 'Ctrl + Shift + F', label: 'FAQ & Assistance', desc: 'Foire aux questions des clients', view: AdminView.FAQ_MGMT },
+                  ].map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        playSound('pop');
+                        setCurrentView(s.view);
+                        setShowShortcutsModal(false);
+                        triggerShortcutFeedback(s.label, s.key);
+                      }}
+                      className="text-left p-3.5 bg-white/5 hover:bg-brand-orange/15 rounded-2xl border border-white/10 hover:border-brand-orange/40 transition-all group flex items-start justify-between gap-3 active:scale-95"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-white group-hover:text-brand-gold uppercase tracking-wide">
+                          {s.label}
+                        </div>
+                        <div className="text-[9px] text-white/40 truncate">
+                          {s.desc}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <kbd className="px-2 py-1 bg-black/80 text-brand-gold border border-brand-gold/30 rounded-lg text-[9px] font-mono font-bold shadow">
+                          {s.key}
+                        </kbd>
+                        {s.alt && (
+                          <span className="text-[7px] text-white/40 font-mono">ou {s.alt}</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 2 : Logistique, Clients & Marketing */}
+              <div>
+                <h4 className="text-[10px] font-black uppercase text-brand-gold/80 tracking-widest mb-3 flex items-center gap-1.5">
+                  <Bike size={13} className="text-emerald-400" /> Logistique, Fidélité & Marketing
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {[
+                    { key: 'Ctrl + Shift + L', label: 'Livreurs & Logistique', desc: 'Flotte de coursiers et zones Niamey', view: AdminView.DELIVERY },
+                    { key: 'Ctrl + Shift + U', label: 'Clients & Fidélité', desc: 'Historique commandes et points', view: AdminView.CLIENTS },
+                    { key: 'Ctrl + Shift + K', label: 'Marketing IA & Bannières', desc: 'Génération de campagnes et promos', view: AdminView.AI_MARKETING },
+                    { key: 'Ctrl + Shift + E', label: 'Événements & Traiteur', desc: 'Réservations et réceptions', view: AdminView.EVENT },
+                    { key: 'Ctrl + Shift + T', label: 'Buffets & Packs', desc: 'Offres grand format et cérémonies', view: AdminView.BUFFET },
+                    { key: 'Ctrl + Shift + S', label: 'Paramètres Généraux', desc: 'Horaires, devises et contact', view: AdminView.SETTINGS },
+                  ].map((s, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        playSound('pop');
+                        setCurrentView(s.view);
+                        setShowShortcutsModal(false);
+                        triggerShortcutFeedback(s.label, s.key);
+                      }}
+                      className="text-left p-3.5 bg-white/5 hover:bg-brand-orange/15 rounded-2xl border border-white/10 hover:border-brand-orange/40 transition-all group flex items-start justify-between gap-3 active:scale-95"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-xs font-black text-white group-hover:text-brand-gold uppercase tracking-wide">
+                          {s.label}
+                        </div>
+                        <div className="text-[9px] text-white/40 truncate">
+                          {s.desc}
+                        </div>
+                      </div>
+                      <kbd className="px-2 py-1 bg-black/80 text-emerald-300 border border-emerald-500/30 rounded-lg text-[9px] font-mono font-bold shadow shrink-0">
+                        {s.key}
+                      </kbd>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 3 : Outils Système & Modals */}
+              <div>
+                <h4 className="text-[10px] font-black uppercase text-brand-gold/80 tracking-widest mb-3 flex items-center gap-1.5">
+                  <Zap size={13} className="text-brand-gold" /> Outils Système & Contrôle Rapide
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playSound('pop');
+                      setShowShortcutsModal(false);
+                      setShowCloudModal(true);
+                      triggerShortcutFeedback('Centre Cloud Supabase', 'Ctrl + Shift + Z');
+                    }}
+                    className="text-left p-3.5 bg-white/5 hover:bg-emerald-950/40 rounded-2xl border border-white/10 hover:border-emerald-500/40 transition-all group flex items-start justify-between gap-3 active:scale-95"
+                  >
+                    <div>
+                      <div className="text-xs font-black text-white group-hover:text-emerald-300 uppercase tracking-wide">
+                        Centre Cloud Supabase
+                      </div>
+                      <div className="text-[9px] text-white/40">
+                        Synchroniser tout le cloud & vérifier la connexion
+                      </div>
+                    </div>
+                    <kbd className="px-2 py-1 bg-black/80 text-emerald-400 border border-emerald-500/30 rounded-lg text-[9px] font-mono font-bold shadow shrink-0">
+                      Ctrl + Shift + Z
+                    </kbd>
+                  </button>
+
+                  <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-black text-white uppercase tracking-wide">
+                        Aide Raccourcis Clavier
+                      </div>
+                      <div className="text-[9px] text-white/40">
+                        Ouvrir ce guide d'aide n'importe quand
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <kbd className="px-2 py-1 bg-black/80 text-brand-gold border border-brand-gold/30 rounded-lg text-[9px] font-mono font-bold shadow">
+                        Ctrl + Shift + H
+                      </kbd>
+                      <span className="text-[7px] text-white/40 font-mono">ou touche '?'</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-black text-rose-300 uppercase tracking-wide">
+                        Quitter Admin
+                      </div>
+                      <div className="text-[9px] text-white/40">
+                        Retourner à l'interface client de l'application
+                      </div>
+                    </div>
+                    <kbd className="px-2 py-1 bg-black/80 text-rose-400 border border-rose-500/30 rounded-lg text-[9px] font-mono font-bold shadow shrink-0">
+                      Ctrl + Shift + Q
+                    </kbd>
+                  </div>
+
+                  <div className="p-3.5 bg-white/5 rounded-2xl border border-white/10 flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-black text-white/80 uppercase tracking-wide">
+                        Fermer Modale / Annuler
+                      </div>
+                      <div className="text-[9px] text-white/40">
+                        Ferme la modale ouverte ou annule la saisie
+                      </div>
+                    </div>
+                    <kbd className="px-2 py-1 bg-black/80 text-white/70 border border-white/20 rounded-lg text-[9px] font-mono font-bold shadow shrink-0">
+                      Échap (Esc)
+                    </kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* Note Mac / Windows */}
+              <div className="p-4 bg-brand-gold/10 rounded-2xl border border-brand-gold/20 flex items-center gap-3 text-[10px] text-brand-gold/90">
+                <Command size={18} className="shrink-0 text-brand-gold" />
+                <span>
+                  <b>Conseil Mac & Windows :</b> Sur Mac, utilisez <code className="bg-black/40 px-1.5 py-0.5 rounded font-mono">Cmd (⌘) + Shift + [Touche]</code>. Sur Windows/Linux, utilisez <code className="bg-black/40 px-1.5 py-0.5 rounded font-mono">Ctrl + Shift + [Touche]</code>.
+                </span>
+              </div>
+            </div>
+
+            {/* Bouton Fermer Bas */}
+            <div className="pt-6 mt-6 border-t border-white/10 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { playSound('pop'); setShowShortcutsModal(false); }}
+                className="px-6 py-3 bg-brand-gold hover:bg-amber-400 text-brand-brown rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-lg active:scale-95"
+              >
+                Compris !
               </button>
             </div>
 

@@ -2,6 +2,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { MenuItem, Order } from '../types';
 import { PlatDuJourConfig } from '../utils/marketing';
 
+export const DEFAULT_SUPABASE_URL = 'https://veygphkhehdnxefnnlwo.supabase.co';
+export const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZleWdwaGtoZWhkbnhlZm5ubHdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTE0MjgsImV4cCI6MjEwMTA4NzQyOH0.FsSg9wjrvVZ1zNHZH_D7qVxPd3EC1h1yM1mDMvxfAqw';
+
+// Helper to clean and normalize Supabase URLs (removes trailing /rest/v1, slashes, etc.)
+export const cleanSupabaseUrl = (rawUrl: string): string => {
+  let url = (rawUrl || '').trim();
+  url = url.replace(/\/rest\/v1\/?$/, '');
+  url = url.replace(/\/+$/, '');
+  return url;
+};
+
 // Helper to inspect all possible environment variable names
 const getEnv = (key: string): string => {
   try {
@@ -22,18 +33,26 @@ const getEnv = (key: string): string => {
 };
 
 export const getSupabaseConfig = () => {
-  const customUrl = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_url') || '' : '';
-  const customKey = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_key') || '' : '';
+  let customUrl = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_url') || '' : '';
+  let customKey = typeof window !== 'undefined' ? localStorage.getItem('khadys_custom_supabase_key') || '' : '';
 
-  const envUrl = 
+  // If localStorage contains the old obsolete project, auto-clear it so it uses the active project
+  if ((customUrl.includes('ldlwtoktwubucmbsfurw') || customKey.includes('ldlwtoktwubucmbsfurw')) && typeof window !== 'undefined') {
+    localStorage.removeItem('khadys_custom_supabase_url');
+    localStorage.removeItem('khadys_custom_supabase_key');
+    customUrl = '';
+    customKey = '';
+  }
+
+  let envUrl = 
     getEnv('VITE_SUPABASE_URL') ||
     getEnv('VITE_PUBLIC_SUPABASE_URL') ||
     getEnv('NEXT_PUBLIC_SUPABASE_URL') ||
     getEnv('SUPABASE_URL') ||
     getEnv('REACT_APP_SUPABASE_URL') ||
-    '';
+    DEFAULT_SUPABASE_URL;
 
-  const envKey = 
+  let envKey = 
     getEnv('VITE_SUPABASE_ANON_KEY') ||
     getEnv('VITE_SUPABASE_KEY') ||
     getEnv('VITE_SUPABASE_PUBLISHABLE_KEY') ||
@@ -42,10 +61,26 @@ export const getSupabaseConfig = () => {
     getEnv('SUPABASE_ANON_KEY') ||
     getEnv('SUPABASE_KEY') ||
     getEnv('REACT_APP_SUPABASE_ANON_KEY') ||
-    '';
+    DEFAULT_SUPABASE_KEY;
 
-  const url = (customUrl || envUrl).trim();
-  const key = (customKey || envKey).trim();
+  // If environment variable was bundled with obsolete project, force replacement to active project
+  if (envUrl.includes('ldlwtoktwubucmbsfurw')) {
+    envUrl = DEFAULT_SUPABASE_URL;
+  }
+  if (envKey.includes('ldlwtoktwubucmbsfurw')) {
+    envKey = DEFAULT_SUPABASE_KEY;
+  }
+
+  let rawUrl = (customUrl || envUrl).trim();
+  if (rawUrl.includes('ldlwtoktwubucmbsfurw')) {
+    rawUrl = DEFAULT_SUPABASE_URL;
+  }
+  const url = cleanSupabaseUrl(rawUrl);
+  
+  let key = (customKey || envKey).trim();
+  if (key.includes('ldlwtoktwubucmbsfurw')) {
+    key = DEFAULT_SUPABASE_KEY;
+  }
 
   const isValid = 
     Boolean(url) && 
@@ -56,7 +91,7 @@ export const getSupabaseConfig = () => {
     key.length > 20 && 
     !key.includes('votre_cle_anon');
 
-  return { url, key, isValid, isCustom: Boolean(customUrl && customKey) };
+  return { url, key, isValid, isCustom: Boolean(customUrl && customKey && !customUrl.includes('ldlwtoktwubucmbsfurw')) };
 };
 
 let cachedClient: SupabaseClient | null = null;
@@ -203,23 +238,38 @@ export const db = {
     const client = getSupabaseClient();
     if (!client) return null;
     try {
+      // First try to read rich settings backup if present
+      const fullMenuBackup = await db.fetchSetting<MenuItem[]>('full_menu_items');
+
       const { data, error } = await client
         .from('menu_items')
         .select('*')
         .order('category', { ascending: true });
-      if (error || !data) return null;
-      return data.map((row: any) => ({
-        id: row.id,
-        name: row.name,
-        description: row.description || '',
-        price: Number(row.price),
-        image: row.image,
-        category: row.category,
-        rating: row.rating ? Number(row.rating) : 5,
-        isAvailable: row.is_available ?? row.isAvailable ?? true,
-        isSpicy: row.is_spicy ?? row.isSpicy ?? false,
-        isSpécialitéMaison: row.is_specialite_maison ?? row.isSpécialitéMaison ?? false
-      })) as MenuItem[];
+
+      if (error || !data || data.length === 0) {
+        return fullMenuBackup || null;
+      }
+
+      const backupMap = new Map<string, Partial<MenuItem>>();
+      if (fullMenuBackup && Array.isArray(fullMenuBackup)) {
+        fullMenuBackup.forEach(item => backupMap.set(item.id, item));
+      }
+
+      return data.map((row: any) => {
+        const cached = backupMap.get(row.id) || {};
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description || '',
+          price: Number(row.price),
+          image: row.image,
+          category: row.category,
+          rating: row.rating ? Number(row.rating) : (cached.rating ?? 5),
+          isAvailable: row.is_available ?? row.isAvailable ?? cached.isAvailable ?? true,
+          isSpicy: row.is_spicy ?? row.isSpicy ?? cached.isSpicy ?? false,
+          isSpécialitéMaison: row.is_specialite_maison ?? row.isSpécialitéMaison ?? cached.isSpécialitéMaison ?? false
+        };
+      }) as MenuItem[];
     } catch {
       return null;
     }
@@ -229,7 +279,7 @@ export const db = {
     const client = getSupabaseClient();
     if (!client) return { success: false, error: 'Supabase non configuré' };
     try {
-      const payload = {
+      const fullPayload: any = {
         id: item.id,
         name: item.name,
         description: item.description || '',
@@ -239,18 +289,38 @@ export const db = {
         rating: item.rating || 5,
         is_available: item.isAvailable ?? true,
         is_spicy: item.isSpicy ?? false,
-        is_specialite_maison: item.isSpécialitéMaison ?? false
+        is_specialite_maison: item.isSpécialitéMaison ?? false,
+        is_plat_du_jour: Boolean((item as any).isPlatDuJour)
       };
 
       const { data, error } = await client
         .from('menu_items')
-        .upsert(payload, { onConflict: 'id' })
+        .upsert(fullPayload, { onConflict: 'id' })
         .select();
 
       if (error) {
-        console.error('❌ Erreur Supabase saveMenuItem:', error);
-        return { success: false, error: error.message };
+        // Fallback for base table schema (columns: id, name, description, price, category, image, is_plat_du_jour)
+        const basePayload = {
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          image: item.image,
+          category: item.category,
+          is_plat_du_jour: Boolean((item as any).isPlatDuJour)
+        };
+
+        const fallbackRes = await client
+          .from('menu_items')
+          .upsert(basePayload, { onConflict: 'id' })
+          .select();
+
+        if (fallbackRes.error) {
+          console.error('❌ Erreur Supabase saveMenuItem:', fallbackRes.error);
+          return { success: false, error: fallbackRes.error.message };
+        }
       }
+
       return { success: true, data };
     } catch (e: any) {
       return { success: false, error: e.message || 'Erreur inconnue' };
@@ -261,7 +331,10 @@ export const db = {
     const client = getSupabaseClient();
     if (!client) return { success: false, error: 'Supabase non configuré', count: 0 };
     try {
-      const payloads = items.map(item => ({
+      // Also backup the complete list in app_settings so that all metadata is preserved across all schemas
+      await db.saveSetting('full_menu_items', items).catch(() => {});
+
+      const fullPayloads = items.map(item => ({
         id: item.id,
         name: item.name,
         description: item.description || '',
@@ -271,17 +344,36 @@ export const db = {
         rating: item.rating || 5,
         is_available: item.isAvailable ?? true,
         is_spicy: item.isSpicy ?? false,
-        is_specialite_maison: item.isSpécialitéMaison ?? false
+        is_specialite_maison: item.isSpécialitéMaison ?? false,
+        is_plat_du_jour: Boolean((item as any).isPlatDuJour)
       }));
 
       const { error } = await client
         .from('menu_items')
-        .upsert(payloads, { onConflict: 'id' });
+        .upsert(fullPayloads, { onConflict: 'id' });
 
       if (error) {
-        console.error('❌ Erreur Supabase syncAllMenuItems:', error);
-        return { success: false, error: error.message, count: 0 };
+        // If the table lacks some columns like is_available or rating, retry with standard base columns
+        const basePayloads = items.map(item => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          price: item.price,
+          image: item.image,
+          category: item.category,
+          is_plat_du_jour: Boolean((item as any).isPlatDuJour)
+        }));
+
+        const fallbackRes = await client
+          .from('menu_items')
+          .upsert(basePayloads, { onConflict: 'id' });
+
+        if (fallbackRes.error) {
+          console.error('❌ Erreur Supabase syncAllMenuItems:', fallbackRes.error);
+          return { success: false, error: fallbackRes.error.message, count: 0 };
+        }
       }
+
       return { success: true, count: items.length };
     } catch (e: any) {
       return { success: false, error: e.message, count: 0 };
