@@ -182,7 +182,14 @@ export const testSupabaseConnection = async (
       message: `Connexion réussie au projet Supabase (${targetUrl}) ! Les tables sont accessibles et prêtes.`
     };
   } catch (err: any) {
-    return { success: false, message: `Échec de connexion : ${err.message || err}` };
+    const errorMsg = String(err?.message || err);
+    if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+      return {
+        success: false,
+        message: `⚠️ Impossible de joindre votre projet Supabase (${targetUrl}).\n\nCauses possibles :\n1. Projet en PAUSE sur Supabase (très fréquent sur le plan gratuit après 7 jours d'inactivité) : Rendez-vous sur https://supabase.com/dashboard, ouvrez votre projet et cliquez sur "Restore Project" / "Unpause".\n2. Bloqué par le navigateur / iframe d'aperçu : testez directement depuis votre site Vercel en ligne.\n3. Connexion Internet instable.`
+      };
+    }
+    return { success: false, message: `Échec de connexion : ${errorMsg}` };
   }
 };
 
@@ -393,9 +400,13 @@ export const db = {
     if (data.customWhatsApp) await db.saveSetting('custom_whatsapp', data.customWhatsApp);
 
     if (errors.length > 0) {
+      const isFailedToFetch = errors.some(e => e.includes('Failed to fetch') || e.includes('NetworkError'));
+      const advice = isFailedToFetch
+        ? "\n\n💡 Note : L'erreur 'Failed to fetch' signifie que votre projet Supabase est injoignable. Si votre projet est sur l'offre gratuite, connectez-vous sur https://supabase.com/dashboard et cliquez sur 'Restore / Unpause Project' pour le réactiver."
+        : "";
       return {
         success: false,
-        message: `Synchronisation partielle avec des avertissements : ${errors.join(', ')}`,
+        message: `Synchronisation partielle avec des avertissements : ${errors.join(', ')}${advice}`,
         errors
       };
     }

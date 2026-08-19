@@ -1,4 +1,4 @@
-const CACHE_NAME = 'khadys-food-v5-live';
+const CACHE_NAME = 'khadys-food-v6-live';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',

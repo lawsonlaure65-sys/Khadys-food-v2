@@ -171,74 +171,73 @@ export const INITIAL_FLASH_DEAL: FlashDealConfig = {
 export const INITIAL_PLAT_DU_JOUR: PlatDuJourConfig = {
   id: 'pdj-today',
   date: new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
-  targetDayLabel: 'Demain Midi',
+  targetDayLabel: 'Demain Mercredi Midi',
   publicationTiming: 'TONIGHT_FOR_TOMORROW',
   posterTheme: 'LUXURY_GOLD',
   posterFormat: 'SQUARE_POST',
-  dishName: 'Tiep Royal Rouge au Mérou Frais & Légumes Fondants',
-  tagline: 'Le joyau culinaire sénégalais de Cheffe Khady',
-  description: 'Riz rouge sénégalais long grain parfumé au bouillon riche de mérou braisé, carottes glacées, manioc fondant, chou braisé et sauce tamarin-piment maison.',
-  accompaniments: 'Bananes Alloco dorées + 1 Grande Bouteille de Jus Bissap Glacé 50cl offerte',
+  dishName: 'Attiéké Poisson Carpe',
+  tagline: 'Spécialité ivoirienne raffinée de Cheffe Khady',
+  description: 'Semoule de manioc attiéké fraîche et aérée, darne de poisson carpe braisée aux aromates du fleuve Niger, oignons doux et piment vert maison.',
+  accompaniments: 'Riz jasmin parfumé, bananes plantains alloco, piment vert maison',
   price: 5500,
-  promoPrice: 4500,
+  promoPrice: 4950,
   dishImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000',
-  chefQuote: '« Cuisiné lentement au feu de bois avec des épices sélectionnées ce matin au marché de Niamey. » — Cheffe Khady',
+  chefQuote: '« Poisson frais sélectionné ce matin, braisé lentement au feu de bois avec nos épices maison. » — Cheffe Khady',
   remainingStock: 25,
   promoCode: 'KHADY24',
   deliveryTime: '11h30 - 14h30',
   isActive: true,
   marketingTextWhatsApp: `*🍲 PLAT DU JOUR CHEZ KHADY'S FOOD ! 🍲*\n\n` +
-    `Aujourd'hui, Cheffe Khady vous a concocté notre légendaire :\n` +
-    `✨ *TIEP ROYAL ROUGE AU MÉROU FRAIS & LÉGUMES FONDANTS* ✨\n\n` +
-    `🔥 *Au menu :* Riz rouge parfumé aux épices douces, pavé de mérou braisé au feu de bois, manioc, carotte fondante & alloco doré croustillant.\n` +
-    `🎁 *Bonus du midi :* 1 Grande Bouteille de Jus Bissap glacé 50cl offerte avec chaque plat !\n\n` +
-    `💰 *Tarif Spécial Déjeuner :* 4 500 F CFA (au lieu de 5 500 F)\n` +
+    `Aujourd'hui, Cheffe Khady vous a concocté notre délicieux :\n` +
+    `✨ *ATTIÉKÉ POISSON CARPE* ✨\n\n` +
+    `🔥 *Au menu :* Semoule de manioc attiéké fraîche et aérée, darne de carpe braisée au feu de bois, oignons doux et piment vert maison.\n` +
+    `🎁 *Bonus du midi :* Riz jasmin parfumé, bananes plantains alloco, piment vert maison offerts !\n\n` +
+    `💰 *Tarif Spécial Déjeuner :* 4 950 F CFA (au lieu de 5 500 F)\n` +
     `🛵 *Livraison Express Niamey :* Livré brûlant en moins de 35 min par Billo Express !\n\n` +
     `👉 *Commandez maintenant avant épuisement du stock (25 parts dispo) :*\n` +
-    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20Tiep%20Royal\n\n` +
+    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20Attiéké%20Poisson%20Carpe\n\n` +
     `_Khady's Food & Event — L'excellence culinaire au Sahel_`,
   marketingTextStatusShort: `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n` +
-    `👑 *TIEP ROYAL ROUGE AU MÉROU FRAIS*\n` +
-    `🎁 Alloco doré + Jus Bissap 50cl offert !\n` +
-    `💰 *4 500 F CFA* (au lieu de 5 500 F)\n` +
+    `👑 *ATTIÉKÉ POISSON CARPE*\n` +
+    `🎁 Alloco doré + Piment maison offert !\n` +
+    `💰 *4 950 F CFA* (au lieu de 5 500 F)\n` +
     `🛵 Livré dès 12h00 par Billo Express\n` +
     `👉 Commandez au ${RESTAURANT_INFO.whatsapp}`,
   marketingTextGroups: `*🍲 ALERTE GOURMANDE DU MIDI — KHADY'S FOOD 🍲*\n\n` +
     `Chers membres, les marmites bouillonnent pour le déjeuner ! 🥘🔥\n` +
     `Aujourd'hui au menu du jour :\n` +
-    `👑 *Tiep Royal Rouge au Mérou Frais & Légumes Fondants*\n` +
-    `🍌 Accompagné d'Alloco croustillant et 1 Jus Bissap glacé offert !\n\n` +
-    `⚡ Tarif spécial groupe / bureau : *4 500 F CFA* (Remise spéciale)\n` +
+    `👑 *Attiéké Poisson Carpe*\n` +
+    `🍌 Accompagné d'Alloco croustillant et riz jasmin parfumé !\n\n` +
+    `⚡ Tarif spécial groupe / bureau : *4 950 F CFA* (Remise spéciale)\n` +
     `📦 Commandes groupées d'entreprise acceptées avec facture normalisée.\n\n` +
     `📲 Commande rapide WhatsApp : https://wa.me/${RESTAURANT_INFO.whatsappClean}`,
   marketingTextSocial: `✨ 𝐏𝐋𝐀𝐓 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 & 𝐄𝐕𝐄𝐍𝐓 ✨\n\n` +
-    `Laissez-vous tenter par notre *Tiep Royal Rouge au Mérou Frais*, une véritable explosion de saveurs authentiques cuisinée dans la pure tradition sahélienne par Cheffe Khady ! 🥘🇸🇳🇳🇪\n\n` +
-    `🌾 Riz rouge cuit à cœur dans son bouillon épicé\n` +
-    `🐟 Mérou sauvage braisé fondant\n` +
-    `🥕 Légumes du marché cuits à la vapeur\n` +
-    `🍌 Alloco doré et son jus Bissap maison offert\n\n` +
+    `Laissez-vous tenter par notre *Attiéké Poisson Carpe*, une véritable explosion de saveurs authentiques cuisinée dans la pure tradition sahélienne par Cheffe Khady ! 🥘✨\n\n` +
+    `🌾 Semoule de manioc attiéké fraîche et légère\n` +
+    `🐟 Poisson carpe braisé fondant aux herbes\n` +
+    `🍌 Alloco doré et piment vert maison offert\n\n` +
     `📍 Disponible en livraison partout à Niamey ou à emporter.\n` +
-    `⚡ Tarif du jour : 4 500 F CFA\n` +
+    `⚡ Tarif du jour : 4 950 F CFA\n` +
     `📲 Commandez par WhatsApp au ${RESTAURANT_INFO.whatsapp}\n\n` +
-    `#KhadyFood #PlatDuJour #TiepRoyal #Niamey #GastronomieAfricaine #BilloExpress #DejeunerNiamey #FoodNiger`,
+    `#KhadyFood #PlatDuJour #Attieke #Niamey #BilloExpress #CuisineAfricaine`,
   marketingTextEveningTeaser: `🌙 *AU MENU DEMAIN MIDI CHEZ KHADY'S FOOD !* 🍲✨\n\n` +
-    `Chers gourmets, pour votre pause déjeuner de demain midi, Cheffe Khady prépare son chef-d'œuvre :\n` +
-    `👑 *TIEP ROYAL ROUGE AU MÉROU FRAIS & LÉGUMES FONDANTS*\n\n` +
-    `🔥 Un festin généreux avec riz parfumé, mérou sauvage braisé, carottes glacées, manioc fondant...\n` +
-    `🎁 *Offre spéciale précommande de nuit :* Alloco doré croustillant + 1 Bouteille de Jus Bissap 50cl Glacée offerte !\n` +
-    `💰 *Prix Spécial Déjeuner :* 4 500 F CFA (au lieu de 5 500 F)\n\n` +
+    `Chers gourmets, pour votre déjeuner de demain, Cheffe Khady vous concocte son chef-d'œuvre :\n` +
+    `👑 *ATTIÉKÉ POISSON CARPE*\n\n` +
+    `😋 Semoule de manioc attiéké fraîche et poisson carpe braisé fondant aux aromates du fleuve Niger.\n` +
+    `🎁 *Bonus spécial précommande de nuit :* Alloco doré + Piment maison offert !\n` +
+    `💰 *Tarif Spécial :* 4 950 F CFA (au lieu de 5 500 F)\n\n` +
     `🛵 *Livraison garantie dès 12h00 précises à votre bureau ou à domicile par Billo Express.*\n` +
-    `⚠️ *Important :* Réservez dès ce soir avant 23h pour garantir votre portion (stock limité à 25 parts) !\n\n` +
+    `⚠️ *Stock limité :* Réservez dès ce soir avant 23h pour être servi en priorité !\n\n` +
     `👉 *Pour réserver dès ce soir en 1 clic :*\n` +
-    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20Tiep%20Royal\n\n` +
-    `_Bonne soirée à tous et à demain pour un déjeuner royal !_ 🌟`,
+    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20Attiéké%20Poisson%20Carpe\n\n` +
+    `_Khady's Food & Event — Toujours un plaisir de vous régaler !_ 🌟`,
   marketingTextEveningStatusShort: `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n` +
-    `👑 *TIEP ROYAL ROUGE AU MÉROU FRAIS*\n` +
-    `🎁 Alloco + 1 Jus Bissap 50cl offert !\n` +
-    `💰 *4 500 F CFA* • Livré dès 12h par Billo\n` +
+    `👑 *ATTIÉKÉ POISSON CARPE*\n` +
+    `🎁 Alloco doré + Piment vert maison offert\n` +
+    `💰 *4 950 F CFA* • Livré dès 12h par Billo\n` +
     `⚠️ Stock limité (25 parts)\n` +
     `👉 Réservez dès ce soir : ${RESTAURANT_INFO.whatsapp}`,
-  hashtags: '#KhadyFood #PlatDuJour #TiepRoyal #Niamey #CuisineAfricaine #BilloExpress #FoodNiamey'
+  hashtags: '#KhadyFood #PlatDuJour #Attieke #Niamey #CuisineAfricaine #BilloExpress #FoodNiamey'
 };
 
 // Preset catalog for fast 1-click Plat du Jour daily configuration
