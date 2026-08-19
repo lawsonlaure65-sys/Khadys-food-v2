@@ -734,7 +734,156 @@ export const getStoredFlashDeal = (): FlashDealConfig => {
 export const saveStoredFlashDeal = (deal: FlashDealConfig): void => {
   try {
     localStorage.setItem('khadys_flash_deal', JSON.stringify(deal));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('khadys_flash_deal_updated', { detail: deal }));
+    }
     db.saveSetting('flash_deal', deal).catch(() => {});
+  } catch (e) {}
+};
+
+export interface DailyPromo {
+  id: string;
+  dayName: string;
+  dayIndex: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  title: string;
+  badge: string;
+  discountTag: string;
+  description: string;
+  itemPrice?: number;
+  promoPrice?: number;
+  image: string;
+  code: string;
+  category: string;
+  popularDishName?: string;
+  isToday?: boolean;
+}
+
+export const INITIAL_WEEKLY_PROMOTIONS: DailyPromo[] = [
+  {
+    id: 'promo-mon',
+    dayName: 'Lundi',
+    dayIndex: 1,
+    title: 'Lundi Sauces & Saveurs',
+    badge: 'DEBUT DE SEMAINE',
+    discountTag: '-20% sur Box Sauces',
+    description: 'Bénéficiez de 20% de réduction sur toutes nos Box Sauces Authentiques (Mafé, Gombo, Feuille) livrées chaudes !',
+    itemPrice: 3500,
+    promoPrice: 2800,
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600',
+    code: 'LUNDISAUCE',
+    category: 'Box Sauces',
+    popularDishName: 'Box Sauce Mafé Royale'
+  },
+  {
+    id: 'promo-tue',
+    dayName: 'Mardi',
+    dayIndex: 2,
+    title: 'Mardi Tchep & Grillades',
+    badge: 'BOOSTER GOURMAND',
+    discountTag: 'Boisson Bissap Offerte',
+    description: 'Une grande bouteille de Bissap glacé 100% naturel offerte pour tout menu Tchep ou Poulet Braisé commandé.',
+    itemPrice: 4000,
+    promoPrice: 4000,
+    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600',
+    code: 'BISSAPFREE',
+    category: 'Plats Chauds',
+    popularDishName: 'Tchep au Poulet Yassa'
+  },
+  {
+    id: 'promo-wed',
+    dayName: 'Mercredi',
+    dayIndex: 3,
+    title: 'Mercredi Buffet & Entreprise',
+    badge: 'LUNCH EXPRESS',
+    discountTag: '-15% Buffet Pro',
+    description: 'Livraison gratuite et 15% de remise pour vos réunions et repas d’équipe au bureau à Niamey.',
+    itemPrice: 7500,
+    promoPrice: 6375,
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600',
+    code: 'BUFFETPRO15',
+    category: 'Buffet Pro',
+    popularDishName: 'Pack Buffet Prestige (10 Pers.)'
+  },
+  {
+    id: 'promo-thu',
+    dayName: 'Jeudi',
+    dayIndex: 4,
+    title: 'Jeudi Dégustation Dibi',
+    badge: 'SPÉCIALITÉ CHEF',
+    discountTag: '1 Portion Dibi Offerte',
+    description: 'Pour toute commande de plus de 15.000 F, recevez une portion supplémentaire de Dibi d’Agneau Braisé au feu de bois.',
+    itemPrice: 5000,
+    promoPrice: 3800,
+    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600',
+    code: 'DIBIGOLD',
+    category: 'Grillades',
+    popularDishName: 'Dibi d’Agneau Grillé & Aloko'
+  },
+  {
+    id: 'promo-fri',
+    dayName: 'Vendredi',
+    dayIndex: 5,
+    title: 'Vendredi Couscous & Festin',
+    badge: 'VENDREDI BENI',
+    discountTag: 'Dessert Glacé Offert',
+    description: 'Le traditionnel Couscous Royal accompagné d’un thé à la menthe chaud et d’une verrine douceur offerte.',
+    itemPrice: 4500,
+    promoPrice: 4500,
+    image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600',
+    code: 'COUSCOUSVIP',
+    category: 'Plats Traditionnels',
+    popularDishName: 'Couscous Royal 7 Légumes'
+  },
+  {
+    id: 'promo-sat',
+    dayName: 'Samedi',
+    dayIndex: 6,
+    title: 'Samedi Family & Traiteur',
+    badge: 'WEEK-END FESTIF',
+    discountTag: 'Livraison Gratuite',
+    description: 'Frais de livraison Billo Express entièrement offerts pour toute la famille sur toutes les commandes du Samedi.',
+    itemPrice: 10000,
+    promoPrice: 8500,
+    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600',
+    code: 'LIVRAISONFREE',
+    category: 'Pack Famille',
+    popularDishName: 'Mega Pack Grillades Mixte'
+  },
+  {
+    id: 'promo-sun',
+    dayName: 'Dimanche',
+    dayIndex: 0,
+    title: 'Dimanche Brunch & Relaxation',
+    badge: 'DETENTE & DOUCEUR',
+    discountTag: 'Double Points Fidélité',
+    description: 'Cumulez 2x plus de points Club Gold sur toutes vos commandes du dimanche midi et soir !',
+    itemPrice: 5000,
+    promoPrice: 4500,
+    image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=600',
+    code: 'DOUBLEPOINTS',
+    category: 'Brunch',
+    popularDishName: 'Brunch Royal Niamey'
+  }
+];
+
+export const getStoredWeeklyPromotions = (): DailyPromo[] => {
+  try {
+    const data = localStorage.getItem('khadys_weekly_promotions');
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {}
+  return INITIAL_WEEKLY_PROMOTIONS;
+};
+
+export const saveStoredWeeklyPromotions = (promos: DailyPromo[]): void => {
+  try {
+    localStorage.setItem('khadys_weekly_promotions', JSON.stringify(promos));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('khadys_weekly_promotions_updated', { detail: promos }));
+    }
+    db.saveSetting('weekly_promotions', promos).catch(() => {});
   } catch (e) {}
 };
 

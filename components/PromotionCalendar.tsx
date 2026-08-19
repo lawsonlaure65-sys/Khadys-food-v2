@@ -1,132 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Tag, Clock, Sparkles, ShoppingBag, Gift, ChevronRight, Zap, CheckCircle2, Flame, ArrowRight } from 'lucide-react';
 import { MenuItem } from '../types';
 import { playSound } from '../utils/audio';
+import { DailyPromo, getStoredWeeklyPromotions, INITIAL_WEEKLY_PROMOTIONS } from '../utils/marketing';
 
-export interface DailyPromo {
-  id: string;
-  dayName: string;
-  dayIndex: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
-  title: string;
-  badge: string;
-  discountTag: string;
-  description: string;
-  itemPrice?: number;
-  promoPrice?: number;
-  image: string;
-  code: string;
-  category: string;
-  popularDishName?: string;
-  isToday?: boolean;
-}
-
-export const WEEKLY_PROMOTIONS: DailyPromo[] = [
-  {
-    id: 'promo-mon',
-    dayName: 'Lundi',
-    dayIndex: 1,
-    title: 'Lundi Sauces & Saveurs',
-    badge: 'DEBUT DE SEMAINE',
-    discountTag: '-20% sur Box Sauces',
-    description: 'Bénéficiez de 20% de réduction sur toutes nos Box Sauces Authentiques (Mafé, Gombo, Feuille) livrées chaudes !',
-    itemPrice: 3500,
-    promoPrice: 2800,
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600',
-    code: 'LUNDISAuce',
-    category: 'Box Sauces',
-    popularDishName: 'Box Sauce Mafé Royale'
-  },
-  {
-    id: 'promo-tue',
-    dayName: 'Mardi',
-    dayIndex: 2,
-    title: 'Mardi Tchep & Grillades',
-    badge: 'BOOSTER GOURMAND',
-    discountTag: 'Boisson Bissap Offerte',
-    description: 'Une grande bouteille de Bissap glacé 100% naturel offerte pour tout menu Tchep ou Poulet Braisé commandé.',
-    itemPrice: 4000,
-    promoPrice: 4000,
-    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600',
-    code: 'BISSAPFREE',
-    category: 'Plats Chauds',
-    popularDishName: 'Tchep au Poulet Yassa'
-  },
-  {
-    id: 'promo-wed',
-    dayName: 'Mercredi',
-    dayIndex: 3,
-    title: 'Mercredi Buffet & Entreprise',
-    badge: 'LUNCH EXPRESS',
-    discountTag: '-15% Buffet Pro',
-    description: 'Livraison gratuite et 15% de remise pour vos réunions et repas d’équipe au bureau à Niamey.',
-    itemPrice: 7500,
-    promoPrice: 6375,
-    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600',
-    code: 'BUFFETPRO15',
-    category: 'Buffet Pro',
-    popularDishName: 'Pack Buffet Prestige (10 Pers.)'
-  },
-  {
-    id: 'promo-thu',
-    dayName: 'Jeudi',
-    dayIndex: 4,
-    title: 'Jeudi Dégustation Dibi',
-    badge: 'SPÉCIALITÉ CHEF',
-    discountTag: '1 Portation Dibi d’Agneau Offerte',
-    description: 'Pour toute commande de plus de 15.000 F, recevez une portion supplémentaire de Dibi d’Agneau Braisé au feu de bois.',
-    itemPrice: 5000,
-    promoPrice: 3800,
-    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600',
-    code: 'DIBIGOLD',
-    category: 'Grillades',
-    popularDishName: 'Dibi d’Agneau Grillé & Aloko'
-  },
-  {
-    id: 'promo-fri',
-    dayName: 'Vendredi',
-    dayIndex: 5,
-    title: 'Vendredi Couscous & Festin',
-    badge: 'VENDREDI BENI',
-    discountTag: 'Dessert Glacé & Thé Offerts',
-    description: 'Le traditionnel Couscous Royal accompagné d’un thé à la menthe chaud et d’une verrine douceur offerte.',
-    itemPrice: 4500,
-    promoPrice: 4500,
-    image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600',
-    code: 'COUSCOUSVIP',
-    category: 'Plats Traditionnels',
-    popularDishName: 'Couscous Royal 7 Légumes'
-  },
-  {
-    id: 'promo-sat',
-    dayName: 'Samedi',
-    dayIndex: 6,
-    title: 'Samedi Family & Traiteur',
-    badge: 'WEEK-END FESTIF',
-    discountTag: 'Livraison Gratuite Niamey',
-    description: 'Frais de livraison Billo Express entièrement offerts pour toute la famille sur toutes les commandes du Samedi.',
-    itemPrice: 10000,
-    promoPrice: 8500,
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600',
-    code: 'LIVRAISONFREE',
-    category: 'Pack Famille',
-    popularDishName: 'Mega Pack Grillades Mixte'
-  },
-  {
-    id: 'promo-sun',
-    dayName: 'Dimanche',
-    dayIndex: 0,
-    title: 'Dimanche Brunch & Relaxation',
-    badge: 'DETENTE & DOUCEUR',
-    discountTag: 'Double Points Fidélité',
-    description: 'Cumulez 2x plus de points Club Gold sur toutes vos commandes du dimanche midi et soir !',
-    itemPrice: 5000,
-    promoPrice: 4500,
-    image: 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=600',
-    code: 'DOUBLEPOINTS',
-    category: 'Brunch',
-    popularDishName: 'Brunch Royal Niamey'
-  }
-];
+export { type DailyPromo };
+export const WEEKLY_PROMOTIONS = INITIAL_WEEKLY_PROMOTIONS;
 
 interface PromotionCalendarProps {
   onSelectOffer?: (promo: DailyPromo) => void;
@@ -135,10 +14,21 @@ interface PromotionCalendarProps {
 
 export const PromotionCalendar: React.FC<PromotionCalendarProps> = ({ onSelectOffer, onGoToMenu }) => {
   const currentDayIndex = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const [promotions, setPromotions] = useState<DailyPromo[]>(() => getStoredWeeklyPromotions());
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(currentDayIndex);
   const [claimedCodes, setClaimedCodes] = useState<string[]>([]);
 
-  const activePromo = WEEKLY_PROMOTIONS.find(p => p.dayIndex === selectedDayIndex) || WEEKLY_PROMOTIONS[0];
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail && Array.isArray(e.detail)) {
+        setPromotions(e.detail);
+      }
+    };
+    window.addEventListener('khadys_weekly_promotions_updated', handleUpdate);
+    return () => window.removeEventListener('khadys_weekly_promotions_updated', handleUpdate);
+  }, []);
+
+  const activePromo = promotions.find(p => p.dayIndex === selectedDayIndex) || promotions[0] || INITIAL_WEEKLY_PROMOTIONS[0];
   const isTodayPromo = selectedDayIndex === currentDayIndex;
 
   const handleClaimCode = (code: string) => {
@@ -185,7 +75,7 @@ export const PromotionCalendar: React.FC<PromotionCalendarProps> = ({ onSelectOf
 
       {/* Days Tabs Bar */}
       <div className="relative z-10 flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none mb-6">
-        {WEEKLY_PROMOTIONS.map((promo) => {
+        {promotions.map((promo) => {
           const isSelected = promo.dayIndex === selectedDayIndex;
           const isToday = promo.dayIndex === currentDayIndex;
 

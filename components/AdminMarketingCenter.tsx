@@ -5,18 +5,19 @@ import {
   Users, Gift, ShoppingBag, ArrowRight, RefreshCw, Smartphone, 
   Layers, Sliders, Check, ShieldCheck, AlertCircle, Percent, DollarSign,
   Eye, ToggleLeft, ToggleRight, Info, Utensils, Award, ChefHat, Globe, Save,
-  Moon, Sun, Music, Facebook, Instagram, Camera, Search, UploadCloud
+  Moon, Sun, Music, Facebook, Instagram, Camera, Search, UploadCloud, Calendar
 } from 'lucide-react';
 import { MenuItem, Order } from '../types';
 import { playSound } from '../utils/audio';
 import { GoogleGenAI } from '@google/genai';
 import { PlatDuJourPosterStudio } from './PlatDuJourPosterStudio';
 import { 
-  PromoCode, AnnouncementBanner, FlashDealConfig, PlatDuJourConfig,
+  PromoCode, AnnouncementBanner, FlashDealConfig, PlatDuJourConfig, DailyPromo,
   getStoredPromoCodes, saveStoredPromoCodes,
   getStoredBanner, saveStoredBanner,
   getStoredFlashDeal, saveStoredFlashDeal,
   getStoredPlatDuJour, saveStoredPlatDuJour,
+  getStoredWeeklyPromotions, saveStoredWeeklyPromotions,
   PLAT_DU_JOUR_PRESETS, generatePlatDuJourMarketingTexts, PlatDuJourStyle,
   shareToSocialPlatform,
   getMarketingTemplates, MARKETING_TEMPLATES, broadcastToWhatsApp
@@ -29,7 +30,7 @@ interface AdminMarketingCenterProps {
   items: MenuItem[];
   orders: Order[];
   onItemsChange?: (items: MenuItem[]) => void;
-  initialTab?: 'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY';
+  initialTab?: 'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'WEEKLY_CALENDAR' | 'CLIENTS_CRM' | 'AI_STRATEGY';
 }
 
 export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({ 
@@ -39,7 +40,7 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
   initialTab
 }) => {
   // Active sub-tab inside Marketing
-  const [activeTab, setActiveTab] = useState<'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'CLIENTS_CRM' | 'AI_STRATEGY'>(initialTab || 'PLAT_DU_JOUR');
+  const [activeTab, setActiveTab] = useState<'PLAT_DU_JOUR' | 'CAMPAIGNS' | 'PROMO_CODES' | 'BANNER' | 'FLASH_DEALS' | 'WEEKLY_CALENDAR' | 'CLIENTS_CRM' | 'AI_STRATEGY'>(initialTab || 'PLAT_DU_JOUR');
 
   // Plat du Jour State
   const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
@@ -75,6 +76,11 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
   // Flash Deal State
   const [flashDeal, setFlashDeal] = useState<FlashDealConfig>(() => getStoredFlashDeal());
   const [flashSaved, setFlashSaved] = useState(false);
+
+  // Weekly Promotions Calendar State
+  const [weeklyPromotions, setWeeklyPromotions] = useState<DailyPromo[]>(() => getStoredWeeklyPromotions());
+  const [selectedWeeklyDay, setSelectedWeeklyDay] = useState<number>(new Date().getDay());
+  const [weeklySaved, setWeeklySaved] = useState(false);
 
   // Dynamic Marketing Templates derived from currently chosen Plat du Jour
   const dynamicTemplates = useMemo(() => getMarketingTemplates(platDuJour), [platDuJour]);
@@ -608,13 +614,14 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
       {/* Sub-Navigation Tabs */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
         {[
-          { id: 'PLAT_DU_JOUR', label: '🍲 1. Plat du Jour & Diffusion 360°', icon: Utensils, badge: platDuJour.isActive ? 'En Ligne' : 'Pause' },
-          { id: 'CAMPAIGNS', label: '2. Messages & Statuts WhatsApp', icon: Send, badge: 'Direct' },
-          { id: 'PROMO_CODES', label: '3. Codes Promo & Remises', icon: Tag, badge: `${promoCodes.length}` },
-          { id: 'BANNER', label: '4. Bannière Live dans l\'App', icon: Megaphone, badge: banner.isEnabled ? 'ON' : 'OFF' },
-          { id: 'FLASH_DEALS', label: '5. Offres Flash du Jour', icon: Flame, badge: 'Booster' },
-          { id: 'CLIENTS_CRM', label: '6. Relance Clients VIP', icon: Users, badge: `${customerAudience.length}` },
-          { id: 'AI_STRATEGY', label: '7. Stratège & Audit IA', icon: Sparkles, badge: 'Gemini' }
+          { id: 'PLAT_DU_JOUR', label: '🍲 1. Plat du Jour & Studio', icon: Utensils, badge: platDuJour.isActive ? 'En Ligne' : 'Pause' },
+          { id: 'WEEKLY_CALENDAR', label: '📅 2. Promos Semaine (7j)', icon: Calendar, badge: '7 Jours' },
+          { id: 'FLASH_DEALS', label: '⚡ 3. Offres Flash du Jour', icon: Flame, badge: flashDeal.isEnabled ? 'ON' : 'OFF' },
+          { id: 'BANNER', label: '📢 4. Bannière Live App', icon: Megaphone, badge: banner.isEnabled ? 'ON' : 'OFF' },
+          { id: 'PROMO_CODES', label: '🎟️ 5. Codes Promo & Remises', icon: Tag, badge: `${promoCodes.length}` },
+          { id: 'CAMPAIGNS', label: '💬 6. Messages WhatsApp', icon: Send, badge: 'Direct' },
+          { id: 'CLIENTS_CRM', label: '👥 7. Relance Clients VIP', icon: Users, badge: `${customerAudience.length}` },
+          { id: 'AI_STRATEGY', label: '✨ 8. Stratège & Audit IA', icon: Sparkles, badge: 'Gemini' }
         ].map(tab => (
           <button
             key={tab.id}
@@ -2240,6 +2247,257 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* TAB : GESTIONNAIRE DU CALENDRIER DES PROMOS DE LA SEMAINE (7 JOURS) */}
+      {activeTab === 'WEEKLY_CALENDAR' && (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-white/5 p-6 sm:p-8 rounded-[2.5rem] border border-white/10 space-y-6">
+            
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-brand-gold/20 text-brand-gold flex items-center justify-center border border-brand-gold/40">
+                    <Calendar size={18} />
+                  </div>
+                  <h3 className="text-base font-black italic uppercase text-brand-gold tracking-wider">
+                    Calendrier des Promos de la Semaine (7 Jours)
+                  </h3>
+                </div>
+                <p className="text-[10px] text-white/60 font-bold mt-1">
+                  Personnalisez l'offre, le plat vedette, la remise et le code promo pour chaque jour de la semaine.
+                </p>
+              </div>
+
+              {weeklySaved && (
+                <div className="bg-emerald-500/20 border border-emerald-500/50 text-emerald-400 px-4 py-2 rounded-2xl text-[10px] font-black uppercase flex items-center gap-2 animate-bounce">
+                  <CheckCircle2 size={16} /> Modifications Enregistrées !
+                </div>
+              )}
+            </div>
+
+            {/* Days Tabs Selector */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {weeklyPromotions.map((promo) => {
+                const isSelected = promo.dayIndex === selectedWeeklyDay;
+                const isToday = promo.dayIndex === new Date().getDay();
+
+                return (
+                  <button
+                    key={promo.id}
+                    type="button"
+                    onClick={() => {
+                      playSound('pop');
+                      setSelectedWeeklyDay(promo.dayIndex);
+                    }}
+                    className={`flex-shrink-0 px-4 py-3 rounded-2xl text-center transition-all flex flex-col items-center gap-1 border min-w-[90px] ${
+                      isSelected
+                        ? 'bg-brand-gold text-brand-brown border-brand-gold shadow-lg font-black scale-105'
+                        : 'bg-black/40 text-white/70 border-white/10 hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-black uppercase italic">{promo.dayName}</span>
+                      {isToday && (
+                        <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-brand-brown' : 'bg-brand-orange animate-ping'}`}></span>
+                      )}
+                    </div>
+                    <span className={`text-[8px] font-bold uppercase truncate max-w-[80px] ${isSelected ? 'text-brand-brown/80' : 'text-brand-gold'}`}>
+                      {promo.discountTag}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected Day Form Editor */}
+            {(() => {
+              const currentPromo = weeklyPromotions.find(p => p.dayIndex === selectedWeeklyDay) || weeklyPromotions[0];
+
+              const updateCurrentPromo = (fields: Partial<DailyPromo>) => {
+                const updated = weeklyPromotions.map(p => 
+                  p.dayIndex === currentPromo.dayIndex ? { ...p, ...fields } : p
+                );
+                setWeeklyPromotions(updated);
+              };
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pt-2">
+                  
+                  {/* Live Preview of the Card */}
+                  <div className="lg:col-span-4 bg-black/50 p-5 rounded-[2rem] border border-brand-gold/30 space-y-4">
+                    <span className="text-[9px] font-black uppercase text-brand-gold tracking-widest block">
+                      Aperçu Client ({currentPromo.dayName})
+                    </span>
+
+                    <div className="relative rounded-2xl overflow-hidden h-44 border border-white/20 shadow-xl">
+                      <img
+                        src={currentPromo.image}
+                        alt={currentPromo.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
+                      
+                      <div className="absolute top-2 left-2 bg-brand-orange text-white text-[8px] font-black uppercase px-2.5 py-1 rounded-lg">
+                        {currentPromo.badge}
+                      </div>
+
+                      <div className="absolute bottom-2 left-2 right-2">
+                        <span className="text-[8px] text-brand-gold font-bold uppercase block">{currentPromo.category}</span>
+                        <h4 className="text-sm font-black text-white italic uppercase truncate">{currentPromo.popularDishName}</h4>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl">
+                        <span className="text-[9px] text-white/60 uppercase font-bold">Avantage :</span>
+                        <span className="text-brand-gold font-black italic">{currentPromo.discountTag}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl">
+                        <span className="text-[9px] text-white/60 uppercase font-bold">Code Promo :</span>
+                        <span className="font-mono font-black text-brand-orange bg-black/60 px-2 py-0.5 rounded">{currentPromo.code}</span>
+                      </div>
+                      {currentPromo.itemPrice && (
+                        <div className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl">
+                          <span className="text-[9px] text-white/60 uppercase font-bold">Prix :</span>
+                          <span className="font-black text-white font-mono">
+                            {currentPromo.promoPrice?.toLocaleString()} F CFA <span className="line-through text-white/40 text-[10px]">{currentPromo.itemPrice?.toLocaleString()} F</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Form Inputs for Selected Day */}
+                  <div className="lg:col-span-8 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Titre de la Promo ({currentPromo.dayName})</label>
+                        <input
+                          type="text"
+                          value={currentPromo.title}
+                          onChange={(e) => updateCurrentPromo({ title: e.target.value })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: Mercredi Buffet & Entreprise"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Nom du Plat Vedette</label>
+                        <input
+                          type="text"
+                          value={currentPromo.popularDishName || ''}
+                          onChange={(e) => updateCurrentPromo({ popularDishName: e.target.value })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: Pack Buffet Prestige (10 Pers.)"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Badge / Tag (Ex: LUNCH EXPRESS)</label>
+                        <input
+                          type="text"
+                          value={currentPromo.badge}
+                          onChange={(e) => updateCurrentPromo({ badge: e.target.value.toUpperCase() })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: LUNCH EXPRESS"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Avantage / Remise (Ex: -15% Buffet Pro)</label>
+                        <input
+                          type="text"
+                          value={currentPromo.discountTag}
+                          onChange={(e) => updateCurrentPromo({ discountTag: e.target.value })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-brand-gold font-black focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: -15% Buffet Pro"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Description de l'Offre pour les Clients</label>
+                        <textarea
+                          rows={2}
+                          value={currentPromo.description}
+                          onChange={(e) => updateCurrentPromo({ description: e.target.value })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold resize-none"
+                          placeholder="Description de l'offre..."
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Prix Normal (F CFA)</label>
+                        <input
+                          type="number"
+                          value={currentPromo.itemPrice || ''}
+                          onChange={(e) => updateCurrentPromo({ itemPrice: Number(e.target.value) })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: 7500"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Prix Promo Spécial (F CFA)</label>
+                        <input
+                          type="number"
+                          value={currentPromo.promoPrice || ''}
+                          onChange={(e) => updateCurrentPromo({ promoPrice: Number(e.target.value) })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-brand-orange font-mono font-black focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: 6375"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Code Promo à Appliquer</label>
+                        <input
+                          type="text"
+                          value={currentPromo.code}
+                          onChange={(e) => updateCurrentPromo({ code: e.target.value.toUpperCase().trim() })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-brand-gold font-mono font-black focus:outline-none focus:border-brand-gold"
+                          placeholder="Ex: BUFFETPRO15"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-white/60">Image du Plat (Lien URL)</label>
+                        <input
+                          type="text"
+                          value={currentPromo.image}
+                          onChange={(e) => updateCurrentPromo({ image: e.target.value })}
+                          className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="pt-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playSound('cash');
+                          saveStoredWeeklyPromotions(weeklyPromotions);
+                          setWeeklySaved(true);
+                          setTimeout(() => setWeeklySaved(false), 2500);
+                        }}
+                        className="bg-brand-gold hover:bg-yellow-400 text-brand-brown font-black px-6 py-3.5 rounded-2xl text-[10px] uppercase tracking-wider shadow-xl flex items-center gap-2 active:scale-95 transition-all"
+                      >
+                        <CheckCircle2 size={16} /> Enregistrer les 7 Jours de Promos
+                      </button>
+                    </div>
+
+                  </div>
+
+                </div>
+              );
+            })()}
+
+          </div>
         </div>
       )}
 

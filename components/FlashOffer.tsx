@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Zap, Flame, Clock, ShoppingBag, Sparkles, ArrowRight, ShieldAlert, Tag, CheckCircle2 } from 'lucide-react';
 import { MenuItem } from '../types';
 import { playSound } from '../utils/audio';
+import { getStoredFlashDeal, FlashDealConfig } from '../utils/marketing';
 
 interface FlashOfferProps {
   onAddToCart: (item: MenuItem, quantity: number, instructions: string) => void;
@@ -43,6 +44,7 @@ export const FLASH_ITEMS: (MenuItem & { originalPrice: number; discountPercent: 
 ];
 
 export const FlashOffer: React.FC<FlashOfferProps> = ({ onAddToCart, onSelectItem }) => {
+  const [flashConfig, setFlashConfig] = useState<FlashDealConfig>(() => getStoredFlashDeal());
   const [activeOfferIndex, setActiveOfferIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState<{ hours: number; minutes: number; seconds: number }>({
     hours: 3,
@@ -51,7 +53,40 @@ export const FlashOffer: React.FC<FlashOfferProps> = ({ onAddToCart, onSelectIte
   });
   const [addedSuccess, setAddedSuccess] = useState(false);
 
-  const currentFlash = FLASH_ITEMS[activeOfferIndex];
+  useEffect(() => {
+    const handleUpdate = (e: any) => {
+      if (e.detail && e.detail.dishName) {
+        setFlashConfig(e.detail);
+      }
+    };
+    window.addEventListener('khadys_flash_deal_updated', handleUpdate);
+    return () => window.removeEventListener('khadys_flash_deal_updated', handleUpdate);
+  }, []);
+
+  const itemsList = useMemo(() => {
+    if (flashConfig && flashConfig.isEnabled && flashConfig.dishName) {
+      const customItem: MenuItem & { originalPrice: number; discountPercent: number; remainingStock: number; totalStock: number } = {
+        id: 'flash-custom',
+        name: flashConfig.dishName,
+        description: `Offre Flash Exclusive configurée par le restaurant : remise immédiate de ${flashConfig.discountPercent}% !`,
+        price: flashConfig.promoPrice,
+        originalPrice: flashConfig.dishPrice,
+        discountPercent: flashConfig.discountPercent,
+        remainingStock: flashConfig.remainingStock,
+        totalStock: flashConfig.totalStock,
+        image: flashConfig.dishImage || FLASH_ITEMS[0].image,
+        category: 'Spécialité Maison',
+        rating: 5.0,
+        isAvailable: true,
+        isPromo: true,
+        isSpicy: false
+      };
+      return [customItem, ...FLASH_ITEMS.filter(f => f.name !== flashConfig.dishName)];
+    }
+    return FLASH_ITEMS;
+  }, [flashConfig]);
+
+  const currentFlash = itemsList[activeOfferIndex] || itemsList[0] || FLASH_ITEMS[0];
 
   // Dynamic countdown effect
   useEffect(() => {
@@ -167,9 +202,9 @@ export const FlashOffer: React.FC<FlashOfferProps> = ({ onAddToCart, onSelectIte
           </div>
 
           {/* Offer switcher tabs if multiple offers */}
-          {FLASH_ITEMS.length > 1 && (
+          {itemsList.length > 1 && (
             <div className="flex gap-2 mt-3">
-              {FLASH_ITEMS.map((item, idx) => (
+              {itemsList.map((item, idx) => (
                 <button
                   key={item.id}
                   onClick={(e) => {
