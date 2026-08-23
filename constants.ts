@@ -55,8 +55,46 @@ export const RESTAURANT_INFO = {
 };
 
 export const MENU_ITEMS: MenuItem[] = [
-  // --- SPÉCIALITÉS & MENU DU JOUR ---
-  { id: 'sp1', name: 'Tiep Rouge Royal', description: 'Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.', price: 5500, image: 'https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=800', category: 'Spécialité Maison', rating: 5, isAvailable: true, isSpicy: true, isSpécialitéMaison: true, isPromo: true },
+  // --- INCONTOURNABLES QUOTIDIENS & MENU DU JOUR (LE TRIO DE KHADY) ---
+  { 
+    id: 'douk-royal', 
+    name: 'Le Fameux Doukounou de Khady', 
+    description: 'L\'incontournable gâteau de maïs vapeur traditionnel au Sahel, cuit à point, tendre et moelleux, servi avec sa sauce mijotée de la maison, piment vert doux et poisson frit ou poulet braisé.', 
+    price: 3000, 
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800', 
+    category: 'Menu du Jour', 
+    rating: 5, 
+    isAvailable: true, 
+    isSpécialitéMaison: true, 
+    isPlatDuJour: true, 
+    isPromo: true 
+  },
+  { 
+    id: 'attieke-royal', 
+    name: 'L\'Incontournable Attiéké Royal (Poisson ou Poulet)', 
+    description: 'La semoule de manioc attiéké fraîche et aérée de la maison Khady, servie avec darne de poisson capitaine braisée ou poulet croustillant, oignons doux marinés, tomates et piment vert maison.', 
+    price: 4500, 
+    image: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=800', 
+    category: 'Menu du Jour', 
+    rating: 5, 
+    isAvailable: true, 
+    isSpécialitéMaison: true, 
+    isPlatDuJour: true 
+  },
+  { 
+    id: 'sp1', 
+    name: 'Tiep Rouge Royal au Capitaine (Plat Cuisiné du Jour)', 
+    description: 'Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.', 
+    price: 5500, 
+    image: 'https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=800', 
+    category: 'Menu du Jour', 
+    rating: 5, 
+    isAvailable: true, 
+    isSpicy: true, 
+    isSpécialitéMaison: true, 
+    isPlatDuJour: true, 
+    isPromo: true 
+  },
   { id: 'sp3', name: 'Couscous Royal Sahélien', description: 'Généreux couscous fin cuit à la vapeur, garni de gigot d\'agneau fondant, morceaux de poulet fermier braisé, merguez épicées, légumes du jardin et bouillon riche parfumé au safran du désert.', price: 6500, image: 'https://images.unsplash.com/photo-1541518763531-4a949439a3f8?w=800', category: 'Spécialité Maison', rating: 5, isAvailable: true, isSpécialitéMaison: true },
   { id: 'sp4', name: 'Suya de Didi (Brochettes Royales)', description: 'Fines lamelles de filet de bœuf extra-tendre marinées selon la recette secrète de Didi, panées aux épices Kankankan pimentées à l\'arachide torréfiée et grillées minute au feu de bois.', price: 4500, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800', category: 'Spécialité Maison', rating: 5, isAvailable: true, isSpicy: true, isSpécialitéMaison: true },
   { id: 'sp2', name: 'Plateau Prestige Event', description: 'Assortiment giga de grillades, pastels et alloco pour 4 personnes.', price: 15000, image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=800', category: 'Spécialité Maison', rating: 5, isAvailable: true, isSpécialitéMaison: true, isPromo: true },

@@ -20,7 +20,8 @@ import {
   getStoredWeeklyPromotions, saveStoredWeeklyPromotions,
   PLAT_DU_JOUR_PRESETS, generatePlatDuJourMarketingTexts, PlatDuJourStyle,
   shareToSocialPlatform,
-  getMarketingTemplates, MARKETING_TEMPLATES, broadcastToWhatsApp
+  getMarketingTemplates, MARKETING_TEMPLATES, broadcastToWhatsApp,
+  DEFAULT_MENU_DU_JOUR_DISHES, MenuDuJourDishItem
 } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
 import { compressImage } from '../utils/imageCompressor';
@@ -44,6 +45,7 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
 
   // Plat du Jour State
   const [platDuJour, setPlatDuJour] = useState<PlatDuJourConfig>(() => getStoredPlatDuJour());
+  const [selectedDishIndex, setSelectedDishIndex] = useState<number>(0);
   const [platSubView, setPlatSubView] = useState<'POSTER' | 'RECIPE_CHANNELS'>('POSTER');
   const [platSourceMode, setPlatSourceMode] = useState<'CARTE' | 'CUSTOM' | 'PRESETS'>('CARTE');
   const [platMenuSearch, setPlatMenuSearch] = useState('');
@@ -282,7 +284,19 @@ export const AdminMarketingCenter: React.FC<AdminMarketingCenterProps> = ({
       reader.onloadend = async () => {
         const base64 = reader.result as string;
         const compressed = await compressImage(base64, 800, 0.8);
-        const updated = { ...platDuJour, dishImage: compressed };
+        const dishes = platDuJour.dishes && platDuJour.dishes.length >= 3 
+          ? [...platDuJour.dishes] 
+          : [...DEFAULT_MENU_DU_JOUR_DISHES];
+        
+        if (dishes[selectedDishIndex]) {
+          dishes[selectedDishIndex] = { ...dishes[selectedDishIndex], dishImage: compressed };
+        }
+
+        const updated: PlatDuJourConfig = { 
+          ...platDuJour, 
+          dishImage: selectedDishIndex === 0 ? compressed : platDuJour.dishImage,
+          dishes 
+        };
         setPlatDuJour(updated);
         saveStoredPlatDuJour(updated);
         playSound('success');
@@ -614,7 +628,7 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
       {/* Sub-Navigation Tabs */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
         {[
-          { id: 'PLAT_DU_JOUR', label: '🍲 1. Plat du Jour & Studio', icon: Utensils, badge: platDuJour.isActive ? 'En Ligne' : 'Pause' },
+          { id: 'PLAT_DU_JOUR', label: '🍲 1. Menu du Jour (Trio) & Studio', icon: Utensils, badge: platDuJour.isActive ? 'En Ligne' : 'Pause' },
           { id: 'WEEKLY_CALENDAR', label: '📅 2. Promos Semaine (7j)', icon: Calendar, badge: '7 Jours' },
           { id: 'FLASH_DEALS', label: '⚡ 3. Offres Flash du Jour', icon: Flame, badge: flashDeal.isEnabled ? 'ON' : 'OFF' },
           { id: 'BANNER', label: '📢 4. Bannière Live App', icon: Megaphone, badge: banner.isEnabled ? 'ON' : 'OFF' },
@@ -646,7 +660,7 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
         ))}
       </div>
 
-      {/* TAB 0 : CRÉATEUR DE PLAT DU JOUR & DIFFUSION MULTI-CANAUX (WHATSAPP, GROUPES, CLIENTS, RÉSEAUX SOCIAUX) */}
+      {/* TAB 0 : CRÉATEUR DE MENU DU JOUR (TRIO) & DIFFUSION MULTI-CANAUX */}
       {activeTab === 'PLAT_DU_JOUR' && (
         <div className="space-y-8 animate-fade-in">
           
@@ -655,17 +669,17 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
                 <span className="bg-brand-orange text-white text-[9px] font-black uppercase px-3 py-0.5 rounded-full tracking-wider shadow-sm flex items-center gap-1">
-                  <ChefHat size={12} /> Menu Quotidien
+                  <ChefHat size={12} /> Menu Quotidien Trio
                 </span>
                 <span className="text-brand-gold text-[10px] font-bold">
                   {platDuJour.date}
                 </span>
               </div>
               <h3 className="text-lg sm:text-xl font-black italic uppercase text-white tracking-wide flex items-center gap-2">
-                <Utensils className="text-brand-gold" size={22} /> Plat du Jour & Texte Alléchant
+                <Utensils className="text-brand-gold" size={22} /> Menu du Jour : Trio Gourmand & Marketing
               </h3>
               <p className="text-xs text-white/70 font-medium">
-                Concevez chaque matin votre offre vedette, générez un argumentaire captivant et publiez en 1 clic sur WhatsApp, vos groupes, vos clients et les réseaux sociaux.
+                Gérez chaque matin vos 3 plats au programme (Plat Cuisiné + Doukounou & Attiéké incontournables), ajustez prix et photos, et publiez en 1 clic sur WhatsApp, vos groupes et réseaux sociaux.
               </p>
             </div>
 
@@ -769,7 +783,38 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
           )}
 
           {/* SUB-VIEW 2: RECIPE & MULTI-CHANNEL TEXTS CONFIGURATION */}
-          {platSubView === 'RECIPE_CHANNELS' && (
+          {platSubView === 'RECIPE_CHANNELS' && (() => {
+            const safeDishes = platDuJour.dishes && platDuJour.dishes.length >= 3 
+              ? platDuJour.dishes 
+              : DEFAULT_MENU_DU_JOUR_DISHES;
+            const currentDish = safeDishes[selectedDishIndex] || safeDishes[0];
+
+            const updateCurrentDish = (updates: Partial<typeof currentDish>) => {
+              const newDishes = [...safeDishes];
+              const updatedDish = { ...newDishes[selectedDishIndex], ...updates };
+              newDishes[selectedDishIndex] = updatedDish;
+              
+              let newPlatDuJour: PlatDuJourConfig = {
+                ...platDuJour,
+                dishes: newDishes
+              };
+              
+              if (selectedDishIndex === 0) {
+                if (updates.dishName !== undefined) newPlatDuJour.dishName = updates.dishName;
+                if (updates.tagline !== undefined) newPlatDuJour.tagline = updates.tagline;
+                if (updates.description !== undefined) newPlatDuJour.description = updates.description;
+                if (updates.accompaniments !== undefined) newPlatDuJour.accompaniments = updates.accompaniments;
+                if (updates.price !== undefined) newPlatDuJour.price = updates.price;
+                if (updates.promoPrice !== undefined) newPlatDuJour.promoPrice = updates.promoPrice;
+                if (updates.dishImage !== undefined) newPlatDuJour.dishImage = updates.dishImage;
+                if (updates.remainingStock !== undefined) newPlatDuJour.remainingStock = updates.remainingStock;
+              }
+              
+              setPlatDuJour(newPlatDuJour);
+              saveStoredPlatDuJour(newPlatDuJour);
+            };
+
+            return (
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 animate-fade-in">
             
             {/* Hidden File Input for Dish Photo Upload */}
@@ -784,11 +829,53 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
             {/* Left Column: Preset Catalog & Dish Configuration (5 cols) */}
             <div className="xl:col-span-5 space-y-6">
               
-              {/* Source Mode Selector */}
+              {/* Trio Dish Selector Tabs */}
+              <div className="bg-gradient-to-br from-[#2D1610] via-[#1F0C07] to-black p-4 rounded-[2rem] border-2 border-brand-gold/30 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-brand-gold flex items-center gap-1.5">
+                    <ChefHat size={14} className="text-brand-orange" /> Sélection du Plat à Configurer
+                  </h4>
+                  <span className="text-[8px] font-bold text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
+                    3 Plats au Menu
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { idx: 0, label: '🍲 1. Plat du Jour', sub: 'Cuisiné Quotidien', badge: 'Variable' },
+                    { idx: 1, label: '🌽 2. Doukounou', sub: 'Le Fameux Khady', badge: 'D\'office' },
+                    { idx: 2, label: '🐟 3. Attiéké Royal', sub: 'Incontournable', badge: 'D\'office' }
+                  ].map(tab => (
+                    <button
+                      key={tab.idx}
+                      type="button"
+                      onClick={() => {
+                        playSound('pop');
+                        setSelectedDishIndex(tab.idx);
+                      }}
+                      className={`p-2.5 rounded-2xl text-left border transition-all flex flex-col justify-between gap-1 relative ${
+                        selectedDishIndex === tab.idx
+                          ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white border-brand-gold shadow-lg ring-1 ring-brand-gold scale-[1.02]'
+                          : 'bg-white/5 text-white/70 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="text-[8px] font-black uppercase truncate">{tab.label}</span>
+                      <span className="text-[7px] text-white/60 truncate">{tab.sub}</span>
+                      <span className={`text-[6px] font-black uppercase px-1.5 py-0.5 rounded-full self-start ${
+                        selectedDishIndex === tab.idx ? 'bg-black/40 text-brand-gold' : 'bg-white/10 text-white/50'
+                      }`}>
+                        {tab.badge}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Source Mode Selector (Plat 1 ou au choix) */}
               <div className="bg-white/5 p-4 rounded-[2rem] border border-white/10 space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-brand-gold flex items-center gap-1.5">
-                    <Utensils size={14} className="text-brand-orange" /> Source du Plat du Jour
+                    <Utensils size={14} className="text-brand-orange" /> Source de Sélection (Plat #{selectedDishIndex + 1})
                   </h4>
                   <span className="text-[8px] font-bold text-white/50 bg-white/10 px-2 py-0.5 rounded-full">
                     {platSourceMode === 'CARTE' ? `${items.length} Plats au Menu` : platSourceMode === 'CUSTOM' ? 'Sur-Mesure' : '6 Signatures'}
@@ -817,7 +904,7 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                         : 'bg-black/30 text-white/60 border-white/5 hover:bg-white/5'
                     }`}
                   >
-                    ✍️ Personnalisé
+                    ✍️ Manuel
                   </button>
 
                   <button
@@ -884,11 +971,26 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                         return matchCat && matchSearch;
                       })
                       .map((item) => {
-                        const isSelected = platDuJour.dishName.toLowerCase().trim() === item.name.toLowerCase().trim();
+                        const isSelected = currentDish.dishName.toLowerCase().trim() === item.name.toLowerCase().trim();
                         return (
                           <div
                             key={item.id}
-                            onClick={() => handleSelectMenuItemAsPlat(item)}
+                            onClick={() => {
+                              playSound('pop');
+                              const defaultPromo = Math.round(item.price * 0.9 / 50) * 50;
+                              const accompanimentsText = item.includes && item.includes.length > 0
+                                ? item.includes.join(', ')
+                                : 'Alloco doré croustillant, piment vert maison';
+                              updateCurrentDish({
+                                dishName: item.name,
+                                tagline: item.description || `Spécialité du Chef Khady`,
+                                description: item.description,
+                                accompaniments: accompanimentsText,
+                                price: item.price,
+                                promoPrice: defaultPromo,
+                                dishImage: item.image
+                              });
+                            }}
                             className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 cursor-pointer group ${
                               isSelected
                                 ? 'bg-brand-gold/20 border-brand-gold shadow-lg ring-1 ring-brand-gold'
@@ -955,12 +1057,23 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {PLAT_DU_JOUR_PRESETS.map((preset) => {
-                      const isSelected = platDuJour.dishName === preset.name;
+                      const isSelected = currentDish.dishName === preset.name;
                       return (
                         <button
                           key={preset.id}
                           type="button"
-                          onClick={() => handleSelectPresetPlat(preset)}
+                          onClick={() => {
+                            playSound('pop');
+                            updateCurrentDish({
+                              dishName: preset.name,
+                              tagline: preset.tagline,
+                              description: preset.description,
+                              accompaniments: preset.accompaniments,
+                              price: preset.price,
+                              promoPrice: preset.promoPrice,
+                              dishImage: preset.image
+                            });
+                          }}
                           className={`p-3 rounded-2xl text-left border transition-all flex flex-col justify-between gap-2 relative overflow-hidden group ${
                             isSelected
                               ? 'bg-brand-gold/20 border-brand-gold text-white shadow-lg'
@@ -996,12 +1109,17 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                 </div>
               )}
 
-              {/* FORMULAIRE DE PERSONNALISATION / CRÉATION SUR-MESURE */}
+              {/* FORMULAIRE DE PERSONNALISATION MANUELLE COMPLÈTE */}
               <div className="bg-white/5 p-6 sm:p-7 rounded-[2.5rem] border border-white/10 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-                    <Edit3 size={16} className="text-brand-orange" /> Paramètres du Plat du Jour
-                  </h4>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                      <Edit3 size={16} className="text-brand-orange" /> Paramètres Manuels : Plat #{selectedDishIndex + 1}
+                    </h4>
+                    <span className="text-[9px] text-white/60 font-bold">
+                      {selectedDishIndex === 0 ? '🍲 Plat Cuisiné Quotidien' : selectedDishIndex === 1 ? '🌽 Doukounou Incontournable' : '🐟 Attiéké Incontournable'}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => platImageInputRef.current?.click()}
@@ -1015,12 +1133,12 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                   {/* Target Day and Timing Selector */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
-                      <label className="text-[9px] font-black uppercase text-white/60">Jour Cible (Ex: Demain Samedi)</label>
+                      <label className="text-[9px] font-black uppercase text-white/60">Jour Cible (Ex: Demain Mercredi)</label>
                       <input
                         type="text"
                         value={platDuJour.targetDayLabel || ''}
                         onChange={(e) => setPlatDuJour({ ...platDuJour, targetDayLabel: e.target.value })}
-                        placeholder="Ex: Demain Samedi"
+                        placeholder="Ex: Demain Mercredi"
                         className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-brand-gold font-black focus:outline-none focus:border-brand-gold"
                       />
                     </div>
@@ -1039,14 +1157,11 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[9px] font-black uppercase text-white/60">Nom du Plat du Jour *</label>
+                    <label className="text-[9px] font-black uppercase text-white/60">Nom du Plat *</label>
                     <input
                       type="text"
-                      value={platDuJour.dishName}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setPlatDuJour({ ...platDuJour, dishName: val });
-                      }}
+                      value={currentDish.dishName}
+                      onChange={(e) => updateCurrentDish({ dishName: e.target.value })}
                       placeholder="Ex: Tiep Royal Rouge au Mérou Frais"
                       className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-brand-gold"
                     />
@@ -1056,8 +1171,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                     <label className="text-[9px] font-black uppercase text-white/60">Slogan / Tagline Accrocheuse</label>
                     <input
                       type="text"
-                      value={platDuJour.tagline}
-                      onChange={(e) => setPlatDuJour({ ...platDuJour, tagline: e.target.value })}
+                      value={currentDish.tagline || ''}
+                      onChange={(e) => updateCurrentDish({ tagline: e.target.value })}
                       placeholder="Ex: Le joyau culinaire sénégalais de Cheffe Khady"
                       className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold"
                     />
@@ -1067,8 +1182,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                     <label className="text-[9px] font-black uppercase text-white/60">Description Sensorielle & Ingrédients</label>
                     <textarea
                       rows={3}
-                      value={platDuJour.description}
-                      onChange={(e) => setPlatDuJour({ ...platDuJour, description: e.target.value })}
+                      value={currentDish.description}
+                      onChange={(e) => updateCurrentDish({ description: e.target.value })}
                       placeholder="Décrivez les saveurs, les épices, la texture..."
                       className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold leading-relaxed resize-none"
                     />
@@ -1080,9 +1195,9 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                     </label>
                     <input
                       type="text"
-                      value={platDuJour.accompaniments}
-                      onChange={(e) => setPlatDuJour({ ...platDuJour, accompaniments: e.target.value })}
-                      placeholder="Ex: Alloco doré + 1 Grande Bouteille de Jus Bissap Glacée 50cl"
+                      value={currentDish.accompaniments || ''}
+                      onChange={(e) => updateCurrentDish({ accompaniments: e.target.value })}
+                      placeholder="Ex: Alloco doré + Piment vert maison"
                       className="w-full bg-black/40 border border-brand-gold/30 rounded-xl p-3 text-xs text-brand-gold font-bold focus:outline-none focus:border-brand-gold"
                     />
                   </div>
@@ -1092,8 +1207,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                       <label className="text-[9px] font-black uppercase text-white/60">Prix Normal (F CFA)</label>
                       <input
                         type="number"
-                        value={platDuJour.price || ''}
-                        onChange={(e) => setPlatDuJour({ ...platDuJour, price: Number(e.target.value) })}
+                        value={currentDish.price || ''}
+                        onChange={(e) => updateCurrentDish({ price: Number(e.target.value) })}
                         className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-brand-gold"
                       />
                     </div>
@@ -1102,8 +1217,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                       <label className="text-[9px] font-black uppercase text-brand-orange font-bold">Prix Spécial Midi (F CFA)</label>
                       <input
                         type="number"
-                        value={platDuJour.promoPrice || ''}
-                        onChange={(e) => setPlatDuJour({ ...platDuJour, promoPrice: Number(e.target.value) })}
+                        value={currentDish.promoPrice || ''}
+                        onChange={(e) => updateCurrentDish({ promoPrice: Number(e.target.value) })}
                         className="w-full bg-black/40 border border-brand-orange/40 rounded-xl p-3 text-xs text-brand-orange font-black font-mono focus:outline-none focus:border-brand-orange"
                       />
                     </div>
@@ -1114,8 +1229,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                       <label className="text-[9px] font-black uppercase text-white/60">Stock de Portions</label>
                       <input
                         type="number"
-                        value={platDuJour.remainingStock || ''}
-                        onChange={(e) => setPlatDuJour({ ...platDuJour, remainingStock: Number(e.target.value) })}
+                        value={currentDish.remainingStock || ''}
+                        onChange={(e) => updateCurrentDish({ remainingStock: Number(e.target.value) })}
                         className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white font-mono focus:outline-none focus:border-brand-gold"
                       />
                     </div>
@@ -1156,8 +1271,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
                     </div>
                     <input
                       type="text"
-                      value={platDuJour.dishImage}
-                      onChange={(e) => setPlatDuJour({ ...platDuJour, dishImage: e.target.value })}
+                      value={currentDish.dishImage}
+                      onChange={(e) => updateCurrentDish({ dishImage: e.target.value })}
                       placeholder="https://..."
                       className="w-full bg-black/40 border border-white/15 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-brand-gold truncate font-mono text-[10px]"
                     />
@@ -1618,7 +1733,8 @@ Sois précis, concret, orienté chiffre d'affaires et rédigé avec professionna
               </div>
             </div>
           </div>
-          )}
+            );
+          })()}
         </div>
       )}
 

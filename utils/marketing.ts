@@ -42,20 +42,42 @@ export type PosterTheme = 'LUXURY_GOLD' | 'SAHEL_TERRACOTTA' | 'WOOD_FIRE' | 'MO
 export type PosterFormat = 'SQUARE_POST' | 'STORY_PORTRAIT' | 'BANNER_LANDSCAPE';
 export type PublicationTiming = 'TONIGHT_FOR_TOMORROW' | 'TODAY_LUNCH';
 
-export interface PlatDuJourConfig {
+export interface MenuDuJourDishItem {
   id: string;
-  date: string;
-  targetDayLabel?: string; // e.g., "Demain Midi", "Ce Midi", "Vendredi 14 Août"
-  publicationTiming: PublicationTiming; // Posté la veille au soir vs ce matin
+  type: 'PLAT_DU_JOUR' | 'DOUKOUNOU' | 'ATTIEKE' | 'CUSTOM';
   dishName: string;
+  badgeLabel: string; // e.g. "🍲 Plat Cuisiné du Jour", "🌽 Incontournable Doukounou", "🐟 Incontournable Attiéké"
+  badgeColor?: string;
   tagline: string;
   description: string;
   accompaniments: string;
   price: number;
   promoPrice?: number;
   dishImage: string;
-  chefQuote: string;
   remainingStock: number;
+  isDailyPermanent?: boolean; // true for Doukounou & Attiéké
+  isAvailable: boolean;
+}
+
+export interface MenuDuJourConfig {
+  id: string;
+  date: string;
+  targetDayLabel?: string; // e.g., "Demain Midi", "Ce Midi", "Vendredi 14 Août"
+  publicationTiming: PublicationTiming; // Posté la veille au soir vs ce matin
+  title: string;
+  tagline: string;
+  dishes: MenuDuJourDishItem[]; // Array containing at least 3 daily dishes
+  
+  // Backward compatibility fields matching dishes[0]
+  dishName: string;
+  description: string;
+  accompaniments: string;
+  price: number;
+  promoPrice?: number;
+  dishImage: string;
+  remainingStock: number;
+
+  chefQuote: string;
   promoCode?: string;
   deliveryTime: string;
   isActive: boolean;
@@ -69,6 +91,9 @@ export interface PlatDuJourConfig {
   marketingTextEveningStatusShort?: string; // Teaser court < 7 lignes spécial Statut Veille
   hashtags: string;
 }
+
+// Alias for backward compatibility
+export type PlatDuJourConfig = MenuDuJourConfig;
 
 export interface FlashDealConfig {
   isEnabled: boolean;
@@ -167,78 +192,139 @@ export const INITIAL_FLASH_DEAL: FlashDealConfig = {
   expiresAt: new Date(Date.now() + 4 * 3600 * 1000).toISOString()
 };
 
-// Default Initial Plat du Jour
-export const INITIAL_PLAT_DU_JOUR: PlatDuJourConfig = {
-  id: 'pdj-today',
+// Default 3 Daily Dishes (Plat Cuisiné du Jour + Doukounou Incontournable + Attiéké Incontournable)
+export const DEFAULT_MENU_DU_JOUR_DISHES: MenuDuJourDishItem[] = [
+  {
+    id: 'dish-plat-du-jour',
+    type: 'PLAT_DU_JOUR',
+    dishName: 'Tiep Rouge Royal au Capitaine',
+    badgeLabel: '🍲 Plat Cuisiné du Jour',
+    badgeColor: 'bg-brand-orange text-white',
+    tagline: 'Mijoté du jour avec légumes frais et poisson braisé',
+    description: 'Riz rouge sénégalais parfumé, tranche de capitaine braisé, carottes glacées, manioc fondant, chou braisé et sauce pimentée maison.',
+    accompaniments: 'Alloco doré croustillant + Piment vert maison',
+    price: 5500,
+    promoPrice: 4950,
+    dishImage: 'https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?w=1000',
+    remainingStock: 25,
+    isDailyPermanent: false,
+    isAvailable: true
+  },
+  {
+    id: 'dish-doukounou',
+    type: 'DOUKOUNOU',
+    dishName: 'Le Fameux Doukounou de Khady',
+    badgeLabel: '🌽 Incontournable Doukounou',
+    badgeColor: 'bg-amber-600 text-white',
+    tagline: 'Spécialité maison au programme chaque jour d\'office',
+    description: 'Le célèbre gâteau de maïs vapeur traditionnel au Sahel, cuit à point, tendre et moelleux, servi chaud avec sa sauce mijotée de la maison, piment vert doux et poisson frit ou poulet braisé.',
+    accompaniments: 'Sauce tomate mijotée + Piment vert de la Cheffe + Poisson frit',
+    price: 3000,
+    promoPrice: 2700,
+    dishImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1000',
+    remainingStock: 30,
+    isDailyPermanent: true,
+    isAvailable: true
+  },
+  {
+    id: 'dish-attieke',
+    type: 'ATTIEKE',
+    dishName: 'L\'Incontournable Attiéké Royal',
+    badgeLabel: '🐟 Incontournable Attiéké',
+    badgeColor: 'bg-emerald-600 text-white',
+    tagline: 'Spécialité maison au programme chaque jour d\'office',
+    description: 'La semoule de manioc attiéké fraîche et aérée de Cheffe Khady, servie avec darne de poisson capitaine braisée ou poulet croustillant, oignons doux marinés, tomates et piment vert maison.',
+    accompaniments: 'Poisson capitaine braisé au feu de bois + Alloco doré + Oignons marinés',
+    price: 4500,
+    promoPrice: 4000,
+    dishImage: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=1000',
+    remainingStock: 30,
+    isDailyPermanent: true,
+    isAvailable: true
+  }
+];
+
+// Default Initial Menu du Jour (Trio Quotidien)
+export const INITIAL_MENU_DU_JOUR: MenuDuJourConfig = {
+  id: 'mdj-today',
   date: new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()),
   targetDayLabel: 'Demain Mercredi Midi',
   publicationTiming: 'TONIGHT_FOR_TOMORROW',
   posterTheme: 'LUXURY_GOLD',
   posterFormat: 'SQUARE_POST',
-  dishName: 'Attiéké Poisson Carpe',
-  tagline: 'Spécialité ivoirienne raffinée de Cheffe Khady',
-  description: 'Semoule de manioc attiéké fraîche et aérée, darne de poisson carpe braisée aux aromates du fleuve Niger, oignons doux et piment vert maison.',
-  accompaniments: 'Riz jasmin parfumé, bananes plantains alloco, piment vert maison',
-  price: 5500,
-  promoPrice: 4950,
-  dishImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000',
-  chefQuote: '« Poisson frais sélectionné ce matin, braisé lentement au feu de bois avec nos épices maison. » — Cheffe Khady',
-  remainingStock: 25,
+  title: 'Menu du Jour — Le Trio Gourmand',
+  tagline: 'Nos 3 délices au programme quotidien chez Khady\'s Food',
+  dishes: DEFAULT_MENU_DU_JOUR_DISHES,
+  
+  // Compatibility fields pointing to dish 0 (Plat cuisiné du jour)
+  dishName: DEFAULT_MENU_DU_JOUR_DISHES[0].dishName,
+  description: DEFAULT_MENU_DU_JOUR_DISHES[0].description,
+  accompaniments: DEFAULT_MENU_DU_JOUR_DISHES[0].accompaniments,
+  price: DEFAULT_MENU_DU_JOUR_DISHES[0].price,
+  promoPrice: DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice,
+  dishImage: DEFAULT_MENU_DU_JOUR_DISHES[0].dishImage,
+  remainingStock: DEFAULT_MENU_DU_JOUR_DISHES[0].remainingStock,
+
+  chefQuote: '« Chaque jour, retrouvez d\'office notre Doukounou et notre Attiéké en plus de notre Plat Cuisiné du Jour ! » — Cheffe Khady',
   promoCode: 'KHADY24',
   deliveryTime: '11h30 - 14h30',
   isActive: true,
-  marketingTextWhatsApp: `*🍲 PLAT DU JOUR CHEZ KHADY'S FOOD ! 🍲*\n\n` +
-    `Aujourd'hui, Cheffe Khady vous a concocté notre délicieux :\n` +
-    `✨ *ATTIÉKÉ POISSON CARPE* ✨\n\n` +
-    `🔥 *Au menu :* Semoule de manioc attiéké fraîche et aérée, darne de carpe braisée au feu de bois, oignons doux et piment vert maison.\n` +
-    `🎁 *Bonus du midi :* Riz jasmin parfumé, bananes plantains alloco, piment vert maison offerts !\n\n` +
-    `💰 *Tarif Spécial Déjeuner :* 4 950 F CFA (au lieu de 5 500 F)\n` +
+  marketingTextWhatsApp: `*🍲 MENU DU JOUR CHEZ KHADY'S FOOD ! 🍲*\n` +
+    `✨ *Le Trio Gourmand d'Excellence du Jour* ✨\n\n` +
+    `Cheffe Khady vous présente le menu complet du déjeuner :\n\n` +
+    `1️⃣ 🍲 *PLAT DU JOUR : ${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName.toUpperCase()}*\n` +
+    `😋 ${DEFAULT_MENU_DU_JOUR_DISHES[0].description}\n` +
+    `💰 Tarif Promo : *${DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice?.toLocaleString('fr-FR')} F CFA* (au lieu de ${DEFAULT_MENU_DU_JOUR_DISHES[0].price.toLocaleString('fr-FR')} F)\n\n` +
+    `2️⃣ 🌽 *LE FAMEUX DOUKOUNOU (Incontournable Quotidien) :*\n` +
+    `😋 ${DEFAULT_MENU_DU_JOUR_DISHES[1].description}\n` +
+    `💰 Tarif Promo : *${DEFAULT_MENU_DU_JOUR_DISHES[1].promoPrice?.toLocaleString('fr-FR')} F CFA*\n\n` +
+    `3️⃣ 🐟 *L'INCONTOURNABLE ATTIÉKÉ ROYAL (Incontournable Quotidien) :*\n` +
+    `😋 ${DEFAULT_MENU_DU_JOUR_DISHES[2].description}\n` +
+    `💰 Tarif Promo : *${DEFAULT_MENU_DU_JOUR_DISHES[2].promoPrice?.toLocaleString('fr-FR')} F CFA*\n\n` +
     `🛵 *Livraison Express Niamey :* Livré brûlant en moins de 35 min par Billo Express !\n\n` +
-    `👉 *Commandez maintenant avant épuisement du stock (25 parts dispo) :*\n` +
-    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20Attiéké%20Poisson%20Carpe\n\n` +
+    `👉 *Commandez votre plat favori ou le trio complet :*\n` +
+    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Menu%20du%20Jour\n\n` +
     `_Khady's Food & Event — L'excellence culinaire au Sahel_`,
-  marketingTextStatusShort: `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n` +
-    `👑 *ATTIÉKÉ POISSON CARPE*\n` +
-    `🎁 Alloco doré + Piment maison offert !\n` +
-    `💰 *4 950 F CFA* (au lieu de 5 500 F)\n` +
+  marketingTextStatusShort: `🍲 *MENU DU JOUR • KHADY'S FOOD* 🍲\n` +
+    `1️⃣ 🍲 ${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName} (${DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice?.toLocaleString('fr-FR')} F)\n` +
+    `2️⃣ 🌽 Doukounou Royal (${DEFAULT_MENU_DU_JOUR_DISHES[1].promoPrice?.toLocaleString('fr-FR')} F)\n` +
+    `3️⃣ 🐟 Attiéké Poisson (${DEFAULT_MENU_DU_JOUR_DISHES[2].promoPrice?.toLocaleString('fr-FR')} F)\n` +
     `🛵 Livré dès 12h00 par Billo Express\n` +
     `👉 Commandez au ${RESTAURANT_INFO.whatsapp}`,
-  marketingTextGroups: `*🍲 ALERTE GOURMANDE DU MIDI — KHADY'S FOOD 🍲*\n\n` +
-    `Chers membres, les marmites bouillonnent pour le déjeuner ! 🥘🔥\n` +
-    `Aujourd'hui au menu du jour :\n` +
-    `👑 *Attiéké Poisson Carpe*\n` +
-    `🍌 Accompagné d'Alloco croustillant et riz jasmin parfumé !\n\n` +
-    `⚡ Tarif spécial groupe / bureau : *4 950 F CFA* (Remise spéciale)\n` +
-    `📦 Commandes groupées d'entreprise acceptées avec facture normalisée.\n\n` +
-    `📲 Commande rapide WhatsApp : https://wa.me/${RESTAURANT_INFO.whatsappClean}`,
-  marketingTextSocial: `✨ 𝐏𝐋𝐀𝐓 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 & 𝐄𝐕𝐄𝐍𝐓 ✨\n\n` +
-    `Laissez-vous tenter par notre *Attiéké Poisson Carpe*, une véritable explosion de saveurs authentiques cuisinée dans la pure tradition sahélienne par Cheffe Khady ! 🥘✨\n\n` +
-    `🌾 Semoule de manioc attiéké fraîche et légère\n` +
-    `🐟 Poisson carpe braisé fondant aux herbes\n` +
-    `🍌 Alloco doré et piment vert maison offert\n\n` +
+  marketingTextGroups: `*🍲 ALERTE MENU DU JOUR — KHADY'S FOOD 🍲*\n\n` +
+    `Bonjour à tous ! Voici les 3 délices au menu du jour :\n` +
+    `1️⃣ 🍲 *${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName}* — ${DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice?.toLocaleString('fr-FR')} F\n` +
+    `2️⃣ 🌽 *Le Fameux Doukounou* — ${DEFAULT_MENU_DU_JOUR_DISHES[1].promoPrice?.toLocaleString('fr-FR')} F\n` +
+    `3️⃣ 🐟 *L'Incontournable Attiéké* — ${DEFAULT_MENU_DU_JOUR_DISHES[2].promoPrice?.toLocaleString('fr-FR')} F\n\n` +
+    `⚡ Commandes groupées d'entreprise acceptées avec livraison rapide.\n` +
+    `📲 Commande WhatsApp : https://wa.me/${RESTAURANT_INFO.whatsappClean}`,
+  marketingTextSocial: `✨ 𝐌𝐄𝐍𝐔 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 & 𝐄𝐕𝐄𝐍𝐓 ✨\n\n` +
+    `Aujourd'hui, retrouvez notre Trio Gourmand d'office :\n\n` +
+    `🍲 1. *${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName}* (${DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice?.toLocaleString('fr-FR')} F CFA)\n` +
+    `🌽 2. *Le Fameux Doukounou de Khady* (${DEFAULT_MENU_DU_JOUR_DISHES[1].promoPrice?.toLocaleString('fr-FR')} F CFA)\n` +
+    `🐟 3. *L'Incontournable Attiéké Royal* (${DEFAULT_MENU_DU_JOUR_DISHES[2].promoPrice?.toLocaleString('fr-FR')} F CFA)\n\n` +
     `📍 Disponible en livraison partout à Niamey ou à emporter.\n` +
-    `⚡ Tarif du jour : 4 950 F CFA\n` +
     `📲 Commandez par WhatsApp au ${RESTAURANT_INFO.whatsapp}\n\n` +
-    `#KhadyFood #PlatDuJour #Attieke #Niamey #BilloExpress #CuisineAfricaine`,
+    `#KhadyFood #MenuDuJour #Doukounou #Attieke #PlatDuJour #Niamey #BilloExpress #CuisineAfricaine`,
   marketingTextEveningTeaser: `🌙 *AU MENU DEMAIN MIDI CHEZ KHADY'S FOOD !* 🍲✨\n\n` +
-    `Chers gourmets, pour votre déjeuner de demain, Cheffe Khady vous concocte son chef-d'œuvre :\n` +
-    `👑 *ATTIÉKÉ POISSON CARPE*\n\n` +
-    `😋 Semoule de manioc attiéké fraîche et poisson carpe braisé fondant aux aromates du fleuve Niger.\n` +
-    `🎁 *Bonus spécial précommande de nuit :* Alloco doré + Piment maison offert !\n` +
-    `💰 *Tarif Spécial :* 4 950 F CFA (au lieu de 5 500 F)\n\n` +
-    `🛵 *Livraison garantie dès 12h00 précises à votre bureau ou à domicile par Billo Express.*\n` +
-    `⚠️ *Stock limité :* Réservez dès ce soir avant 23h pour être servi en priorité !\n\n` +
-    `👉 *Pour réserver dès ce soir en 1 clic :*\n` +
-    `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20Attiéké%20Poisson%20Carpe\n\n` +
+    `Chers gourmets, anticipez votre déjeuner ! Demain retrouvez notre Trio Quotidien :\n` +
+    `1️⃣ 🍲 *${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName.toUpperCase()}*\n` +
+    `2️⃣ 🌽 *LE FAMEUX DOUKOUNOU ROYAL*\n` +
+    `3️⃣ 🐟 *L'INCONTOURNABLE ATTIÉKÉ POISSON BRAISÉ*\n\n` +
+    `🛵 *Livraison garantie dès 12h00 précises à Niamey par Billo Express.*\n` +
+    `👉 *Réservez dès ce soir :* https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Menu%20du%20Jour\n\n` +
     `_Khady's Food & Event — Toujours un plaisir de vous régaler !_ 🌟`,
   marketingTextEveningStatusShort: `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n` +
-    `👑 *ATTIÉKÉ POISSON CARPE*\n` +
-    `🎁 Alloco doré + Piment vert maison offert\n` +
-    `💰 *4 950 F CFA* • Livré dès 12h par Billo\n` +
-    `⚠️ Stock limité (25 parts)\n` +
-    `👉 Réservez dès ce soir : ${RESTAURANT_INFO.whatsapp}`,
-  hashtags: '#KhadyFood #PlatDuJour #Attieke #Niamey #CuisineAfricaine #BilloExpress #FoodNiamey'
+    `1️⃣ 🍲 ${DEFAULT_MENU_DU_JOUR_DISHES[0].dishName}\n` +
+    `2️⃣ 🌽 Doukounou de Khady\n` +
+    `3️⃣ 🐟 Attiéké Royal\n` +
+    `🛵 Livré dès 12h par Billo • Stock limité\n` +
+    `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`,
+  hashtags: '#KhadyFood #MenuDuJour #Doukounou #Attieke #PlatDuJour #Niamey #CuisineAfricaine #BilloExpress #FoodNiamey'
 };
+
+// Backward compatibility alias
+export const INITIAL_PLAT_DU_JOUR: PlatDuJourConfig = INITIAL_MENU_DU_JOUR;
 
 // Preset catalog for fast 1-click Plat du Jour daily configuration
 export const PLAT_DU_JOUR_PRESETS = [
@@ -325,8 +411,8 @@ export const PLAT_DU_JOUR_PRESETS = [
 // Helper to generate dynamic, mouthwatering marketing texts for different channels
 export type PlatDuJourStyle = 'GOURMAND' | 'FLASH_MIDI' | 'PRESTIGE_ROYAL';
 
-export const generatePlatDuJourMarketingTexts = (
-  plat: Partial<PlatDuJourConfig>,
+export const generateMenuDuJourMarketingTexts = (
+  config: Partial<MenuDuJourConfig>,
   style: PlatDuJourStyle = 'GOURMAND'
 ): { 
   whatsapp: string; 
@@ -337,15 +423,19 @@ export const generatePlatDuJourMarketingTexts = (
   eveningStatusShort: string; 
   hashtags: string; 
 } => {
-  const name = plat.dishName || 'Tiep Royal Khady\'s Food';
-  const price = plat.promoPrice ? `${plat.promoPrice.toLocaleString('fr-FR')} F CFA` : `${(plat.price || 4500).toLocaleString('fr-FR')} F CFA`;
-  const originalPrice = plat.price ? `${plat.price.toLocaleString('fr-FR')} F CFA` : '5 500 F CFA';
-  const desc = plat.description || 'Préparé avec soin par Cheffe Khady avec des ingrédients frais du jour.';
-  const acc = plat.accompaniments || 'Alloco doré + Jus Bissap Frais offert';
-  const dateStr = plat.date || 'Aujourd\'hui';
-  const targetDay = plat.targetDayLabel || 'Demain Midi';
-  const quote = plat.chefQuote || '« Le meilleur de la cuisine africaine à votre table. »';
-  const stock = plat.remainingStock || 25;
+  const dishes = config.dishes && config.dishes.length >= 3 ? config.dishes : DEFAULT_MENU_DU_JOUR_DISHES;
+  const d1 = dishes[0] || DEFAULT_MENU_DU_JOUR_DISHES[0];
+  const d2 = dishes[1] || DEFAULT_MENU_DU_JOUR_DISHES[1];
+  const d3 = dishes[2] || DEFAULT_MENU_DU_JOUR_DISHES[2];
+
+  const d1Price = d1.promoPrice ? `${d1.promoPrice.toLocaleString('fr-FR')} F` : `${d1.price.toLocaleString('fr-FR')} F`;
+  const d1Original = d1.price ? `${d1.price.toLocaleString('fr-FR')} F` : '';
+  const d2Price = d2.promoPrice ? `${d2.promoPrice.toLocaleString('fr-FR')} F` : `${d2.price.toLocaleString('fr-FR')} F`;
+  const d3Price = d3.promoPrice ? `${d3.promoPrice.toLocaleString('fr-FR')} F` : `${d3.price.toLocaleString('fr-FR')} F`;
+
+  const dateStr = config.date || 'Aujourd\'hui';
+  const targetDay = config.targetDayLabel || 'Demain Midi';
+  const totalStock = (d1.remainingStock || 25) + (d2.remainingStock || 30) + (d3.remainingStock || 30);
 
   let whatsapp = '';
   let statusShort = '';
@@ -355,229 +445,277 @@ export const generatePlatDuJourMarketingTexts = (
   let eveningStatusShort = '';
 
   if (style === 'FLASH_MIDI') {
-    whatsapp = `*⚡ ALERTE DÉJEUNER MIDI — KHADY'S FOOD ⚡*\n\n` +
-      `Ne perdez pas de temps pour votre pause déjeuner ! Notre *Plat du Jour* vient de sortir des fourneaux :\n\n` +
-      `🥘 *${name.toUpperCase()}*\n` +
-      `😋 ${desc}\n` +
-      `🎁 *Bonus inclus :* ${acc}\n\n` +
-      `🔥 *Tarif Déjeuner Express :* *${price}* (au lieu de ${originalPrice})\n` +
+    whatsapp = `*⚡ ALERTE DÉJEUNER DU JOUR — LE TRIO KHADY'S FOOD ⚡*\n\n` +
+      `Ne cherchez plus quoi manger à midi ! Voici notre *Menu du Jour* prêt à être livré chez vous :\n\n` +
+      `1️⃣ 🍲 *${d1.dishName.toUpperCase()}* (${d1Price}${d1Original ? ` au lieu de ${d1Original}` : ''})\n` +
+      `   👉 ${d1.description}\n` +
+      `   🎁 Bonus : ${d1.accompaniments}\n\n` +
+      `2️⃣ 🌽 *${d2.dishName.toUpperCase()}* (${d2Price})\n` +
+      `   👉 ${d2.description}\n\n` +
+      `3️⃣ 🐟 *${d3.dishName.toUpperCase()}* (${d3Price})\n` +
+      `   👉 ${d3.description}\n\n` +
       `🛵 *Livraison ultra-rapide par Billo Express partout à Niamey en 30 min.*\n` +
-      `⏳ *Stock limité :* Plus que *${stock} portions* disponibles !\n\n` +
       `📲 *Cliquez ici pour commander directement :*\n` +
-      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20veux%20commander%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
-      `_Khady's Food & Event — Votre déjeuner chaud au bureau ou à domicile !_`;
+      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Menu%20du%20Jour\n\n` +
+      `_Khady's Food & Event — Votre régal chaud au bureau ou à domicile !_`;
 
-    statusShort = `⚡ *DÉJEUNER DU JOUR CHEZ KHADY'S* ⚡\n` +
-      `🥘 *${name.toUpperCase()}*\n` +
-      `🎁 ${acc}\n` +
-      `💰 *${price}* (au lieu de ${originalPrice})\n` +
-      `🛵 Livré chaud en 35 min par Billo Express\n` +
+    statusShort = `⚡ *MENU DU JOUR • LE TRIO KHADY'S* ⚡\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 ${d2.dishName} (${d2Price})\n` +
+      `3️⃣ 🐟 ${d3.dishName} (${d3Price})\n` +
+      `🛵 Livré chaud en 30 min par Billo Express\n` +
       `👉 Commandes : ${RESTAURANT_INFO.whatsapp}`;
 
-    groups = `*🥘 MIDI EXPRESS NIAMEY — KHADY'S FOOD 🥘*\n\n` +
-      `Bonjour à tous ! Qui n'a pas encore prévu son déjeuner au bureau ?\n` +
-      `Aujourd'hui, Cheffe Khady vous régale avec :\n` +
-      `👉 *${name}*\n` +
-      `✨ ${acc}\n\n` +
-      `💰 Tarif spécial : *${price}* seulement !\n` +
-      `🛵 Livraison groupée possible pour vos collègues.\n` +
+    groups = `*🥘 MENU DU JOUR MIDI EXPRESS — KHADY'S FOOD 🥘*\n\n` +
+      `Bonjour à tous ! Au programme de ce midi chez Cheffe Khady :\n` +
+      `1️⃣ 🍲 *${d1.dishName}* — ${d1Price}\n` +
+      `2️⃣ 🌽 *${d2.dishName}* — ${d2Price}\n` +
+      `3️⃣ 🐟 *${d3.dishName}* — ${d3Price}\n\n` +
+      `🛵 Livraison groupée possible pour vos collègues au bureau.\n` +
       `📞 Commandes rapides : https://wa.me/${RESTAURANT_INFO.whatsappClean}`;
 
-    social = `🔥 𝐕𝐄𝐍𝐓𝐄 𝐅𝐋𝐀𝐒𝐇 𝐃É𝐉𝐄𝐔𝐍𝐄𝐑 | ${name.toUpperCase()} 🔥\n\n` +
-      `Pause déjeuner en vue à Niamey ? Ne cherchez plus quoi manger !\n\n` +
-      `Cheffe Khady vous a préparé son fabuleux *${name}* servi bien chaud avec ${acc}.\n\n` +
-      `💰 Prix du Jour : *${price}* au lieu de ${originalPrice}\n` +
+    social = `🔥 𝐕𝐄𝐍𝐓𝐄 𝐅𝐋𝐀𝐒𝐇 𝐌𝐄𝐍𝐔 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 🔥\n\n` +
+      `Pause déjeuner à Niamey ? Régalez-vous avec notre Trio Quotidien cuisiné frais ce matin :\n\n` +
+      `🍲 1. *${d1.dishName}* (${d1Price})\n` +
+      `🌽 2. *${d2.dishName}* (${d2Price})\n` +
+      `🐟 3. *${d3.dishName}* (${d3Price})\n\n` +
       `🛵 Livraison Express assurée par Billo Express\n` +
-      `📞 Réservez votre part par WhatsApp : ${RESTAURANT_INFO.whatsapp}\n\n` +
-      `#NiameyFood #KhadyFood #PlatDuJour #PauseDejeuner #BilloExpress #CuisineAfricaine`;
+      `📞 Réservez par WhatsApp : ${RESTAURANT_INFO.whatsapp}\n\n` +
+      `#NiameyFood #KhadyFood #MenuDuJour #Doukounou #Attieke #PlatDuJour #BilloExpress`;
 
-    eveningTeaser = `🌙 *RÉSERVATION VEILLE AU SOIR — ${targetDay.toUpperCase()}* ⚡\n\n` +
-      `Anticipez votre pause déjeuner de demain ! Cheffe Khady prépare son :\n` +
-      `👉 *${name.toUpperCase()}*\n` +
-      `🎁 *Bonus précommande :* ${acc}\n` +
-      `💰 *Tarif Flash :* ${price} (au lieu de ${originalPrice})\n\n` +
+    eveningTeaser = `🌙 *AU MENU DEMAIN MIDI (${targetDay.toUpperCase()}) — LE TRIO KHADY'S* ⚡\n\n` +
+      `Anticipez votre déjeuner de demain ! Cheffe Khady prépare son trio gourmand :\n` +
+      `1️⃣ 🍲 *${d1.dishName.toUpperCase()}* (${d1Price})\n` +
+      `2️⃣ 🌽 *${d2.dishName.toUpperCase()}* (${d2Price})\n` +
+      `3️⃣ 🐟 *${d3.dishName.toUpperCase()}* (${d3Price})\n\n` +
       `🛵 Livraison express garantie dès 12h00 précises à Niamey.\n` +
-      `📲 Bloquez votre portion dès ce soir : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Plat%20du%20Jour%20de%20demain%20${encodeURIComponent(name)}`;
+      `📲 Bloquez votre portion dès ce soir : https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Menu%20du%20Jour%20de%20demain`;
 
     eveningStatusShort = `🌙 *AU MENU DEMAIN MIDI (${targetDay.toUpperCase()})* 🍲✨\n` +
-      `👉 *${name.toUpperCase()}*\n` +
-      `🎁 ${acc}\n` +
-      `💰 *${price}* (au lieu de ${originalPrice})\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 Doukounou (${d2Price})\n` +
+      `3️⃣ 🐟 Attiéké (${d3Price})\n` +
       `🛵 Livré dès 12h par Billo Express\n` +
       `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   } else if (style === 'PRESTIGE_ROYAL') {
-    whatsapp = `*👑 FESTIN GASTRONOMIQUE DU JOUR — KHADY'S FOOD 👑*\n\n` +
-      `Offrez-vous un moment d'exception culinaire ce ${dateStr} avec la création signature de Cheffe Khady :\n\n` +
-      `✨ *${name.toUpperCase()}* ✨\n` +
-      `${desc}\n\n` +
-      `🌟 *Garniture & Accompagnement de prestige :*\n` +
-      `• ${acc}\n` +
-      `• ${quote}\n\n` +
-      `💎 *Tarif Privilège :* *${price}*\n` +
-      `🛵 *Service Livraison Haute Précision par Billo Express*\n\n` +
-      `👉 *Réserver votre portion VIP :*\n` +
-      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20réserve%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
+    whatsapp = `*👑 FESTIN GASTRONOMIQUE DU JOUR — MENU DU JOUR KHADY'S FOOD 👑*\n\n` +
+      `Offrez-vous un moment d'exception culinaire ce ${dateStr} avec la séléction royale de Cheffe Khady :\n\n` +
+      `1️⃣ 🍲 *${d1.dishName.toUpperCase()}* ✨\n` +
+      `   ${d1.description}\n` +
+      `   💎 Tarif Privilège : *${d1Price}*\n\n` +
+      `2️⃣ 🌽 *${d2.dishName.toUpperCase()}* (Incontournable Quotidien)\n` +
+      `   ${d2.description}\n` +
+      `   💎 Tarif Privilège : *${d2Price}*\n\n` +
+      `3️⃣ 🐟 *${d3.dishName.toUpperCase()}* (Incontournable Quotidien)\n` +
+      `   ${d3.description}\n` +
+      `   💎 Tarif Privilège : *${d3Price}*\n\n` +
+      `🛵 *Service Livraison Haute Précision par Billo Express*\n` +
+      `👉 *Réserver votre repas VIP :*\n` +
+      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20réserve%20le%20Menu%20du%20Jour\n\n` +
       `_Khady's Food & Event — L'art de la haute gastronomie sahélienne_`;
 
-    statusShort = `👑 *DÉLICE ROYAL DU JOUR • KHADY'S FOOD* 👑\n` +
-      `✨ *${name.toUpperCase()}*\n` +
-      `🌟 ${acc}\n` +
-      `💎 *${price}* • Déjeuner d'exception\n` +
+    statusShort = `👑 *MENU ROYAL DU JOUR • KHADY'S FOOD* 👑\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 Doukounou Royal (${d2Price})\n` +
+      `3️⃣ 🐟 Attiéké Royal (${d3Price})\n` +
       `🛵 Livraison Billo Express Niamey\n` +
       `👉 Réservation : ${RESTAURANT_INFO.whatsapp}`;
 
     groups = `*👑 DÉLICE ROYAL DU JOUR — KHADY'S FOOD 👑*\n\n` +
-      `Chers gourmets, le plat d'exception du jour est prêt :\n` +
-      `🌟 *${name}*\n` +
-      `✨ ${desc}\n` +
-      `🎁 Servi avec ${acc}\n\n` +
-      `💰 Offre exclusive : *${price}*\n` +
+      `Chers gourmets, le Menu du Jour d'exception est prêt :\n` +
+      `1️⃣ 🍲 *${d1.dishName}* (${d1Price})\n` +
+      `2️⃣ 🌽 *${d2.dishName}* (${d2Price})\n` +
+      `3️⃣ 🐟 *${d3.dishName}* (${d3Price})\n\n` +
       `🛵 Service traiteur et livraison sur tout Niamey.\n` +
       `👉 Commandes : https://wa.me/${RESTAURANT_INFO.whatsappClean}`;
 
-    social = `👑 𝐋'𝐄𝐗𝐂𝐄𝐋𝐋𝐄𝐍𝐂𝐄 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 👑\n\n` +
+    social = `👑 𝐋'𝐄𝐗𝐂𝐄𝐋𝐋𝐄𝐍𝐂𝐄 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐌𝐄𝐍𝐔 𝐃𝐔 𝐉𝐎𝐔𝐑 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 👑\n\n` +
       `L'art culinaire au Sahel sublimé par Cheffe Khady.\n` +
-      `Aujourd'hui, découvrez notre *${name}*, une recette noble mijotée avec passion et des ingrédients de premier choix.\n\n` +
-      `🌟 ${desc}\n` +
-      `✨ ${acc}\n\n` +
-      `Prix Spécial : ${price}\n` +
-      `🛵 Disponible dès maintenant en livraison ou à emporter.\n` +
+      `Découvrez notre Menu du Jour du ${dateStr} :\n\n` +
+      `🍲 1. *${d1.dishName}* (${d1Price})\n` +
+      `🌽 2. *${d2.dishName}* (${d2Price})\n` +
+      `🐟 3. *${d3.dishName}* (${d3Price})\n\n` +
+      `🛵 Disponible en livraison partout à Niamey ou à emporter.\n` +
       `📲 Réservations : ${RESTAURANT_INFO.whatsapp}\n\n` +
-      `#KhadyFood #HauteGastronomie #PlatDuJour #Niamey #Niger #ChefKhady #ExcellenceCulinaire`;
+      `#KhadyFood #HauteGastronomie #MenuDuJour #Doukounou #Attieke #Niamey #ExcellenceCulinaire`;
 
     eveningTeaser = `👑 *AVANT-PREMIÈRE DE LA VEILLE — AU MENU ${targetDay.toUpperCase()}* 👑\n\n` +
-      `Cheffe Khady a l'honneur de vous dévoiler le menu d'exception de demain :\n` +
-      `✨ *${name.toUpperCase()}* ✨\n` +
-      `${desc}\n\n` +
-      `🌟 *Service exclusif avec :* ${acc}\n` +
-      `💎 *Tarif Privilège :* ${price}\n\n` +
-      `🛵 Réservé aux amateurs de gastronomie sahélienne. Livré à l'heure exacte de votre déjeuner à Niamey.\n` +
-      `👉 *Précommandez votre repas VIP dès ce soir :*\n` +
-      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Plat%20Royal%20de%20demain%20${encodeURIComponent(name)}`;
+      `Cheffe Khady a l'honneur de vous dévoiler le Menu du Jour d'exception de demain :\n` +
+      `1️⃣ 🍲 *${d1.dishName.toUpperCase()}* (${d1Price})\n` +
+      `2️⃣ 🌽 *${d2.dishName.toUpperCase()}* (${d2Price})\n` +
+      `3️⃣ 🐟 *${d3.dishName.toUpperCase()}* (${d3Price})\n\n` +
+      `🛵 Livré à l'heure exacte de votre déjeuner à Niamey par Billo Express.\n` +
+      `👉 *Précommandez dès ce soir :*\n` +
+      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Menu%20du%20Jour%20de%20demain`;
 
     eveningStatusShort = `👑 *AVANT-PREMIÈRE AU MENU ${targetDay.toUpperCase()}* 👑\n` +
-      `✨ *${name.toUpperCase()}*\n` +
-      `🎁 ${acc}\n` +
-      `💎 *${price}* • Cuisiné par Cheffe Khady\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 Doukounou (${d2Price})\n` +
+      `3️⃣ 🐟 Attiéké (${d3Price})\n` +
       `🛵 Livré dès 12h par Billo Express\n` +
       `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   } else {
     // Default GOURMAND
-    whatsapp = `*🍲 LE PLAT DU JOUR EST PRÊT CHEZ KHADY'S FOOD ! 🍲*\n\n` +
-      `Aujourd'hui (${dateStr}), faites frémir vos papilles avec notre :\n` +
-      `✨ *${name.toUpperCase()}* ✨\n\n` +
-      `😋 ${desc}\n` +
-      `🍌 *Accompagnements inclus :* ${acc}\n` +
-      `${quote}\n\n` +
-      `💰 *Tarif Spécial du Jour :* *${price}* (au lieu de ${originalPrice})\n` +
+    whatsapp = `*🍲 MENU DU JOUR CHEZ KHADY'S FOOD ! 🍲*\n` +
+      `✨ *Le Trio Gourmand d'Excellence du Jour (${dateStr})* ✨\n\n` +
+      `Aujourd'hui au programme chez Cheffe Khady :\n\n` +
+      `1️⃣ 🍲 *PLAT DU JOUR : ${d1.dishName.toUpperCase()}*\n` +
+      `   😋 ${d1.description}\n` +
+      `   🎁 ${d1.accompaniments}\n` +
+      `   💰 Tarif Promo : *${d1Price}*${d1Original ? ` (au lieu de ${d1Original})` : ''}\n\n` +
+      `2️⃣ 🌽 *LE FAMEUX DOUKOUNOU (Incontournable Quotidien) :*\n` +
+      `   😋 ${d2.description}\n` +
+      `   💰 Tarif : *${d2Price}*\n\n` +
+      `3️⃣ 🐟 *L'INCONTOURNABLE ATTIÉKÉ ROYAL (Incontournable Quotidien) :*\n` +
+      `   😋 ${d3.description}\n` +
+      `   💰 Tarif : *${d3Price}*\n\n` +
       `🛵 *Livraison express* chaude et soignée partout à Niamey par Billo Express.\n` +
-      `⚡ *Portions limitées :* ${stock} parts cuisinées ce matin !\n\n` +
+      `⚡ *Portions limitées :* ${totalStock} parts cuisinées ce matin !\n\n` +
       `👉 *Cliquez ici pour commander sur WhatsApp :*\n` +
-      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
+      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonjour%20je%20souhaite%20commander%20le%20Menu%20du%20Jour\n\n` +
       `_Khady's Food & Event — Le goût du bonheur au Sahel_`;
 
-    statusShort = `🍲 *PLAT DU JOUR • KHADY'S FOOD* 🍲\n` +
-      `👑 *${name.toUpperCase()}*\n` +
-      `🎁 ${acc}\n` +
-      `💰 *${price}* (au lieu de ${originalPrice})\n` +
+    statusShort = `🍲 *MENU DU JOUR • KHADY'S FOOD* 🍲\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 Doukounou Royal (${d2Price})\n` +
+      `3️⃣ 🐟 Attiéké Poisson (${d3Price})\n` +
       `🛵 Livré chaud dès 12h par Billo Express\n` +
       `👉 Commandez au ${RESTAURANT_INFO.whatsapp}`;
 
-    groups = `*🍲 BONJOUR LE GROUPE ! LE DÉJEUNER EST SERVI 🍲*\n\n` +
-      `Les délicieux arômes de Cheffe Khady sont de sortie !\n` +
-      `Au menu aujourd'hui : *${name}*\n` +
-      `👉 ${acc}\n\n` +
-      `🔥 Prix spécial : *${price}* seulement.\n` +
+    groups = `*🍲 BONJOUR LE GROUPE ! LE MENU DU JOUR EST SERVI 🍲*\n\n` +
+      `Les marmites de Cheffe Khady sont prêtes :\n` +
+      `1️⃣ 🍲 *${d1.dishName}* — ${d1Price}\n` +
+      `2️⃣ 🌽 *Le Fameux Doukounou* — ${d2Price}\n` +
+      `3️⃣ 🐟 *L'Incontournable Attiéké* — ${d3Price}\n\n` +
       `🛵 Livraison rapide à votre porte par Billo !\n` +
       `📲 Pour commander : https://wa.me/${RESTAURANT_INFO.whatsappClean}`;
 
-    social = `✨ 𝐏𝐋𝐀𝐓 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 & 𝐄𝐕𝐄𝐍𝐓 ✨\n\n` +
-      `Envie d'un déjeuner savoureux et généreux ?\n` +
-      `Laissez-vous tenter par notre *${name}* cuisiné ce matin par Cheffe Khady ! 🥘✨\n\n` +
-      `😋 ${desc}\n` +
-      `🎁 ${acc}\n\n` +
-      `💰 Tarif Spécial : ${price} (au lieu de ${originalPrice})\n` +
+    social = `✨ 𝐌𝐄𝐍𝐔 𝐃𝐔 𝐉𝐎𝐔𝐑 | 𝐊𝐇𝐀𝐃𝐘'𝐒 𝐅𝐎𝐎𝐃 & 𝐄𝐕𝐄𝐍𝐓 ✨\n\n` +
+      `Envie d'un déjeuner savoureux et généreux ? Découvrez notre Menu du Jour :\n\n` +
+      `🍲 1. *${d1.dishName}* (${d1Price})\n` +
+      `🌽 2. *Le Fameux Doukounou de Khady* (${d2Price})\n` +
+      `🐟 3. *L'Incontournable Attiéké Royal* (${d3Price})\n\n` +
       `🛵 Livraison express partout à Niamey avec Billo Express\n` +
       `📲 Commandez directement sur WhatsApp : ${RESTAURANT_INFO.whatsapp}\n\n` +
-      `#KhadyFood #PlatDuJour #Niamey #CuisineAfricaine #BilloExpress #DejeunerNiamey #FoodNiger`;
+      `#KhadyFood #MenuDuJour #Doukounou #Attieke #PlatDuJour #Niamey #BilloExpress #DejeunerNiamey`;
 
     eveningTeaser = `🌙 *AU MENU DEMAIN MIDI CHEZ KHADY'S FOOD !* 🍲✨\n\n` +
-      `Chers gourmets, pour votre déjeuner de ${targetDay}, Cheffe Khady vous concocte son chef-d'œuvre :\n` +
-      `👑 *${name.toUpperCase()}*\n\n` +
-      `😋 ${desc}\n` +
-      `🎁 *Bonus spécial précommande de nuit :* ${acc}\n` +
-      `💰 *Tarif Spécial :* ${price} (au lieu de ${originalPrice})\n\n` +
+      `Chers gourmets, pour votre déjeuner de ${targetDay}, Cheffe Khady vous propose son Trio Gourmand :\n` +
+      `1️⃣ 🍲 *${d1.dishName.toUpperCase()}* (${d1Price})\n` +
+      `2️⃣ 🌽 *LE FAMEUX DOUKOUNOU ROYAL* (${d2Price})\n` +
+      `3️⃣ 🐟 *L'INCONTOURNABLE ATTIÉKÉ ROYAL* (${d3Price})\n\n` +
       `🛵 *Livraison garantie dès 12h00 précises à votre bureau ou à domicile par Billo Express.*\n` +
-      `⚠️ *Stock limité :* Réservez dès ce soir avant 23h pour être servi en priorité !\n\n` +
       `👉 *Pour réserver dès ce soir en 1 clic :*\n` +
-      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20ma%20part%20pour%20demain%20midi%20du%20Plat%20du%20Jour%20${encodeURIComponent(name)}\n\n` +
+      `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=Bonsoir%20je%20réserve%20le%20Menu%20du%20Jour%20de%20demain\n\n` +
       `_Khady's Food & Event — Toujours un plaisir de vous régaler !_ 🌟`;
 
     eveningStatusShort = `🌙 *AU MENU DEMAIN MIDI !* 🍲✨\n` +
-      `👑 *${name.toUpperCase()}*\n` +
-      `🎁 ${acc}\n` +
-      `💰 *${price}* • Livré dès 12h par Billo\n` +
-      `⚠️ Stock limité (${stock} parts)\n` +
+      `1️⃣ 🍲 ${d1.dishName} (${d1Price})\n` +
+      `2️⃣ 🌽 Doukounou (${d2Price})\n` +
+      `3️⃣ 🐟 Attiéké (${d3Price})\n` +
+      `🛵 Livré dès 12h par Billo\n` +
       `👉 Réservez ce soir : ${RESTAURANT_INFO.whatsapp}`;
   }
 
-  const hashtags = `#KhadyFood #PlatDuJour #${name.replace(/[^a-zA-Z0-9]/g, '')} #Niamey #BilloExpress #CuisineAfricaine #FoodNiger #DejeunerNiamey`;
+  const hashtags = `#KhadyFood #MenuDuJour #Doukounou #Attieke #${d1.dishName.replace(/[^a-zA-Z0-9]/g, '')} #Niamey #BilloExpress #CuisineAfricaine`;
 
   return { whatsapp, statusShort, groups, social, eveningTeaser, eveningStatusShort, hashtags };
 };
 
-// Storage for Plat du Jour
-export const getStoredPlatDuJour = (): PlatDuJourConfig => {
+// Backward compatibility alias
+export const generatePlatDuJourMarketingTexts = generateMenuDuJourMarketingTexts;
+
+// Storage for Menu du Jour / Plat du Jour
+export const getStoredMenuDuJour = (): MenuDuJourConfig => {
   try {
-    const data = localStorage.getItem('khadys_plat_du_jour');
+    const data = localStorage.getItem('khadys_plat_du_jour') || localStorage.getItem('khadys_menu_du_jour');
     if (data) {
       const parsed = JSON.parse(data);
-      if (parsed && parsed.dishName) {
-        // Auto-fix stale text if dishName doesn't match texts (e.g. dish is Spaghetti but text has old Tiep)
-        const dishLower = parsed.dishName.toLowerCase().trim();
-        const firstWord = dishLower.split(/\s+/)[0];
-        const statusShort = parsed.marketingTextStatusShort || '';
-        const whatsappTxt = parsed.marketingTextWhatsApp || '';
-
-        const isMismatched = 
-          (!statusShort) ||
-          (dishLower.indexOf('tiep') === -1 && (statusShort.toLowerCase().indexOf('tiep') !== -1 || whatsappTxt.toLowerCase().indexOf('tiep') !== -1)) ||
-          (firstWord.length > 3 && statusShort.toLowerCase().indexOf(firstWord) === -1 && whatsappTxt.toLowerCase().indexOf(firstWord) === -1);
-
-        if (isMismatched) {
-          const texts = generatePlatDuJourMarketingTexts(parsed, 'GOURMAND');
-          const synced: PlatDuJourConfig = {
-            ...parsed,
-            marketingTextWhatsApp: texts.whatsapp,
-            marketingTextStatusShort: texts.statusShort,
-            marketingTextGroups: texts.groups,
-            marketingTextSocial: texts.social,
-            marketingTextEveningTeaser: texts.eveningTeaser,
-            marketingTextEveningStatusShort: texts.eveningStatusShort,
-            hashtags: texts.hashtags
+      if (parsed) {
+        // Ensure dishes array is populated with the 3 items
+        let dishes: MenuDuJourDishItem[] = parsed.dishes || [];
+        if (!Array.isArray(dishes) || dishes.length < 3) {
+          // Upgrade single dish to Trio!
+          const primaryDish: MenuDuJourDishItem = {
+            id: 'dish-plat-du-jour',
+            type: 'PLAT_DU_JOUR',
+            dishName: parsed.dishName || DEFAULT_MENU_DU_JOUR_DISHES[0].dishName,
+            badgeLabel: '🍲 Plat Cuisiné du Jour',
+            badgeColor: 'bg-brand-orange text-white',
+            tagline: parsed.tagline || DEFAULT_MENU_DU_JOUR_DISHES[0].tagline,
+            description: parsed.description || DEFAULT_MENU_DU_JOUR_DISHES[0].description,
+            accompaniments: parsed.accompaniments || DEFAULT_MENU_DU_JOUR_DISHES[0].accompaniments,
+            price: parsed.price || DEFAULT_MENU_DU_JOUR_DISHES[0].price,
+            promoPrice: parsed.promoPrice || DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice,
+            dishImage: parsed.dishImage || DEFAULT_MENU_DU_JOUR_DISHES[0].dishImage,
+            remainingStock: parsed.remainingStock || DEFAULT_MENU_DU_JOUR_DISHES[0].remainingStock,
+            isDailyPermanent: false,
+            isAvailable: true
           };
-          try {
-            localStorage.setItem('khadys_plat_du_jour', JSON.stringify(synced));
-          } catch (e) {}
-          return synced;
+          dishes = [
+            primaryDish,
+            DEFAULT_MENU_DU_JOUR_DISHES[1], // Doukounou
+            DEFAULT_MENU_DU_JOUR_DISHES[2]  // Attiéké
+          ];
         }
-        return parsed;
+
+        const synced: MenuDuJourConfig = {
+          ...INITIAL_MENU_DU_JOUR,
+          ...parsed,
+          title: parsed.title || 'Menu du Jour — Le Trio Gourmand',
+          dishes,
+          dishName: dishes[0]?.dishName || parsed.dishName || DEFAULT_MENU_DU_JOUR_DISHES[0].dishName,
+          description: dishes[0]?.description || parsed.description || DEFAULT_MENU_DU_JOUR_DISHES[0].description,
+          accompaniments: dishes[0]?.accompaniments || parsed.accompaniments || DEFAULT_MENU_DU_JOUR_DISHES[0].accompaniments,
+          price: dishes[0]?.price || parsed.price || DEFAULT_MENU_DU_JOUR_DISHES[0].price,
+          promoPrice: dishes[0]?.promoPrice || parsed.promoPrice || DEFAULT_MENU_DU_JOUR_DISHES[0].promoPrice,
+          dishImage: dishes[0]?.dishImage || parsed.dishImage || DEFAULT_MENU_DU_JOUR_DISHES[0].dishImage,
+          remainingStock: dishes[0]?.remainingStock || parsed.remainingStock || DEFAULT_MENU_DU_JOUR_DISHES[0].remainingStock,
+        };
+
+        // Regenerate texts if needed
+        const texts = generateMenuDuJourMarketingTexts(synced, 'GOURMAND');
+        synced.marketingTextWhatsApp = synced.marketingTextWhatsApp || texts.whatsapp;
+        synced.marketingTextStatusShort = synced.marketingTextStatusShort || texts.statusShort;
+        synced.marketingTextGroups = synced.marketingTextGroups || texts.groups;
+        synced.marketingTextSocial = synced.marketingTextSocial || texts.social;
+        synced.marketingTextEveningTeaser = synced.marketingTextEveningTeaser || texts.eveningTeaser;
+        synced.marketingTextEveningStatusShort = synced.marketingTextEveningStatusShort || texts.eveningStatusShort;
+
+        return synced;
       }
     }
   } catch (e) {}
-  return INITIAL_PLAT_DU_JOUR;
+  return INITIAL_MENU_DU_JOUR;
 };
 
-export const saveStoredPlatDuJour = (plat: PlatDuJourConfig): void => {
+export const getStoredPlatDuJour = getStoredMenuDuJour;
+
+export const saveStoredMenuDuJour = (menu: MenuDuJourConfig): void => {
   try {
-    localStorage.setItem('khadys_plat_du_jour', JSON.stringify(plat));
+    // Keep dish 0 in sync with primary fields
+    if (menu.dishes && menu.dishes.length > 0) {
+      menu.dishName = menu.dishes[0].dishName;
+      menu.description = menu.dishes[0].description;
+      menu.accompaniments = menu.dishes[0].accompaniments;
+      menu.price = menu.dishes[0].price;
+      menu.promoPrice = menu.dishes[0].promoPrice;
+      menu.dishImage = menu.dishes[0].dishImage;
+      menu.remainingStock = menu.dishes[0].remainingStock;
+    }
+
+    localStorage.setItem('khadys_plat_du_jour', JSON.stringify(menu));
+    localStorage.setItem('khadys_menu_du_jour', JSON.stringify(menu));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: plat }));
+      window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: menu }));
+      window.dispatchEvent(new CustomEvent('khadys_menu_du_jour_updated', { detail: menu }));
     }
     // Background cloud sync
-    db.savePlatDuJour(plat).catch(() => {});
+    db.savePlatDuJour(menu).catch(() => {});
   } catch (e) {}
 };
+
+export const saveStoredPlatDuJour = saveStoredMenuDuJour;
 
 // Open social media sharing
 export const shareToSocialPlatform = (text: string, platform: 'facebook' | 'instagram' | 'tiktok' | 'copy' | 'web_share'): boolean => {
