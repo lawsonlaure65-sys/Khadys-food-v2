@@ -2,10 +2,11 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem, MenuCategory } from '../types';
-import { Search, SlidersHorizontal, Flame, Leaf, Sun, Tag, Sparkles, Star, Plus, Utensils, ShoppingBag, WifiOff, Database, Mic, X, Filter, Gift, ArrowRight, MessageSquare } from 'lucide-react';
+import { Search, SlidersHorizontal, Flame, Leaf, Sun, Tag, Sparkles, Star, Plus, Utensils, ShoppingBag, WifiOff, Database, Mic, X, Filter, Gift, ArrowRight, MessageSquare, Crown } from 'lucide-react';
 import { playSound } from '../utils/audio';
 import { getStoredPlatDuJour } from '../utils/marketing';
 import { RESTAURANT_INFO } from '../constants';
+import { MenuDuJourTrio } from './MenuDuJourTrio';
 
 interface MenuViewProps {
   items: MenuItem[];
@@ -15,7 +16,7 @@ interface MenuViewProps {
   onOpenVoiceModal?: () => void;
 }
 
-type TagFilterType = 'ALL' | 'PLAT_DU_JOUR' | 'SPECIALITE' | 'EPICE' | 'VEGETARIEN' | 'PROMO';
+type TagFilterType = 'ALL' | 'INCONTOURNABLE' | 'PLAT_DU_JOUR' | 'SPECIALITE' | 'EPICE' | 'VEGETARIEN' | 'PROMO';
 
 const MAIN_SECTIONS = [
   { id: 'CARTE', label: 'LA CARTE', icon: <Utensils size={16} /> },
@@ -29,6 +30,7 @@ const CARTE_CATEGORIES: (MenuCategory | 'TOUT')[] = [
 
 const TAG_FILTERS: { id: TagFilterType; label: string; icon: React.ReactNode; activeBg: string }[] = [
   { id: 'ALL', label: 'Tous les plats', icon: <SlidersHorizontal size={13} />, activeBg: 'bg-brand-brown text-white shadow-brand-brown/20' },
+  { id: 'INCONTOURNABLE', label: 'Incontournables', icon: <Crown size={13} className="text-amber-400 fill-amber-400" />, activeBg: 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-amber-500/30' },
   { id: 'PLAT_DU_JOUR', label: 'Plat du Jour', icon: <Sun size={13} className="text-amber-400" />, activeBg: 'bg-amber-500 text-white shadow-amber-500/30' },
   { id: 'SPECIALITE', label: 'Spécialité Maison', icon: <Sparkles size={13} className="text-purple-300" />, activeBg: 'bg-purple-600 text-white shadow-purple-600/30' },
   { id: 'EPICE', label: 'Épicé', icon: <Flame size={13} className="text-rose-400" />, activeBg: 'bg-rose-500 text-white shadow-rose-500/30' },
@@ -59,10 +61,21 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
     };
   }, []);
 
+  // Helper to determine if dish is one of the Incontournables (Attiéké or Doukounou)
+  const isDishIncontournable = (item: MenuItem) => {
+    const name = (item.name || '').toLowerCase();
+    return name.includes('doukounou') || 
+           name.includes('attiéké') || 
+           name.includes('attieke') ||
+           item.id === 'douk-royal' || 
+           item.id === 'attieke-royal';
+  };
+
   // Dynamically calculate match counts for each tag filter
   const tagCounts = useMemo(() => {
     const counts: Record<TagFilterType, number> = {
       ALL: items.length,
+      INCONTOURNABLE: 0,
       PLAT_DU_JOUR: 0,
       SPECIALITE: 0,
       EPICE: 0,
@@ -71,6 +84,7 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
     };
 
     items.forEach(item => {
+      if (isDishIncontournable(item)) counts.INCONTOURNABLE++;
       if (item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour') counts.PLAT_DU_JOUR++;
       if (item.isSpécialitéMaison || item.category === 'Spécialité Maison') counts.SPECIALITE++;
       if (item.isSpicy) counts.EPICE++;
@@ -87,7 +101,9 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
                            item.description.toLowerCase().includes(searchQuery.toLowerCase());
 
       let matchesTag = true;
-      if (selectedTagFilter === 'PLAT_DU_JOUR') {
+      if (selectedTagFilter === 'INCONTOURNABLE') {
+        matchesTag = isDishIncontournable(item);
+      } else if (selectedTagFilter === 'PLAT_DU_JOUR') {
         matchesTag = Boolean(item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour');
       } else if (selectedTagFilter === 'SPECIALITE') {
         matchesTag = Boolean(item.isSpécialitéMaison || item.category === 'Spécialité Maison');
@@ -303,173 +319,11 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
       {/* MENU DU JOUR SPOTLIGHT BANNER — LE TRIO GOURMAND (PLAT DU JOUR + DOUKOUNOU + ATTIÉKÉ) */}
       {platDuJour && platDuJour.isActive && (selectedTagFilter === 'ALL' || selectedTagFilter === 'PLAT_DU_JOUR') && selectedCategory === 'TOUT' && searchQuery === '' && (
         <div className="px-4 sm:px-6 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-[#22100B] via-[#2E1610] to-[#160906] rounded-[2.5rem] p-5 sm:p-7 border-2 border-brand-gold/40 shadow-2xl relative overflow-hidden"
-          >
-            {/* Header of Menu du Jour */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-5 border-b border-brand-gold/20">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="bg-brand-orange text-white text-[9px] font-black uppercase px-3 py-1 rounded-full shadow-md flex items-center gap-1.5">
-                    <Sun size={12} className="animate-spin-slow" /> Menu du Jour
-                  </span>
-                  <span className="bg-brand-gold/20 text-brand-gold text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border border-brand-gold/30">
-                    👑 Le Trio Gourmand Quotidien
-                  </span>
-                  <span className="text-[9px] text-white/50 font-mono">
-                    {platDuJour.targetDayLabel || (platDuJour.publicationTiming === 'TONIGHT_FOR_TOMORROW' ? 'Demain Midi' : "Aujourd'hui")}
-                  </span>
-                </div>
-                <h3 className="text-lg sm:text-xl font-black italic uppercase text-white tracking-wide">
-                  {platDuJour.title || 'Notre Menu du Jour — 3 Délices au Choix'}
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-2 text-[9px] text-brand-gold font-bold bg-black/40 px-3 py-1.5 rounded-xl border border-brand-gold/20 shrink-0">
-                <Gift size={13} className="text-brand-orange" />
-                <span>Doukounou & Attiéké disponibles tous les jours !</span>
-              </div>
-            </div>
-
-            {/* The 3 Dishes Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(platDuJour.dishes && platDuJour.dishes.length >= 3 ? platDuJour.dishes : [
-                {
-                  id: 'dish-1-spotlight',
-                  type: 'PLAT_DU_JOUR',
-                  dishName: platDuJour.dishName,
-                  badgeLabel: '🍲 Plat Cuisiné du Jour',
-                  badgeColor: 'bg-brand-orange text-white',
-                  tagline: platDuJour.tagline,
-                  description: platDuJour.description,
-                  accompaniments: platDuJour.accompaniments,
-                  price: platDuJour.price,
-                  promoPrice: platDuJour.promoPrice,
-                  dishImage: platDuJour.dishImage,
-                  remainingStock: platDuJour.remainingStock,
-                  isDailyPermanent: false,
-                  isAvailable: true
-                },
-                {
-                  id: 'dish-2-doukounou',
-                  type: 'DOUKOUNOU',
-                  dishName: 'Le Fameux Doukounou de Khady',
-                  badgeLabel: '🌽 Incontournable Quotidien',
-                  badgeColor: 'bg-amber-600 text-white',
-                  tagline: 'Pâte de maïs blanc fermentée & sauce tomate braisée',
-                  description: 'Recette signature servie avec sauce graine onctueuse, poisson ou viande braisée.',
-                  accompaniments: 'Sauce graine au piment doux + Poisson braisé',
-                  price: 3500,
-                  promoPrice: 3000,
-                  dishImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=1000',
-                  remainingStock: 30,
-                  isDailyPermanent: true,
-                  isAvailable: true
-                },
-                {
-                  id: 'dish-3-attieke',
-                  type: 'ATTIEKE',
-                  dishName: 'L\'Incontournable Attiéké Royal',
-                  badgeLabel: '🐟 Incontournable Quotidien',
-                  badgeColor: 'bg-emerald-600 text-white',
-                  tagline: 'Semoule de manioc vapeur & daurade braisée',
-                  description: 'Attiéké frais de Côte d\'Ivoire, oignons et tomates marinés, piment vert frais.',
-                  accompaniments: 'Alloco doré + Jus de Bissap offert',
-                  price: 4000,
-                  promoPrice: 3500,
-                  dishImage: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?w=1000',
-                  remainingStock: 30,
-                  isDailyPermanent: true,
-                  isAvailable: true
-                }
-              ]).map((dish, dIndex) => {
-                const effectivePrice = dish.promoPrice || dish.price;
-                return (
-                  <motion.div
-                    key={dish.id || dIndex}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => {
-                      playSound('pop');
-                      const match = items.find(i => i.name.toLowerCase().includes(dish.dishName.toLowerCase())) || {
-                        id: `menu-du-jour-${dish.id || dIndex}`,
-                        name: dish.dishName,
-                        description: `${dish.description}${dish.accompaniments ? ` • Accompagnement : ${dish.accompaniments}` : ''}`,
-                        price: effectivePrice,
-                        category: 'Menu du Jour' as MenuCategory,
-                        image: dish.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000',
-                        isPlatDuJour: true,
-                        isAvailable: true,
-                        rating: 4.9,
-                        reviewsCount: 42
-                      };
-                      onSelectItem(match);
-                    }}
-                    className="bg-black/40 hover:bg-black/60 rounded-3xl p-3.5 sm:p-4 border border-brand-gold/30 hover:border-brand-gold transition-all cursor-pointer flex flex-col justify-between group shadow-lg"
-                  >
-                    <div className="space-y-2.5">
-                      {/* Dish Image */}
-                      <div className="relative h-28 sm:h-32 w-full rounded-2xl overflow-hidden border border-white/10">
-                        <img
-                          src={dish.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000'}
-                          alt={dish.dishName}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                        <div className={`absolute top-2 left-2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md ${dish.badgeColor || 'bg-brand-orange text-white'}`}>
-                          {dish.badgeLabel || `Plat ${dIndex + 1}`}
-                        </div>
-                        {dish.remainingStock && (
-                          <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-md text-brand-gold text-[7px] font-mono font-black px-1.5 py-0.5 rounded-md">
-                            {dish.remainingStock} restants
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Dish Title & Description */}
-                      <div>
-                        <h4 className="text-xs sm:text-sm font-black italic uppercase text-white leading-snug group-hover:text-brand-gold transition-colors line-clamp-1">
-                          {dish.dishName}
-                        </h4>
-                        <p className="text-[9px] sm:text-[10px] text-white/70 line-clamp-2 leading-relaxed mt-1">
-                          {dish.description}
-                        </p>
-                        {dish.accompaniments && (
-                          <p className="text-[8px] sm:text-[9px] text-brand-gold/90 font-bold truncate mt-1 flex items-center gap-1">
-                            <span>🎁</span> {dish.accompaniments}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Bottom Price & Button */}
-                    <div className="flex items-center justify-between pt-3 mt-3 border-t border-white/10">
-                      <div>
-                        {dish.promoPrice && dish.promoPrice < dish.price && (
-                          <span className="text-[8px] text-white/40 line-through block font-mono">
-                            {dish.price.toLocaleString('fr-FR')} F
-                          </span>
-                        )}
-                        <span className="text-xs sm:text-sm font-black text-brand-orange font-mono">
-                          {effectivePrice.toLocaleString('fr-FR')} F CFA
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="bg-brand-orange hover:bg-orange-600 text-white px-3 py-1.5 rounded-xl text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-md active:scale-95 transition-all flex items-center gap-1"
-                      >
-                        <span>Choisir</span>
-                        <ArrowRight size={10} />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
+          <MenuDuJourTrio
+            items={items}
+            onSelectItem={onSelectItem}
+            isHomeView={false}
+          />
         </div>
       )}
 
@@ -480,6 +334,7 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
       >
         <AnimatePresence mode="popLayout">
           {filteredItems.map((item, index) => {
+             const isIncontournable = isDishIncontournable(item);
              const isPlatDuJour = item.isPlatDuJour || item.category === 'Menu du Jour' || item.category === 'Plat du Jour';
              const isSpecialite = item.isSpécialitéMaison || item.category === 'Spécialité Maison';
              const isPromo = item.isPromo || item.isLowPrice;
@@ -499,24 +354,33 @@ const MenuView: React.FC<MenuViewProps> = ({ items, onSelectItem, activeSection,
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={() => { playSound('pop'); onSelectItem(item); }}
-                className="bg-white rounded-[2.5rem] p-4 shadow-sm border border-brand-brown/5 relative group cursor-pointer h-full flex flex-col"
+                className={`bg-white rounded-[2.5rem] p-4 shadow-sm relative group cursor-pointer h-full flex flex-col transition-all ${
+                  isIncontournable 
+                    ? 'border-2 border-amber-500/60 shadow-md ring-2 ring-amber-400/20 hover:border-amber-500 bg-gradient-to-b from-amber-500/[0.03] to-white' 
+                    : 'border border-brand-brown/5'
+                }`}
               >
                  <div className="relative h-32 w-full mb-4 overflow-hidden rounded-[1.8rem] flex-shrink-0">
                     <img src={item.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={item.name} />
                     
                     {/* Top Left Tag Badge */}
                     <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
-                       {isPlatDuJour && (
+                       {isIncontournable && (
+                          <span className="bg-gradient-to-r from-amber-600 via-orange-500 to-amber-600 text-white text-[8px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-lg flex items-center gap-1 border border-white/60 animate-pulse">
+                             <Crown size={9} className="text-yellow-200 fill-yellow-200" /> Incontournable
+                          </span>
+                       )}
+                       {isPlatDuJour && !isIncontournable && (
                           <span className="bg-amber-500/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
                              <Sun size={9} /> Jour
                           </span>
                        )}
-                       {isSpecialite && !isPlatDuJour && (
+                       {isSpecialite && !isPlatDuJour && !isIncontournable && (
                           <span className="bg-purple-600/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
                              <Sparkles size={9} /> Chef
                           </span>
                        )}
-                       {isPromo && !isPlatDuJour && !isSpecialite && (
+                       {isPromo && !isPlatDuJour && !isSpecialite && !isIncontournable && (
                           <span className="bg-amber-600/90 backdrop-blur-md text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/40">
                              <Tag size={9} /> Éco
                           </span>

@@ -27,6 +27,7 @@ import DeliveryEstimator from './components/DeliveryEstimator';
 import ReviewsSection from './components/ReviewsSection';
 import PromotionCalendar from './components/PromotionCalendar';
 import FlashOffer from './components/FlashOffer';
+import { MenuDuJourTrio } from './components/MenuDuJourTrio';
 import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
 import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000, RESTAURANT_INFO } from './constants';
 import { playSound } from './utils/audio';
@@ -804,6 +805,20 @@ const App: React.FC = () => {
                 </div>
                 <Zap size={20} className="text-brand-gold shrink-0 animate-pulse" />
               </div>
+            </div>
+
+            {/* Interactive Menu du Jour Component — Le Trio Gourmand (Plat du Jour + Doukounou + Attiéké) */}
+            <div className="px-4 sm:px-6">
+              <MenuDuJourTrio
+                items={items}
+                onSelectItem={(item) => {
+                  setSelectedItem(item);
+                  setIsItemModalOpen(true);
+                  playSound('pop');
+                }}
+                onAddToCart={(item, qty, inst) => handleAddToCart(item, qty || 1, inst || '')}
+                isHomeView={true}
+              />
             </div>
 
             {/* Interactive Flash Offer Component with Dynamic Countdown */}
