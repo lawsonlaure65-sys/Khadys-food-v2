@@ -4,10 +4,11 @@ import {
   Image as ImageIcon, Check, Copy, RefreshCw, Eye, Flame, 
   ChefHat, Award, Clock, Gift, ShoppingBag, ShieldCheck, 
   MessageSquare, Globe, ArrowRight, Palette, Layers, CheckCircle2,
-  Music, Facebook, Instagram, AlertCircle, Send, Info, Edit3
+  Music, Facebook, Instagram, AlertCircle, Send, Info, Edit3, LayoutGrid
 } from 'lucide-react';
 import { 
-  PlatDuJourConfig, PosterTheme, PosterFormat, PublicationTiming, 
+  PlatDuJourConfig, PosterTheme, PosterFormat, PosterLayout, PublicationTiming, 
+  DEFAULT_MENU_DU_JOUR_DISHES,
   shareToSocialPlatform, broadcastToWhatsApp, shareImageAndText,
   generatePlatDuJourMarketingTexts 
 } from '../utils/marketing';
@@ -187,6 +188,17 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
     });
   };
 
+  // Helper to load image safely as a Promise
+  const loadImgSafe = (src?: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(img);
+      img.src = src || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000';
+    });
+  };
+
   // Render poster on HTML5 Canvas in High Definition
   const drawPosterCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -203,337 +215,880 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
 
     const isLight = !!currentTheme.isLightSand;
     const isEvening = plat.publicationTiming === 'TONIGHT_FOR_TOMORROW';
+    const isTrioMode = (plat.posterLayout || 'TRIO_POSTER') === 'TRIO_POSTER';
 
-    // 1. Draw Background
-    const bgGrad = ctx.createLinearGradient(0, 0, width, height);
-    bgGrad.addColorStop(0, currentTheme.bgGradient[0]);
-    bgGrad.addColorStop(0.5, currentTheme.bgGradient[1]);
-    bgGrad.addColorStop(1, currentTheme.bgGradient[2]);
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
+    // Retrieve the 3 dishes: 1 Plat Cuisiné du Jour + 2 Incontournables (Doukounou & Attiéké)
+    const dishesList = plat.dishes && plat.dishes.length >= 3 ? plat.dishes : DEFAULT_MENU_DU_JOUR_DISHES;
+    const dish1 = dishesList[0] || {
+      dishName: plat.dishName,
+      dishImage: plat.dishImage,
+      tagline: plat.tagline,
+      description: plat.description,
+      accompaniments: plat.accompaniments,
+      price: plat.price,
+      promoPrice: plat.promoPrice,
+      remainingStock: plat.remainingStock
+    };
+    const dish2 = dishesList[1] || DEFAULT_MENU_DU_JOUR_DISHES[1];
+    const dish3 = dishesList[2] || DEFAULT_MENU_DU_JOUR_DISHES[2];
 
-    // Subtle luxury background circles / mandalas
-    ctx.save();
-    ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.08)' : `${currentTheme.goldColor}15`;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(width * 0.88, height * 0.12, width * 0.38, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(width * 0.12, height * 0.88, width * 0.32, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
+    // Load all required images in parallel
+    Promise.all([
+      loadImgSafe(dish1.dishImage || plat.dishImage),
+      loadImgSafe(dish2.dishImage),
+      loadImgSafe(dish3.dishImage)
+    ]).then(([img1, img2, img3]) => {
+      // 1. Draw Background Gradient
+      const bgGrad = ctx.createLinearGradient(0, 0, width, height);
+      bgGrad.addColorStop(0, currentTheme.bgGradient[0]);
+      bgGrad.addColorStop(0.5, currentTheme.bgGradient[1]);
+      bgGrad.addColorStop(1, currentTheme.bgGradient[2]);
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, width, height);
 
-    // 2. Decorative Outer Border
-    const borderPadding = 32;
-    ctx.save();
-    ctx.strokeStyle = isLight ? 'rgba(194, 65, 12, 0.25)' : `${currentTheme.goldColor}40`;
-    ctx.lineWidth = 3;
-    ctx.strokeRect(borderPadding, borderPadding, width - borderPadding * 2, height - borderPadding * 2);
-    
-    // Golden corner flourishes
-    const cornerSize = 36;
-    ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
-    ctx.lineWidth = 5;
-    
-    // Top-Left
-    ctx.beginPath();
-    ctx.moveTo(borderPadding, borderPadding + cornerSize);
-    ctx.lineTo(borderPadding, borderPadding);
-    ctx.lineTo(borderPadding + cornerSize, borderPadding);
-    ctx.stroke();
-
-    // Top-Right
-    ctx.beginPath();
-    ctx.moveTo(width - borderPadding - cornerSize, borderPadding);
-    ctx.lineTo(width - borderPadding, borderPadding);
-    ctx.lineTo(width - borderPadding, borderPadding + cornerSize);
-    ctx.stroke();
-
-    // Bottom-Left
-    ctx.beginPath();
-    ctx.moveTo(borderPadding, height - borderPadding - cornerSize);
-    ctx.lineTo(borderPadding, height - borderPadding);
-    ctx.lineTo(borderPadding + cornerSize, height - borderPadding);
-    ctx.stroke();
-
-    // Bottom-Right
-    ctx.beginPath();
-    ctx.moveTo(width - borderPadding - cornerSize, height - borderPadding);
-    ctx.lineTo(width - borderPadding, height - borderPadding);
-    ctx.lineTo(width - borderPadding, height - borderPadding - cornerSize);
-    ctx.stroke();
-    ctx.restore();
-
-    // 3. Top Header: Circular Restaurant Emblem & Brand Name (Style Samalife)
-    ctx.save();
-    const emblemY = borderPadding + 55;
-    
-    // Round Logo badge
-    ctx.beginPath();
-    ctx.arc(width / 2, emblemY, 32, 0, Math.PI * 2);
-    ctx.fillStyle = isLight ? '#FFFFFF' : '#2A130C';
-    ctx.fill();
-    ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    // Chef / Fork Icon Monogram
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = isLight ? '#EA580C' : currentTheme.goldColor;
-    ctx.font = '900 24px sans-serif';
-    ctx.fillText('👑', width / 2, emblemY - 2);
-
-    // Restaurant Name
-    ctx.fillStyle = isLight ? '#431407' : currentTheme.goldColor;
-    ctx.font = 'bold 24px "Montserrat", sans-serif';
-    ctx.fillText('✦ KHADY\'S FOOD & EVENT ✦', width / 2, emblemY + 52);
-
-    // Subtitle
-    ctx.fillStyle = isLight ? '#9A3412' : currentTheme.subtextColor;
-    ctx.font = '600 15px "Inter", sans-serif';
-    ctx.fillText('AUTHENTIQUE GASTRONOMIE SAHÉLIENNE • NIAMEY', width / 2, emblemY + 76);
-    ctx.restore();
-
-    // 4. Timing Ribbon Badge ("🌙 AU MENU DEMAIN MIDI" or "🍲 PLAT DU JOUR")
-    const badgeText = isEvening 
-      ? `🌙 AU MENU DEMAIN MIDI (${(plat.targetDayLabel || 'DEMAIN').toUpperCase()})`
-      : `🍲 PLAT DU JOUR • ${(plat.date || 'AUJOURD\'HUI').toUpperCase()}`;
-
-    const badgeWidth = Math.min(width * 0.72, 620);
-    const badgeHeight = 50;
-    const badgeX = (width - badgeWidth) / 2;
-    const badgeY = emblemY + 98;
-
-    ctx.save();
-    ctx.fillStyle = isEvening ? '#7C2D12' : currentTheme.accentColor;
-    ctx.beginPath();
-    ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 25);
-    ctx.fill();
-    ctx.strokeStyle = isLight ? '#FED7AA' : currentTheme.goldColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '900 20px "Montserrat", sans-serif';
-    ctx.fillText(badgeText, width / 2, badgeY + badgeHeight / 2);
-    ctx.restore();
-
-    // 5. Dish Title & Tagline (Positioned above or below image based on format)
-    const isPortrait = plat.posterFormat === 'STORY_PORTRAIT';
-    const isLandscape = plat.posterFormat === 'BANNER_LANDSCAPE';
-
-    // 6. Dish Image (Load & Draw with circular plate shadow)
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.src = plat.dishImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=1000';
-
-    const drawContent = () => {
-      let imgSize = 0;
-      let imgX = 0;
-      let imgY = 0;
-
-      if (isPortrait) {
-        imgSize = 640;
-        imgX = (width - imgSize) / 2;
-        imgY = badgeY + badgeHeight + 35;
-      } else if (isLandscape) {
-        imgSize = 580;
-        imgX = borderPadding + 60;
-        imgY = (height - imgSize) / 2 + 30;
-      } else {
-        // Square 1:1
-        imgSize = 480;
-        imgX = (width - imgSize) / 2;
-        imgY = badgeY + badgeHeight + 25;
-      }
-
-      // Draw Circular Dish Shadow & Raffia/Gold Ring
+      // Subtle luxury background circles / mandalas
       ctx.save();
-      const centerX = imgX + imgSize / 2;
-      const centerY = imgY + imgSize / 2;
-      const radius = imgSize / 2;
-
-      // Realistic deep shadow
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctx.shadowBlur = 35;
-      ctx.shadowOffsetY = 14;
-
-      // Outer braided plate rim
+      ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.08)' : `${currentTheme.goldColor}15`;
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius + 8, 0, Math.PI * 2);
-      ctx.fillStyle = isLight ? '#F59E0B' : currentTheme.goldColor;
-      ctx.fill();
-
-      // Clip image to perfect circle
+      ctx.arc(width * 0.88, height * 0.12, width * 0.38, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-      ctx.clip();
-      try {
-        ctx.drawImage(img, imgX, imgY, imgSize, imgSize);
-      } catch (e) {
-        ctx.fillStyle = isLight ? '#FDE68A' : '#2A130C';
-        ctx.fillRect(imgX, imgY, imgSize, imgSize);
-      }
+      ctx.arc(width * 0.12, height * 0.88, width * 0.32, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.restore();
 
-      // Tag badge over the dish
+      // 2. Decorative Outer Border
+      const borderPadding = 28;
       ctx.save();
-      const tagW = 220;
-      const tagH = 42;
-      ctx.fillStyle = '#EF4444';
+      ctx.strokeStyle = isLight ? 'rgba(194, 65, 12, 0.25)' : `${currentTheme.goldColor}40`;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(borderPadding, borderPadding, width - borderPadding * 2, height - borderPadding * 2);
+      
+      // Golden corner flourishes
+      const cornerSize = 34;
+      ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
+      ctx.lineWidth = 5;
+      
+      // Top-Left
       ctx.beginPath();
-      ctx.roundRect(centerX - tagW / 2, imgY + imgSize - 30, tagW, tagH, 21);
+      ctx.moveTo(borderPadding, borderPadding + cornerSize);
+      ctx.lineTo(borderPadding, borderPadding);
+      ctx.lineTo(borderPadding + cornerSize, borderPadding);
+      ctx.stroke();
+
+      // Top-Right
+      ctx.beginPath();
+      ctx.moveTo(width - borderPadding - cornerSize, borderPadding);
+      ctx.lineTo(width - borderPadding, borderPadding);
+      ctx.lineTo(width - borderPadding, borderPadding + cornerSize);
+      ctx.stroke();
+
+      // Bottom-Left
+      ctx.beginPath();
+      ctx.moveTo(borderPadding, height - borderPadding - cornerSize);
+      ctx.lineTo(borderPadding, height - borderPadding);
+      ctx.lineTo(borderPadding + cornerSize, height - borderPadding);
+      ctx.stroke();
+
+      // Bottom-Right
+      ctx.beginPath();
+      ctx.moveTo(width - borderPadding - cornerSize, height - borderPadding);
+      ctx.lineTo(width - borderPadding, height - borderPadding);
+      ctx.lineTo(width - borderPadding, height - borderPadding - cornerSize);
+      ctx.stroke();
+      ctx.restore();
+
+      // 3. Top Header: Circular Restaurant Emblem & Brand Name (Style Samalife)
+      ctx.save();
+      const isStory = plat.posterFormat === 'STORY_PORTRAIT';
+      const isLandscape = plat.posterFormat === 'BANNER_LANDSCAPE';
+      const emblemY = borderPadding + (isStory ? 48 : 42);
+      
+      // Round Logo badge
+      ctx.beginPath();
+      ctx.arc(width / 2, emblemY, 28, 0, Math.PI * 2);
+      ctx.fillStyle = isLight ? '#FFFFFF' : '#2A130C';
       ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
+      ctx.strokeStyle = isLight ? '#EA580C' : currentTheme.goldColor;
       ctx.lineWidth = 2.5;
       ctx.stroke();
 
-      ctx.fillStyle = '#FFFFFF';
+      // Chef / Crown Icon Monogram
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = '900 15px "Montserrat", sans-serif';
-      ctx.fillText(isEvening ? '🌙 PRÉCOMMANDE VEILLE' : '🔥 ÉDITION DU JOUR', centerX, imgY + imgSize - 30 + tagH / 2);
+      ctx.fillStyle = isLight ? '#EA580C' : currentTheme.goldColor;
+      ctx.font = '900 22px sans-serif';
+      ctx.fillText('👑', width / 2, emblemY - 1);
+
+      // Restaurant Name
+      ctx.fillStyle = isLight ? '#431407' : currentTheme.goldColor;
+      ctx.font = 'bold 22px "Montserrat", sans-serif';
+      ctx.fillText('✦ KHADY\'S FOOD & EVENT ✦', width / 2, emblemY + 44);
+
+      // Subtitle
+      ctx.fillStyle = isLight ? '#9A3412' : currentTheme.subtextColor;
+      ctx.font = '600 13px "Inter", sans-serif';
+      ctx.fillText('AUTHENTIQUE GASTRONOMIE SAHÉLIENNE • NIAMEY', width / 2, emblemY + 66);
       ctx.restore();
 
-      // 7. Dish Title & Details
-      let textStartX = 0;
-      let textStartY = 0;
-      let textMaxWidth = 0;
+      // 4. Timing Ribbon Badge ("🌙 AU MENU DEMAIN MIDI" or "🍲 PLAT DU JOUR")
+      const badgeText = isEvening 
+        ? `🌙 AU MENU DEMAIN MIDI (${(plat.targetDayLabel || 'DEMAIN').toUpperCase()})`
+        : `🍲 AU MENU DU JOUR • ${(plat.date || 'AUJOURD\'HUI').toUpperCase()}`;
 
-      if (isLandscape) {
-        textStartX = imgX + imgSize + 50;
-        textStartY = borderPadding + 140;
-        textMaxWidth = width - textStartX - borderPadding - 40;
-      } else if (isPortrait) {
-        textStartX = borderPadding + 30;
-        textStartY = imgY + imgSize + 35;
-        textMaxWidth = width - (borderPadding + 30) * 2;
-      } else {
-        // Square 1:1
-        textStartX = borderPadding + 30;
-        textStartY = imgY + imgSize + 25;
-        textMaxWidth = width - (borderPadding + 30) * 2;
-      }
+      const badgeWidth = Math.min(width * 0.68, isLandscape ? 700 : 580);
+      const badgeHeight = isStory ? 46 : 40;
+      const badgeX = (width - badgeWidth) / 2;
+      const badgeY = emblemY + 84;
 
       ctx.save();
-      ctx.textAlign = isLandscape ? 'left' : 'center';
-      const textCenterX = isLandscape ? textStartX : width / 2;
-
-      // Dish Title (High contrast & elegant typography)
-      ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
-      ctx.font = '900 36px "Playfair Display", "Montserrat", serif';
-      ctx.shadowColor = isLight ? 'rgba(234, 88, 12, 0.15)' : 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 6;
-
-      const titleWords = plat.dishName.toUpperCase().split(' ');
-      let line1 = '';
-      let line2 = '';
-      for (const word of titleWords) {
-        if ((line1 + word).length < 24) {
-          line1 += (line1 ? ' ' : '') + word;
-        } else {
-          line2 += (line2 ? ' ' : '') + word;
-        }
-      }
-
-      ctx.fillText(line1, textCenterX, textStartY + 15);
-      if (line2) {
-        ctx.fillText(line2, textCenterX, textStartY + 55);
-        textStartY += 40;
-      }
-
-      // Tagline with diamond ornaments
-      ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
-      ctx.font = 'italic 700 18px "Inter", sans-serif';
-      ctx.fillText(`◆ ${plat.tagline || 'Cuisiné au feu de bois avec passion'} ◆`, textCenterX, textStartY + 50);
-
-      // Bonus / Accompaniments Pill
-      if (plat.accompaniments) {
-        const bonusY = textStartY + 72;
-        const bonusW = Math.min(textMaxWidth, 780);
-        const bonusH = 48;
-        const bonusX = isLandscape ? textStartX : (width - bonusW) / 2;
-
-        ctx.fillStyle = isLight ? '#FFFBEB' : 'rgba(0, 0, 0, 0.6)';
-        ctx.beginPath();
-        ctx.roundRect(bonusX, bonusY, bonusW, bonusH, 16);
-        ctx.fill();
-        ctx.strokeStyle = isLight ? '#F59E0B' : `${currentTheme.goldColor}60`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        ctx.fillStyle = isLight ? '#B45309' : currentTheme.goldColor;
-        ctx.font = '900 15px "Montserrat", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`🎁 INCLUS : ${plat.accompaniments.toUpperCase()}`, bonusX + bonusW / 2, bonusY + 30);
-      }
-
-      // 8. Solid Bottom Call-to-Action Bar (Style Samalife)
-      const barH = 100;
-      const barY = height - borderPadding - barH - 8;
-      const barW = width - (borderPadding + 16) * 2;
-      const barX = borderPadding + 16;
-
-      ctx.save();
-      // Orange/Terracotta CTA banner
-      ctx.fillStyle = currentTheme.bannerBg;
+      ctx.fillStyle = isEvening ? '#7C2D12' : currentTheme.accentColor;
       ctx.beginPath();
-      ctx.roundRect(barX, barY, barW, barH, 24);
+      ctx.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 20);
       ctx.fill();
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = isLight ? '#FED7AA' : currentTheme.goldColor;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Left Column inside bar: WhatsApp Ordering Info
-      ctx.textAlign = 'left';
+      ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '900 17px "Montserrat", sans-serif';
-      ctx.fillText(`💬 COMMANDES WHATSAPP : ${RESTAURANT_INFO.whatsapp}`, barX + 24, barY + 35);
+      ctx.fillText(badgeText, width / 2, badgeY + badgeHeight / 2);
+      ctx.restore();
+
+      // Helper function: draw circular dish plate with shadow, outer rim and optional badge
+      const drawCircularPlate = (
+        pImg: HTMLImageElement,
+        centerX: number,
+        centerY: number,
+        radius: number,
+        rimColor: string,
+        plateBadge?: string,
+        plateBadgeBg: string = '#EF4444'
+      ) => {
+        ctx.save();
+        // Realistic deep shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = Math.min(radius * 0.24, 28);
+        ctx.shadowOffsetY = Math.min(radius * 0.09, 11);
+
+        // Outer rim
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius + 6, 0, Math.PI * 2);
+        ctx.fillStyle = rimColor;
+        ctx.fill();
+
+        // Inner plate clip
+        ctx.shadowColor = 'transparent';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        ctx.clip();
+
+        try {
+          ctx.drawImage(pImg, centerX - radius, centerY - radius, radius * 2, radius * 2);
+        } catch {
+          ctx.fillStyle = '#2A130C';
+          ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+        }
+        ctx.restore();
+
+        // Optional badge pinned onto the plate rim
+        if (plateBadge) {
+          ctx.save();
+          const tagW = Math.min(radius * 1.55, 250);
+          const tagH = 32;
+          const tagY = centerY + radius - 16;
+          ctx.fillStyle = plateBadgeBg;
+          ctx.beginPath();
+          ctx.roundRect(centerX - tagW / 2, tagY, tagW, tagH, 16);
+          ctx.fill();
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = '900 12px "Montserrat", sans-serif';
+          ctx.fillText(plateBadge, centerX, tagY + tagH / 2);
+          ctx.restore();
+        }
+      };
+
+      // -------------------------------------------------------------
+      // CASE A: TRIO_POSTER (Plat du Jour en haut & en grand, Doukounou & Attiéké en bas)
+      // -------------------------------------------------------------
+      if (isTrioMode) {
+        if (isStory) {
+          // ==================== STORY / PORTRAIT (1080 x 1920) ====================
+          // 1. Top Section: Plat du Jour in Large
+          const topBoxY = badgeY + badgeHeight + 25;
+          const topBoxH = 750;
+          const topBoxW = width - (borderPadding + 12) * 2;
+          const topBoxX = borderPadding + 12;
+
+          // Box container
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.75)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 28);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.35)' : `${currentTheme.goldColor}50`;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Header Tag inside Top Box
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 16px "Montserrat", sans-serif';
+          ctx.fillText('👑 1. LE GRAND PLAT CUISINÉ DU JOUR 👑', width / 2, topBoxY + 34);
+
+          // Big Circular Plate for Dish 1 (radius 200 => 400px diameter)
+          const dish1CenterX = width / 2;
+          const dish1CenterY = topBoxY + 250;
+          drawCircularPlate(
+            img1,
+            dish1CenterX,
+            dish1CenterY,
+            195,
+            isLight ? '#EA580C' : currentTheme.goldColor,
+            isEvening ? '🌙 PRÉCOMMANDE VEILLE' : '🔥 ÉDITION DU JOUR',
+            '#EF4444'
+          );
+
+          // Details under plate
+          let textY = dish1CenterY + 225;
+          ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
+          ctx.font = '900 32px "Playfair Display", "Montserrat", serif';
+          ctx.fillText(dish1.dishName.toUpperCase(), width / 2, textY);
+
+          // Tagline
+          textY += 36;
+          ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
+          ctx.font = 'italic 700 16px "Inter", sans-serif';
+          ctx.fillText(`◆ ${dish1.tagline || 'Recette mijotée avec passion'} ◆`, width / 2, textY);
+
+          // Accompaniments Pill
+          if (dish1.accompaniments) {
+            textY += 34;
+            const accW = Math.min(topBoxW - 60, 680);
+            const accH = 40;
+            const accX = (width - accW) / 2;
+            ctx.fillStyle = isLight ? '#FFF7ED' : 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            ctx.roundRect(accX, textY - accH / 2, accW, accH, 20);
+            ctx.fill();
+            ctx.strokeStyle = isLight ? '#F97316' : currentTheme.goldColor;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = isLight ? '#9A3412' : '#FDE68A';
+            ctx.font = '800 13px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 INCLUS : ${dish1.accompaniments.toUpperCase()}`, width / 2, textY);
+          }
+
+          // Price Tag for Dish 1
+          textY += 46;
+          const d1EffectivePrice = dish1.promoPrice || dish1.price;
+          const d1PriceText = `${d1EffectivePrice.toLocaleString('fr-FR')} F CFA`;
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 28px "Montserrat", sans-serif';
+          ctx.fillText(d1PriceText, width / 2, textY);
+          ctx.restore();
+
+          // 2. Mid Separator Banner (Vos 2 Incontournables)
+          const midY = topBoxY + topBoxH + 30;
+          ctx.save();
+          const midW = width - (borderPadding + 16) * 2;
+          const midH = 50;
+          const midX = borderPadding + 16;
+          ctx.fillStyle = isLight ? '#EA580C' : '#2A130C';
+          ctx.beginPath();
+          ctx.roundRect(midX, midY, midW, midH, 25);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? '#FDBA74' : currentTheme.goldColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '900 16px "Montserrat", sans-serif';
+          ctx.fillText('✦ VOS 2 INCONTOURNABLES DISPONIBLES TOUS LES JOURS ✦', width / 2, midY + midH / 2);
+          ctx.restore();
+
+          // 3. Bottom Section: Doukounou (left) & Attiéké (right)
+          const bottomY = midY + midH + 22;
+          const cardH = 510;
+          const cardW = (width - (borderPadding + 16) * 2 - 20) / 2;
+
+          // Card 2: Doukounou
+          const card2X = borderPadding + 16;
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.85)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(card2X, bottomY, cardW, cardH, 24);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? 'rgba(217, 119, 6, 0.4)' : '#D97706';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Doukounou Plate
+          const d2CenterX = card2X + cardW / 2;
+          const d2CenterY = bottomY + 140;
+          drawCircularPlate(img2, d2CenterX, d2CenterY, 115, '#D97706', '🌽 DOUKOUNOU', '#D97706');
+
+          // Doukounou Details
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isLight ? '#451A03' : '#FFFFFF';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText('LE FAMEUX DOUKOUNOU', d2CenterX, bottomY + 285);
+
+          ctx.fillStyle = isLight ? '#78350F' : '#FDE68A';
+          ctx.font = '600 12px "Inter", sans-serif';
+          ctx.fillText('Pâte de maïs vapeur traditionnelle', d2CenterX, bottomY + 312);
+          ctx.fillText('Servie avec sauce mijotée & poisson', d2CenterX, bottomY + 332);
+
+          const d2EffPrice = dish2.promoPrice || dish2.price || 3000;
+          ctx.fillStyle = '#D97706';
+          ctx.font = '900 22px "Montserrat", sans-serif';
+          ctx.fillText(`${d2EffPrice.toLocaleString('fr-FR')} F CFA`, d2CenterX, bottomY + 380);
+
+          if (dish2.accompaniments) {
+            ctx.fillStyle = isLight ? '#92400E' : 'rgba(255,255,255,0.7)';
+            ctx.font = 'bold 11px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 ${dish2.accompaniments.split('+')[0] || dish2.accompaniments}`, d2CenterX, bottomY + 412);
+          }
+          ctx.restore();
+
+          // Card 3: Attiéké
+          const card3X = card2X + cardW + 20;
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.85)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(card3X, bottomY, cardW, cardH, 24);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? 'rgba(5, 150, 105, 0.4)' : '#059669';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Attiéké Plate
+          const d3CenterX = card3X + cardW / 2;
+          const d3CenterY = bottomY + 140;
+          drawCircularPlate(img3, d3CenterX, d3CenterY, 115, '#059669', '🐟 ATTIÉKÉ ROYAL', '#059669');
+
+          // Attiéké Details
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isLight ? '#064E3B' : '#FFFFFF';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText('L\'INCONTOURNABLE ATTIÉKÉ', d3CenterX, bottomY + 285);
+
+          ctx.fillStyle = isLight ? '#047857' : '#A7F3D0';
+          ctx.font = '600 12px "Inter", sans-serif';
+          ctx.fillText('Semoule de manioc vapeur aérée', d3CenterX, bottomY + 312);
+          ctx.fillText('Darne de capitaine braisée & alloco', d3CenterX, bottomY + 332);
+
+          const d3EffPrice = dish3.promoPrice || dish3.price || 4500;
+          ctx.fillStyle = '#059669';
+          ctx.font = '900 22px "Montserrat", sans-serif';
+          ctx.fillText(`${d3EffPrice.toLocaleString('fr-FR')} F CFA`, d3CenterX, bottomY + 380);
+
+          if (dish3.accompaniments) {
+            ctx.fillStyle = isLight ? '#065F46' : 'rgba(255,255,255,0.7)';
+            ctx.font = 'bold 11px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 ${dish3.accompaniments.split('+')[0] || dish3.accompaniments}`, d3CenterX, bottomY + 412);
+          }
+          ctx.restore();
+
+        } else if (isLandscape) {
+          // ==================== BANNER / LANDSCAPE (1920 x 1080) ====================
+          // Left: Big Plat du Jour
+          const leftBoxX = borderPadding + 16;
+          const leftBoxY = badgeY + badgeHeight + 20;
+          const leftBoxW = 950;
+          const leftBoxH = height - leftBoxY - 120;
+
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.75)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(leftBoxX, leftBoxY, leftBoxW, leftBoxH, 24);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.35)' : `${currentTheme.goldColor}50`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Plat du jour Plate (left) + Text (right)
+          const d1CenterX = leftBoxX + 220;
+          const d1CenterY = leftBoxY + leftBoxH / 2;
+          drawCircularPlate(img1, d1CenterX, d1CenterY, 175, isLight ? '#EA580C' : currentTheme.goldColor, '🍲 PLAT DU JOUR', '#EF4444');
+
+          const d1TextX = leftBoxX + 430;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 15px "Montserrat", sans-serif';
+          ctx.fillText('👑 1. LE GRAND PLAT CUISINÉ DU JOUR', d1TextX, d1CenterY - 130);
+
+          ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
+          ctx.font = '900 30px "Playfair Display", "Montserrat", serif';
+          ctx.fillText(dish1.dishName.toUpperCase(), d1TextX, d1CenterY - 80);
+
+          ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
+          ctx.font = 'italic 700 16px "Inter", sans-serif';
+          ctx.fillText(dish1.tagline || 'Cuisiné au feu de bois avec passion', d1TextX, d1CenterY - 40);
+
+          if (dish1.accompaniments) {
+            ctx.fillStyle = isLight ? '#7C2D12' : '#FDE68A';
+            ctx.font = 'bold 14px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 Inclus : ${dish1.accompaniments}`, d1TextX, d1CenterY);
+          }
+
+          const d1EffectivePrice = dish1.promoPrice || dish1.price;
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 28px "Montserrat", sans-serif';
+          ctx.fillText(`${d1EffectivePrice.toLocaleString('fr-FR')} F CFA`, d1TextX, d1CenterY + 60);
+          ctx.restore();
+
+          // Right: 2 Stacked Cards (Doukounou & Attiéké)
+          const rightBoxX = leftBoxX + leftBoxW + 24;
+          const rightBoxW = width - rightBoxX - borderPadding - 16;
+          const cardH = (leftBoxH - 18) / 2;
+
+          // Doukounou Card
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.85)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(rightBoxX, leftBoxY, rightBoxW, cardH, 20);
+          ctx.fill();
+          ctx.strokeStyle = '#D97706';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          drawCircularPlate(img2, rightBoxX + 130, leftBoxY + cardH / 2, 95, '#D97706', '🌽 DOUKOUNOU', '#D97706');
+
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isLight ? '#451A03' : '#FFFFFF';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText('LE FAMEUX DOUKOUNOU', rightBoxX + 255, leftBoxY + cardH / 2 - 40);
+
+          ctx.fillStyle = isLight ? '#78350F' : '#FDE68A';
+          ctx.font = '600 13px "Inter", sans-serif';
+          ctx.fillText('Pâte de maïs vapeur traditionnelle & sauce mijotée', rightBoxX + 255, leftBoxY + cardH / 2 - 12);
+
+          const d2EffPrice = dish2.promoPrice || dish2.price || 3000;
+          ctx.fillStyle = '#D97706';
+          ctx.font = '900 22px "Montserrat", sans-serif';
+          ctx.fillText(`${d2EffPrice.toLocaleString('fr-FR')} F CFA`, rightBoxX + 255, leftBoxY + cardH / 2 + 30);
+          ctx.restore();
+
+          // Attiéké Card
+          const attiekeCardY = leftBoxY + cardH + 18;
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.85)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(rightBoxX, attiekeCardY, rightBoxW, cardH, 20);
+          ctx.fill();
+          ctx.strokeStyle = '#059669';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          drawCircularPlate(img3, rightBoxX + 130, attiekeCardY + cardH / 2, 95, '#059669', '🐟 ATTIÉKÉ', '#059669');
+
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = isLight ? '#064E3B' : '#FFFFFF';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText('L\'INCONTOURNABLE ATTIÉKÉ ROYAL', rightBoxX + 255, attiekeCardY + cardH / 2 - 40);
+
+          ctx.fillStyle = isLight ? '#047857' : '#A7F3D0';
+          ctx.font = '600 13px "Inter", sans-serif';
+          ctx.fillText('Semoule de manioc vapeur, darne de poisson & alloco', rightBoxX + 255, attiekeCardY + cardH / 2 - 12);
+
+          const d3EffPrice = dish3.promoPrice || dish3.price || 4500;
+          ctx.fillStyle = '#059669';
+          ctx.font = '900 22px "Montserrat", sans-serif';
+          ctx.fillText(`${d3EffPrice.toLocaleString('fr-FR')} F CFA`, rightBoxX + 255, attiekeCardY + cardH / 2 + 30);
+          ctx.restore();
+
+        } else {
+          // ==================== SQUARE (1080 x 1080) ====================
+          // 1. Top Section: Grand Plat du Jour
+          const topBoxY = badgeY + badgeHeight + 14;
+          const topBoxH = 430;
+          const topBoxW = width - (borderPadding + 10) * 2;
+          const topBoxX = borderPadding + 10;
+
+          // Box Container
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.78)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(topBoxX, topBoxY, topBoxW, topBoxH, 24);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? 'rgba(234, 88, 12, 0.35)' : `${currentTheme.goldColor}45`;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+
+          // Big Circular Plate for Dish 1 (diameter 310px)
+          const dish1CenterX = topBoxX + 175;
+          const dish1CenterY = topBoxY + topBoxH / 2;
+          drawCircularPlate(
+            img1,
+            dish1CenterX,
+            dish1CenterY,
+            155,
+            isLight ? '#EA580C' : currentTheme.goldColor,
+            isEvening ? '🌙 PRÉCOMMANDE VEILLE' : '🔥 PLAT DU JOUR',
+            '#EF4444'
+          );
+
+          // Details right of the plate
+          const textStartX = topBoxX + 355;
+          const textMaxW = topBoxW - 375;
+
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+
+          // Small eyebrow
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 13px "Montserrat", sans-serif';
+          ctx.fillText('👑 1. LE GRAND PLAT CUISINÉ DU JOUR', textStartX, topBoxY + 30);
+
+          // Main Dish Title (can wrap into 2 lines)
+          ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
+          ctx.font = '900 26px "Playfair Display", "Montserrat", serif';
+
+          const titleWords = dish1.dishName.toUpperCase().split(' ');
+          let line1 = '';
+          let line2 = '';
+          for (const w of titleWords) {
+            if ((line1 + w).length < 24) {
+              line1 += (line1 ? ' ' : '') + w;
+            } else {
+              line2 += (line2 ? ' ' : '') + w;
+            }
+          }
+
+          let curY = topBoxY + 58;
+          ctx.fillText(line1, textStartX, curY);
+          if (line2) {
+            curY += 34;
+            ctx.fillText(line2, textStartX, curY);
+          }
+
+          // Tagline
+          curY += 38;
+          ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
+          ctx.font = 'italic 700 14px "Inter", sans-serif';
+          ctx.fillText(`◆ ${dish1.tagline || 'Cuisiné au feu de bois avec passion'} ◆`, textStartX, curY);
+
+          // Accompaniments capsule
+          if (dish1.accompaniments) {
+            curY += 30;
+            const accW = Math.min(textMaxW, 610);
+            const accH = 34;
+            ctx.fillStyle = isLight ? '#FFF7ED' : 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.roundRect(textStartX, curY, accW, accH, 12);
+            ctx.fill();
+            ctx.strokeStyle = isLight ? '#FDBA74' : `${currentTheme.goldColor}40`;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = isLight ? '#9A3412' : '#FDE68A';
+            ctx.font = '800 11px "Montserrat", sans-serif';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`🎁 INCLUS : ${dish1.accompaniments.toUpperCase()}`, textStartX + 12, curY + accH / 2);
+            ctx.textBaseline = 'top';
+          }
+
+          // Price Tag
+          curY += 46;
+          const d1EffectivePrice = dish1.promoPrice || dish1.price;
+          if (dish1.promoPrice && dish1.promoPrice < dish1.price) {
+            ctx.fillStyle = isLight ? '#9A3412' : 'rgba(255,255,255,0.5)';
+            ctx.font = '700 14px "Montserrat", sans-serif';
+            ctx.fillText(`${dish1.price.toLocaleString('fr-FR')} F`, textStartX, curY + 6);
+          }
+
+          const priceX = (dish1.promoPrice && dish1.promoPrice < dish1.price) ? textStartX + 85 : textStartX;
+          ctx.fillStyle = currentTheme.accentColor;
+          ctx.font = '900 26px "Montserrat", sans-serif';
+          ctx.fillText(`${d1EffectivePrice.toLocaleString('fr-FR')} F CFA`, priceX, curY);
+          ctx.restore();
+
+          // 2. Middle Separator Ribbon
+          const midY = topBoxY + topBoxH + 12;
+          ctx.save();
+          const midW = width - (borderPadding + 14) * 2;
+          const midH = 36;
+          const midX = borderPadding + 14;
+          ctx.fillStyle = isLight ? '#EA580C' : '#2A130C';
+          ctx.beginPath();
+          ctx.roundRect(midX, midY, midW, midH, 18);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? '#FDBA74' : currentTheme.goldColor;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = '900 13px "Montserrat", sans-serif';
+          ctx.fillText('✦ VOS 2 INCONTOURNABLES DISPONIBLES TOUS LES JOURS ✦', width / 2, midY + midH / 2);
+          ctx.restore();
+
+          // 3. Bottom Section: Doukounou & Attiéké (2 cards side by side)
+          const bottomY = midY + midH + 12;
+          const cardH = 285;
+          const cardW = (width - (borderPadding + 10) * 2 - 16) / 2;
+
+          // Card 2: Doukounou (Left)
+          const card2X = borderPadding + 10;
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.88)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(card2X, bottomY, cardW, cardH, 20);
+          ctx.fill();
+          ctx.strokeStyle = '#D97706';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Small plate
+          const d2CenterX = card2X + 85;
+          const d2CenterY = bottomY + cardH / 2;
+          drawCircularPlate(img2, d2CenterX, d2CenterY, 68, '#D97706', '🌽 DOUKOUNOU', '#D97706');
+
+          // Text right of plate
+          const d2TextX = card2X + 170;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+
+          ctx.fillStyle = isLight ? '#451A03' : '#FFFFFF';
+          ctx.font = '900 17px "Montserrat", sans-serif';
+          ctx.fillText('LE FAMEUX DOUKOUNOU', d2TextX, bottomY + 35);
+
+          ctx.fillStyle = isLight ? '#78350F' : '#FDE68A';
+          ctx.font = '600 11px "Inter", sans-serif';
+          ctx.fillText('Pâte de maïs vapeur traditionnelle', d2TextX, bottomY + 68);
+          ctx.fillText('Sauce mijotée & poisson frit', d2TextX, bottomY + 86);
+
+          if (dish2.accompaniments) {
+            ctx.fillStyle = isLight ? '#92400E' : 'rgba(255,255,255,0.75)';
+            ctx.font = 'bold 10px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 ${dish2.accompaniments.split('+')[0] || dish2.accompaniments}`, d2TextX, bottomY + 115);
+          }
+
+          const d2EffPrice = dish2.promoPrice || dish2.price || 3000;
+          ctx.fillStyle = '#D97706';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText(`${d2EffPrice.toLocaleString('fr-FR')} F CFA`, d2TextX, bottomY + 155);
+          ctx.restore();
+
+          // Card 3: Attiéké (Right)
+          const card3X = card2X + cardW + 16;
+          ctx.save();
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.88)' : currentTheme.cardBg;
+          ctx.beginPath();
+          ctx.roundRect(card3X, bottomY, cardW, cardH, 20);
+          ctx.fill();
+          ctx.strokeStyle = '#059669';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Small plate
+          const d3CenterX = card3X + 85;
+          const d3CenterY = bottomY + cardH / 2;
+          drawCircularPlate(img3, d3CenterX, d3CenterY, 68, '#059669', '🐟 ATTIÉKÉ', '#059669');
+
+          // Text right of plate
+          const d3TextX = card3X + 170;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+
+          ctx.fillStyle = isLight ? '#064E3B' : '#FFFFFF';
+          ctx.font = '900 17px "Montserrat", sans-serif';
+          ctx.fillText('L\'INCONTOURNABLE ATTIÉKÉ', d3TextX, bottomY + 35);
+
+          ctx.fillStyle = isLight ? '#047857' : '#A7F3D0';
+          ctx.font = '600 11px "Inter", sans-serif';
+          ctx.fillText('Semoule manioc vapeur aérée', d3TextX, bottomY + 68);
+          ctx.fillText('Capitaine braisé & alloco doré', d3TextX, bottomY + 86);
+
+          if (dish3.accompaniments) {
+            ctx.fillStyle = isLight ? '#065F46' : 'rgba(255,255,255,0.75)';
+            ctx.font = 'bold 10px "Montserrat", sans-serif';
+            ctx.fillText(`🎁 ${dish3.accompaniments.split('+')[0] || dish3.accompaniments}`, d3TextX, bottomY + 115);
+          }
+
+          const d3EffPrice = dish3.promoPrice || dish3.price || 4500;
+          ctx.fillStyle = '#059669';
+          ctx.font = '900 20px "Montserrat", sans-serif';
+          ctx.fillText(`${d3EffPrice.toLocaleString('fr-FR')} F CFA`, d3TextX, bottomY + 155);
+          ctx.restore();
+        }
+
+      } else {
+        // -------------------------------------------------------------
+        // CASE B: SINGLE_DISH (Focus exclusif sur le Plat du Jour seul)
+        // -------------------------------------------------------------
+        let imgSize = 0;
+        let imgX = 0;
+        let imgY = 0;
+
+        if (isStory) {
+          imgSize = 640;
+          imgX = (width - imgSize) / 2;
+          imgY = badgeY + badgeHeight + 35;
+        } else if (isLandscape) {
+          imgSize = 580;
+          imgX = borderPadding + 60;
+          imgY = (height - imgSize) / 2 + 30;
+        } else {
+          // Square 1:1
+          imgSize = 480;
+          imgX = (width - imgSize) / 2;
+          imgY = badgeY + badgeHeight + 25;
+        }
+
+        drawCircularPlate(
+          img1,
+          imgX + imgSize / 2,
+          imgY + imgSize / 2,
+          imgSize / 2,
+          isLight ? '#EA580C' : currentTheme.goldColor,
+          isEvening ? '🌙 PRÉCOMMANDE VEILLE' : '🔥 ÉDITION DU JOUR',
+          '#EF4444'
+        );
+
+        // Details
+        let textStartX = 0;
+        let textStartY = 0;
+        let textMaxWidth = 0;
+
+        if (isLandscape) {
+          textStartX = imgX + imgSize + 50;
+          textStartY = borderPadding + 140;
+          textMaxWidth = width - textStartX - borderPadding - 40;
+        } else if (isStory) {
+          textStartX = borderPadding + 30;
+          textStartY = imgY + imgSize + 35;
+          textMaxWidth = width - (borderPadding + 30) * 2;
+        } else {
+          textStartX = borderPadding + 30;
+          textStartY = imgY + imgSize + 25;
+          textMaxWidth = width - (borderPadding + 30) * 2;
+        }
+
+        ctx.save();
+        ctx.textAlign = isLandscape ? 'left' : 'center';
+        const textCenterX = isLandscape ? textStartX : width / 2;
+
+        ctx.fillStyle = isLight ? '#3A1208' : '#FFFFFF';
+        ctx.font = '900 36px "Playfair Display", "Montserrat", serif';
+
+        const titleWords = dish1.dishName.toUpperCase().split(' ');
+        let l1 = '';
+        let l2 = '';
+        for (const word of titleWords) {
+          if ((l1 + word).length < 24) {
+            l1 += (l1 ? ' ' : '') + word;
+          } else {
+            l2 += (l2 ? ' ' : '') + word;
+          }
+        }
+
+        ctx.fillText(l1, textCenterX, textStartY + 15);
+        if (l2) {
+          ctx.fillText(l2, textCenterX, textStartY + 55);
+          textStartY += 40;
+        }
+
+        ctx.fillStyle = isLight ? '#C2410C' : currentTheme.goldColor;
+        ctx.font = 'italic 700 18px "Inter", sans-serif';
+        ctx.fillText(`◆ ${dish1.tagline || 'Cuisiné au feu de bois avec passion'} ◆`, textCenterX, textStartY + 50);
+
+        if (dish1.accompaniments) {
+          const bonusY = textStartY + 72;
+          const bonusW = Math.min(textMaxWidth, 780);
+          const bonusH = 48;
+          const bonusX = isLandscape ? textStartX : (width - bonusW) / 2;
+
+          ctx.fillStyle = isLight ? '#FFFBEB' : 'rgba(0, 0, 0, 0.6)';
+          ctx.beginPath();
+          ctx.roundRect(bonusX, bonusY, bonusW, bonusH, 16);
+          ctx.fill();
+          ctx.strokeStyle = isLight ? '#F59E0B' : `${currentTheme.goldColor}60`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.fillStyle = isLight ? '#B45309' : currentTheme.goldColor;
+          ctx.font = '900 15px "Montserrat", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`🎁 INCLUS : ${dish1.accompaniments.toUpperCase()}`, bonusX + bonusW / 2, bonusY + 30);
+        }
+        ctx.restore();
+      }
+
+      // -------------------------------------------------------------
+      // 5. Solid Bottom Call-to-Action Bar (Style Samalife & WhatsApp)
+      // -------------------------------------------------------------
+      const barH = isStory ? 110 : 88;
+      const barY = height - borderPadding - barH - 6;
+      const barW = width - (borderPadding + 14) * 2;
+      const barX = borderPadding + 14;
+
+      ctx.save();
+      ctx.fillStyle = currentTheme.bannerBg;
+      ctx.beginPath();
+      ctx.roundRect(barX, barY, barW, barH, 22);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Left Column: WhatsApp Ordering
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `900 ${isStory ? '18px' : '16px'} "Montserrat", sans-serif`;
+      ctx.fillText(`💬 COMMANDES WHATSAPP : ${RESTAURANT_INFO.whatsapp}`, barX + 22, barY + (isStory ? 38 : 30));
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.font = '700 13px "Inter", sans-serif';
-      ctx.fillText(`🛵 Livraison express partout à Niamey par Billo Express`, barX + 24, barY + 68);
+      ctx.font = `700 ${isStory ? '14px' : '12px'} "Inter", sans-serif`;
+      ctx.fillText(`🛵 Livraison express partout à Niamey par Billo Express`, barX + 22, barY + (isStory ? 72 : 58));
 
-      // Right Column inside bar: Price Tag & White Pill Button
-      const finalPriceStr = `${(plat.promoPrice || plat.price).toLocaleString('fr-FR')} F CFA`;
-      const btnW = 210;
-      const btnH = 58;
-      const btnX = barX + barW - btnW - 20;
+      // Right Column: Pill Button
+      const btnW = isStory ? 240 : 210;
+      const btnH = isStory ? 64 : 52;
+      const btnX = barX + barW - btnW - 18;
       const btnY = barY + (barH - btnH) / 2;
 
-      // Button Pill
       ctx.fillStyle = '#FFFFFF';
       ctx.beginPath();
-      ctx.roundRect(btnX, btnY, btnW, btnH, 29);
+      ctx.roundRect(btnX, btnY, btnW, btnH, btnH / 2);
       ctx.fill();
 
-      // Button text
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = currentTheme.bannerBg;
-      ctx.font = '900 16px "Montserrat", sans-serif';
-      ctx.fillText(finalPriceStr, btnX + btnW / 2, btnY + 22);
+      ctx.font = '900 14px "Montserrat", sans-serif';
+      ctx.fillText('COMMANDER', btnX + btnW / 2, btnY + (isStory ? 22 : 18));
 
-      ctx.font = '800 11px "Montserrat", sans-serif';
+      ctx.font = '800 10px "Montserrat", sans-serif';
       ctx.fillStyle = '#7C2D12';
-      ctx.fillText('COMMANDER MAINTENANT', btnX + btnW / 2, btnY + 40);
+      ctx.fillText('AU COMPTOIR OU LIVRÉ', btnX + btnW / 2, btnY + (isStory ? 42 : 34));
 
       ctx.restore();
       setIsGeneratingCanvas(false);
-    };
-
-    img.onload = () => {
-      drawContent();
-    };
-
-    img.onerror = () => {
-      drawContent();
-    };
+    }).catch(() => {
+      setIsGeneratingCanvas(false);
+    });
   }, [plat, currentTheme]);
 
   // Redraw when plat or theme changes
@@ -855,10 +1410,91 @@ export const PlatDuJourPosterStudio: React.FC<PlatDuJourPosterStudioProps> = ({
             </div>
           </div>
 
-          {/* 3. Graphic Theme Selector (Luxe Noir/Or, Sahélien Ocre, Braisé, Émeraude) */}
+          {/* 3. Poster Layout Selector: Trio (3 plats) vs Plat Unique */}
+          <div className="bg-white/5 p-6 rounded-[2.5rem] border-2 border-brand-gold/40 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
+                <LayoutGrid size={16} className="text-brand-orange" /> 3. Composition de l'Affiche
+              </h4>
+              <span className="text-[8px] font-black uppercase bg-brand-gold text-brand-brown px-2 py-0.5 rounded-full">
+                Nouveau
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  onChangePlat({ ...plat, posterLayout: 'TRIO_POSTER' });
+                }}
+                className={`p-4 rounded-2xl text-left border transition-all relative overflow-hidden flex flex-col justify-between gap-2 ${
+                  (plat.posterLayout || 'TRIO_POSTER') === 'TRIO_POSTER'
+                    ? 'bg-gradient-to-br from-brand-orange/30 to-amber-950/60 border-brand-gold text-white shadow-xl ring-2 ring-brand-gold/40'
+                    : 'bg-black/30 border-white/10 text-white/60 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-2 bg-brand-orange/20 text-brand-gold rounded-xl">
+                    <ChefHat size={18} />
+                  </span>
+                  {(plat.posterLayout || 'TRIO_POSTER') === 'TRIO_POSTER' && (
+                    <span className="text-[8px] font-black uppercase bg-brand-orange text-white px-2 py-0.5 rounded-full">
+                      Recommandé
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white flex items-center gap-1.5">
+                    <span>👑 Trio Quotidien</span>
+                    <span className="text-[9px] text-brand-gold font-bold">(3 Plats)</span>
+                  </p>
+                  <p className="text-[9px] text-white/70 mt-1 leading-snug">
+                    <strong className="text-brand-gold">En haut et en grand :</strong> le Plat du Jour.<br />
+                    <strong className="text-emerald-400">En bas :</strong> le Doukounou et l'Attiéké.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playSound('pop');
+                  onChangePlat({ ...plat, posterLayout: 'SINGLE_DISH' });
+                }}
+                className={`p-4 rounded-2xl text-left border transition-all relative overflow-hidden flex flex-col justify-between gap-2 ${
+                  plat.posterLayout === 'SINGLE_DISH'
+                    ? 'bg-gradient-to-br from-indigo-950/60 to-purple-950/60 border-purple-400 text-white shadow-xl ring-2 ring-purple-400/40'
+                    : 'bg-black/30 border-white/10 text-white/60 hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
+                    <Sparkles size={18} />
+                  </span>
+                  {plat.posterLayout === 'SINGLE_DISH' && (
+                    <span className="text-[8px] font-black uppercase bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                      Sélectionné
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white flex items-center gap-1.5">
+                    <span>🍲 Plat Unique</span>
+                    <span className="text-[9px] text-purple-300 font-bold">(1 Plat)</span>
+                  </p>
+                  <p className="text-[9px] text-white/70 mt-1 leading-snug">
+                    Affiche centrée exclusivement sur le plat cuisiné du jour en format géant.
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          {/* 4. Graphic Theme Selector (Luxe Noir/Or, Sahélien Ocre, Braisé, Émeraude) */}
           <div className="bg-white/5 p-6 rounded-[2.5rem] border border-white/10 space-y-4">
             <h4 className="text-xs font-black uppercase tracking-widest text-brand-gold flex items-center gap-2">
-              <Palette size={16} className="text-brand-orange" /> 3. Ambiance & Thème Graphique
+              <Palette size={16} className="text-brand-orange" /> 4. Ambiance & Thème Graphique
             </h4>
 
             <div className="grid grid-cols-2 gap-3">

@@ -40,6 +40,7 @@ export interface MarketingCampaign {
 
 export type PosterTheme = 'LUXURY_GOLD' | 'SAHEL_TERRACOTTA' | 'WOOD_FIRE' | 'MODERN_EMERALD';
 export type PosterFormat = 'SQUARE_POST' | 'STORY_PORTRAIT' | 'BANNER_LANDSCAPE';
+export type PosterLayout = 'TRIO_POSTER' | 'SINGLE_DISH';
 export type PublicationTiming = 'TONIGHT_FOR_TOMORROW' | 'TODAY_LUNCH';
 
 export interface MenuDuJourDishItem {
@@ -83,6 +84,7 @@ export interface MenuDuJourConfig {
   isActive: boolean;
   posterTheme: PosterTheme;
   posterFormat: PosterFormat;
+  posterLayout?: PosterLayout; // 'TRIO_POSTER' (Plat du jour en haut en grand + Doukounou & Attiéké en bas) ou 'SINGLE_DISH'
   marketingTextWhatsApp: string;
   marketingTextStatusShort?: string; // Format court < 7 lignes spécial Statut WhatsApp & Stories
   marketingTextGroups: string;
@@ -252,6 +254,7 @@ export const INITIAL_MENU_DU_JOUR: MenuDuJourConfig = {
   publicationTiming: 'TONIGHT_FOR_TOMORROW',
   posterTheme: 'LUXURY_GOLD',
   posterFormat: 'SQUARE_POST',
+  posterLayout: 'TRIO_POSTER',
   title: 'Menu du Jour — Le Trio Gourmand',
   tagline: 'Nos 3 délices au programme quotidien chez Khady\'s Food',
   dishes: DEFAULT_MENU_DU_JOUR_DISHES,
@@ -662,6 +665,7 @@ export const getStoredMenuDuJour = (): MenuDuJourConfig => {
         const synced: MenuDuJourConfig = {
           ...INITIAL_MENU_DU_JOUR,
           ...parsed,
+          posterLayout: parsed.posterLayout || 'TRIO_POSTER',
           title: parsed.title || 'Menu du Jour — Le Trio Gourmand',
           dishes,
           dishName: dishes[0]?.dishName || parsed.dishName || DEFAULT_MENU_DU_JOUR_DISHES[0].dishName,
