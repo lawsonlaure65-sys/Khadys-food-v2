@@ -31,7 +31,7 @@ import {
   DEFAULT_SUPABASE_URL,
   DEFAULT_SUPABASE_KEY
 } from '../lib/supabase';
-import { compressImage } from '../utils/imageCompressor';
+import { compressImage, compressImageFile } from '../utils/imageCompressor';
 import { AdminMarketingCenter } from './AdminMarketingCenter';
 import { 
   getStoredPlatDuJour, 
@@ -101,10 +101,86 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   blogArticles, setBlogArticles, faqs, setFaqs
 }) => {
   const [currentView, setCurrentView] = useState<AdminView>(AdminView.DASHBOARD);
-  const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
+  const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('khadys_editing_dish_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (e) {}
+    return null;
+  });
   const [editingArticle, setEditingArticle] = useState<Partial<BlogArticle> | null>(null);
   const [editingFaq, setEditingFaq] = useState<Partial<FaqItem> | null>(null);
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<DeleteTarget | null>(null);
+
+  // Auto-sauvegarde du brouillon de plat pour éviter toute perte en cas de rechargement ou fausse manipulation
+  React.useEffect(() => {
+    try {
+      if (editingItem && (editingItem.name || editingItem.price || editingItem.description || editingItem.image)) {
+        sessionStorage.setItem('khadys_editing_dish_draft', JSON.stringify(editingItem));
+      } else if (!editingItem) {
+        sessionStorage.removeItem('khadys_editing_dish_draft');
+      }
+    } catch (e) {}
+  }, [editingItem]);
+
+  // Alerte préventive si tentative de fermeture d'onglet pendant l'édition
+  React.useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (editingItem && (editingItem.name || editingItem.price || editingItem.description || editingItem.image)) {
+        e.preventDefault();
+        e.returnValue = "Vous avez un plat en cours d'édition. Êtes-vous sûr de vouloir quitter ?";
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [editingItem]);
+
+  // Fermeture sécurisée du modal de plat avec demande de confirmation si des modifications existent
+  const handleCloseDishModal = () => {
+    const hasData = !!(editingItem?.name?.trim() || editingItem?.price || editingItem?.description?.trim() || editingItem?.image);
+    if (hasData) {
+      if (!window.confirm("Abandonner les modifications du plat en cours ? Les données saisies seront perdues.")) {
+        return;
+      }
+    }
+    setEditingItem(null);
+    try { sessionStorage.removeItem('khadys_editing_dish_draft'); } catch(e){}
+    playSound('pop');
+  };
+
+  // Sortie sécurisée de l'espace Admin avec confirmation
+  const handleSafeExit = () => {
+    const hasData = !!(editingItem?.name?.trim() || editingItem?.price || editingItem?.description?.trim() || editingItem?.image);
+    if (hasData) {
+      if (!window.confirm("Attention : vous êtes en train d'ajouter ou modifier un plat. Quitter l'espace Admin annulera ces modifications. Confirmer la sortie ?")) {
+        return;
+      }
+    } else {
+      if (!window.confirm("Voulez-vous quitter l'espace Administrateur ?")) {
+        return;
+      }
+    }
+    try { sessionStorage.removeItem('khadys_editing_dish_draft'); } catch(e){}
+    onExit();
+  };
+
+  // Changement d'onglet sécurisé pour ne pas fermer le plat en cours d'édition par erreur
+  const handleSafeChangeView = (newView: AdminView) => {
+    const hasData = !!(editingItem?.name?.trim() || editingItem?.price || editingItem?.description?.trim() || editingItem?.image);
+    if (hasData) {
+      if (!window.confirm("Un plat est en cours d'édition. Changer d'onglet fermera l'éditeur. Voulez-vous continuer ?")) {
+        return;
+      }
+      setEditingItem(null);
+      try { sessionStorage.removeItem('khadys_editing_dish_draft'); } catch(e){}
+    }
+    setCurrentView(newView);
+    playSound('pop');
+  };
 
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiStrategy, setAiStrategy] = useState('');
@@ -146,7 +222,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      const isInput = target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable);
+
+      // STRICT PROTECTION: If typing in an input field or textarea, NEVER trigger any shortcut
+      if (isInput) {
+        return;
+      }
 
       // Escape closes open modals in priority order
       if (e.key === 'Escape') {
@@ -166,8 +247,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           return;
         }
         if (editingItem) {
-          setEditingItem(null);
-          playSound('pop');
+          handleCloseDishModal();
           return;
         }
         if (editingArticle) {
@@ -182,8 +262,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         }
       }
 
+      // If editing a dish or article, BLOCK view switching shortcuts so user does not lose input
+      if (editingItem || editingArticle || editingFaq) {
+        return;
+      }
+
       // Quick Help shortcut: '?' when not focused on an input
-      if (!isInput && e.key === '?' && !e.ctrlKey && !e.metaKey) {
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
         setShowShortcutsModal(prev => !prev);
         playSound('pop');
@@ -201,14 +286,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         case 'A':
         case 'D':
           e.preventDefault();
-          setCurrentView(AdminView.DASHBOARD);
+          handleSafeChangeView(AdminView.DASHBOARD);
           triggerShortcutFeedback('Tableau de Bord Principal', 'Ctrl + Shift + A');
           break;
 
         // 2. Plat du Jour: Ctrl+Shift+P
         case 'P':
           e.preventDefault();
-          setCurrentView(AdminView.PLAT_DU_JOUR);
+          handleSafeChangeView(AdminView.PLAT_DU_JOUR);
           triggerShortcutFeedback('Plat du Jour & Studio Affiche', 'Ctrl + Shift + P');
           break;
 
@@ -216,70 +301,70 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         case 'M':
         case 'C':
           e.preventDefault();
-          setCurrentView(AdminView.MENU_MGMT);
+          handleSafeChangeView(AdminView.MENU_MGMT);
           triggerShortcutFeedback('Gestion de la Carte & Plats', 'Ctrl + Shift + M');
           break;
 
         // 4. Commandes: Ctrl+Shift+O
         case 'O':
           e.preventDefault();
-          setCurrentView(AdminView.ORDERS);
+          handleSafeChangeView(AdminView.ORDERS);
           triggerShortcutFeedback('Gestion des Commandes & Statuts', 'Ctrl + Shift + O');
           break;
 
         // 5. Blog: Ctrl+Shift+B
         case 'B':
           e.preventDefault();
-          setCurrentView(AdminView.BLOG_MGMT);
+          handleSafeChangeView(AdminView.BLOG_MGMT);
           triggerShortcutFeedback('Articles de Blog & Recettes', 'Ctrl + Shift + B');
           break;
 
         // 6. FAQ: Ctrl+Shift+F
         case 'F':
           e.preventDefault();
-          setCurrentView(AdminView.FAQ_MGMT);
+          handleSafeChangeView(AdminView.FAQ_MGMT);
           triggerShortcutFeedback('Foire Aux Questions (FAQ)', 'Ctrl + Shift + F');
           break;
 
         // 7. Livreurs: Ctrl+Shift+L
         case 'L':
           e.preventDefault();
-          setCurrentView(AdminView.DELIVERY);
+          handleSafeChangeView(AdminView.DELIVERY);
           triggerShortcutFeedback('Livreurs & Logistique Express', 'Ctrl + Shift + L');
           break;
 
         // 8. Clients: Ctrl+Shift+U
         case 'U':
           e.preventDefault();
-          setCurrentView(AdminView.CLIENTS);
+          handleSafeChangeView(AdminView.CLIENTS);
           triggerShortcutFeedback('Clients & Programme Fidélité', 'Ctrl + Shift + U');
           break;
 
         // 9. Marketing & IA: Ctrl+Shift+K
         case 'K':
           e.preventDefault();
-          setCurrentView(AdminView.AI_MARKETING);
+          handleSafeChangeView(AdminView.AI_MARKETING);
           triggerShortcutFeedback('Marketing & IA Studio', 'Ctrl + Shift + K');
           break;
 
         // 10. Événements / Traiteur: Ctrl+Shift+E
         case 'E':
           e.preventDefault();
-          setCurrentView(AdminView.EVENT);
+          handleSafeChangeView(AdminView.EVENT);
           triggerShortcutFeedback('Événements & Traiteur', 'Ctrl + Shift + E');
           break;
 
         // 11. Buffet & Packs: Ctrl+Shift+T
         case 'T':
           e.preventDefault();
-          setCurrentView(AdminView.BUFFET);
+          handleSafeChangeView(AdminView.BUFFET);
           triggerShortcutFeedback('Buffets & Packs', 'Ctrl + Shift + T');
           break;
 
         // 12. Paramètres: Ctrl+Shift+S
         case 'S':
           e.preventDefault();
-          setCurrentView(AdminView.SETTINGS);
+          handleSafeChangeView(AdminView.SETTINGS);
           triggerShortcutFeedback('Paramètres & Configuration', 'Ctrl + Shift + S');
           break;
 
@@ -301,8 +386,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         // 15. Quitter Admin: Ctrl+Shift+Q
         case 'Q':
           e.preventDefault();
-          triggerShortcutFeedback('Quitter l\'Espace Admin', 'Ctrl + Shift + Q');
-          setTimeout(() => onExit(), 350);
+          handleSafeExit();
           break;
 
         default:
@@ -437,52 +521,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
   }, [monthlySalesData]);
 
-  const handleAdminPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAdminPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        const compressed = await compressImage(base64String, 240, 0.65);
-        setAdminAvatar(compressed);
-        try {
-          localStorage.setItem('khadys_admin_avatar', compressed);
-          window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: compressed }));
-          // Enregistrement Cloud immédiat (non-bloquant)
-          db.saveAdminAvatar(compressed).catch(() => {});
-        } catch (e) {}
-        playSound('success');
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 240, 0.7);
+        if (compressed) {
+          setAdminAvatar(compressed);
+          try {
+            localStorage.setItem('khadys_admin_avatar', compressed);
+            window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: compressed }));
+            db.saveAdminAvatar(compressed).catch(() => {});
+          } catch (e) {}
+          playSound('success');
+        }
+      } catch (err) {
+        console.warn('Erreur avatar upload:', err);
+      }
     }
+    e.target.value = '';
   };
 
-  const handleDishPhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDishPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        const compressed = await compressImage(base64String, 800, 0.75);
-        setEditingItem(prev => prev ? { ...prev, image: compressed } : null);
-        playSound('success');
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 0.72);
+        if (compressed) {
+          setEditingItem(prev => prev ? { ...prev, image: compressed } : null);
+          playSound('success');
+        }
+      } catch (err) {
+        console.warn('Erreur photo plat:', err);
+      }
     }
+    e.target.value = '';
   };
 
-  const handleArticlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleArticlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64String = reader.result as string;
-        const compressed = await compressImage(base64String, 800, 0.75);
-        setEditingArticle(prev => prev ? { ...prev, image: compressed } : null);
-        playSound('success');
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 0.72);
+        if (compressed) {
+          setEditingArticle(prev => prev ? { ...prev, image: compressed } : null);
+          playSound('success');
+        }
+      } catch (err) {
+        console.warn('Erreur photo article:', err);
+      }
     }
+    e.target.value = '';
   };
 
   // Exportation complète de la carte en fichier JSON téléchargeable
@@ -541,7 +630,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingItem?.name || !editingItem?.price) return;
+    if (!editingItem?.name?.trim()) {
+      alert("Veuillez saisir un nom pour le plat.");
+      return;
+    }
+    if (!editingItem?.price || Number(editingItem.price) <= 0) {
+      alert("Veuillez saisir un prix valide supérieur à 0 F CFA.");
+      return;
+    }
 
     let finalImage = editingItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
     if (finalImage.startsWith('data:image')) {
@@ -612,6 +708,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
     
     setEditingItem(null);
+    try {
+      sessionStorage.removeItem('khadys_editing_dish_draft');
+    } catch (e) {}
     playSound('success');
     triggerShortcutFeedback('Plat Enregistré !', `"${finalItem.name}" est sécurisé (${nextItemsList.length} plats)`);
   };
@@ -1394,7 +1493,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {navItems.map(n => (
           <button 
             key={n.l} 
-            onClick={() => { setCurrentView(n.v); playSound('pop'); }} 
+            onClick={() => handleSafeChangeView(n.v)} 
             title={`${n.l} (Raccourci: Ctrl + Shift + ${n.shortcut})`}
             className={`flex flex-col items-center transition-all duration-300 relative group ${currentView === n.v ? 'scale-110 opacity-100' : 'opacity-25 hover:opacity-100'}`}
           >
@@ -1418,7 +1517,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <span className="text-[6px] font-black uppercase tracking-widest text-center">Clavier</span>
         </button>
 
-        <button onClick={onExit} title="Quitter le Dashboard Admin (Ctrl + Shift + Q)" className="mt-auto p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex flex-col items-center gap-1">
+        <button onClick={handleSafeExit} title="Quitter le Dashboard Admin (Ctrl + Shift + Q)" className="mt-auto p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all active:scale-90 flex flex-col items-center gap-1">
           <Power size={22}/>
           <span className="text-[6px] font-black uppercase tracking-widest">Quitter</span>
         </button>
@@ -1430,7 +1529,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {navItems.map(n => (
           <button 
             key={n.l} 
-            onClick={() => { setCurrentView(n.v); playSound('pop'); }} 
+            onClick={() => handleSafeChangeView(n.v)} 
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl shrink-0 transition-all text-[10px] font-black uppercase tracking-wider min-h-[38px] ${
               currentView === n.v ? 'bg-brand-orange text-white shadow-lg' : 'bg-white/5 text-white/60 hover:text-white'
             }`}
@@ -1440,7 +1539,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </button>
         ))}
         <button 
-          onClick={onExit} 
+          onClick={handleSafeExit} 
           className="px-3 py-2 bg-rose-500/20 text-rose-300 rounded-xl shrink-0 text-[10px] font-black uppercase flex items-center gap-1 border border-rose-500/30 min-h-[38px]"
         >
           <Power size={14} /> Quitter
@@ -1489,7 +1588,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </button>
 
               <button 
-                onClick={onExit}
+                onClick={handleSafeExit}
                 className="px-2.5 sm:px-4 py-2 sm:py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white border border-rose-500/30 rounded-2xl text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-95 shadow-lg shrink-0 min-h-[38px]"
               >
                  <Power size={14} /> <span className="hidden sm:inline">Quitter Admin</span>
@@ -1512,9 +1611,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Modal d'édition/ajout de plat */}
       {editingItem && (
-        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in">
-           <div className="bg-brand-brown w-full max-w-lg rounded-3xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 border-2 border-white/10 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[90vh] no-scrollbar">
-              <button onClick={() => setEditingItem(null)} className="absolute top-4 right-4 sm:top-7 sm:right-7 text-white/30 hover:text-white transition-colors p-2"><X size={22}/></button>
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 animate-fade-in"
+          onClick={handleCloseDishModal}
+        >
+           <div 
+             onClick={e => e.stopPropagation()}
+             className="bg-brand-brown w-full max-w-lg rounded-3xl sm:rounded-[3rem] p-5 sm:p-8 md:p-10 border-2 border-white/10 shadow-2xl relative overflow-y-auto max-h-[92vh] sm:max-h-[90vh] no-scrollbar"
+           >
+              <button 
+                type="button"
+                onClick={handleCloseDishModal} 
+                className="absolute top-4 right-4 sm:top-7 sm:right-7 text-white/30 hover:text-white transition-colors p-2"
+                title="Fermer sans enregistrer"
+              >
+                <X size={22}/>
+              </button>
               <h3 className="text-lg sm:text-xl font-black italic uppercase text-brand-gold mb-6 sm:mb-8 tracking-tighter leading-none">{editingItem.id ? 'Éditer le Plat' : 'Nouveau Plat'}</h3>
               <form onSubmit={handleSaveItem} className="space-y-4">
                  <div className="space-y-1">
@@ -1643,9 +1755,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     </div>
                  </div>
 
-                 <button type="submit" className="w-full bg-brand-orange text-white py-4 sm:py-5 rounded-2xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-3 active:scale-95 transition-all mt-4 min-h-[48px]">
-                    {editingItem.id ? 'Mettre à jour' : 'Ajouter à la Carte'} <CheckCircle2 size={20}/>
-                 </button>
+                 <div className="flex items-center gap-3 pt-2">
+                    <button 
+                      type="button" 
+                      onClick={handleCloseDishModal}
+                      className="w-1/3 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white py-4 sm:py-5 rounded-2xl font-bold uppercase text-[10px] tracking-wider transition-all active:scale-95 min-h-[48px]"
+                    >
+                      Annuler
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="w-2/3 bg-brand-orange hover:bg-brand-orange/90 text-white py-4 sm:py-5 rounded-2xl font-black uppercase italic shadow-2xl flex items-center justify-center gap-2 active:scale-95 transition-all min-h-[48px]"
+                    >
+                      <span>{editingItem.id ? 'Mettre à jour' : 'Ajouter à la Carte'}</span>
+                      <CheckCircle2 size={18}/>
+                    </button>
+                 </div>
               </form>
            </div>
         </div>

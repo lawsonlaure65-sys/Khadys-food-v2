@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Navbar from './components/Navbar';
 import AIChat from './components/AIChat';
 import AdminDashboard from './components/AdminDashboard';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import MenuView from './components/MenuView';
 import CartView from './components/CartView';
 import AccountView from './components/AccountView';
@@ -1047,22 +1048,24 @@ const App: React.FC = () => {
       case Page.ADMIN:
         return (
           <div className="w-full min-h-screen">
-            <AdminDashboard 
-              items={items} 
-              setItems={setItems} 
-              orders={orders} 
-              setOrders={setOrders} 
-              reviews={reviews} 
-              setReviews={setReviews} 
-              blogArticles={blogArticles}
-              setBlogArticles={setBlogArticles}
-              faqs={faqs}
-              setFaqs={setFaqs}
-              onExit={() => {
-                setToast({ message: "Retour à l'espace Client", type: 'info' });
-                setCurrentPage(Page.COMPTE);
-              }} 
-            />
+            <ErrorBoundary fallbackTitle="Espace Administrateur sécurisé">
+              <AdminDashboard 
+                items={items} 
+                setItems={setItems} 
+                orders={orders} 
+                setOrders={setOrders} 
+                reviews={reviews} 
+                setReviews={setReviews} 
+                blogArticles={blogArticles}
+                setBlogArticles={setBlogArticles}
+                faqs={faqs}
+                setFaqs={setFaqs}
+                onExit={() => {
+                  setToast({ message: "Retour à l'espace Client", type: 'info' });
+                  setCurrentPage(Page.COMPTE);
+                }} 
+              />
+            </ErrorBoundary>
           </div>
         );
 
