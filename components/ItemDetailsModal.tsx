@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'motion/react';
 import { MenuItem } from '../types';
-import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check, Share, PhoneCall } from 'lucide-react';
+import { X, Plus, Minus, MessageSquare, Flame, Leaf, CheckCircle2, Clock, ShieldCheck, Users, Info, Box, Sparkles, Eye, Share2, Check, Share, PhoneCall, ShoppingBag } from 'lucide-react';
 import Dish3DModal from './Dish3DModal';
 import { playSound } from '../utils/audio';
 import { RESTAURANT_INFO } from '../constants';
@@ -12,19 +14,95 @@ interface ItemDetailsModalProps {
   onAddToCart: (item: MenuItem, quantity: number, instructions: string) => void;
 }
 
+interface FlyingItemData {
+  startX: number;
+  startY: number;
+  midX: number;
+  peakY: number;
+  endX: number;
+  endY: number;
+  item: MenuItem;
+  quantity: number;
+  instructions: string;
+}
+
 const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClose, onAddToCart }) => {
   const [quantity, setQuantity] = useState(1);
   const [instructions, setInstructions] = useState('');
   const [is3DOpen, setIs3DOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isFlying, setIsFlying] = useState(false);
+  const [flyingData, setFlyingData] = useState<FlyingItemData | null>(null);
+  const [impactRipple, setImpactRipple] = useState<{ x: number; y: number } | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Safety fallback in case animation completion is interrupted
+  useEffect(() => {
+    if (!isFlying || !flyingData) return;
+    const safetyTimer = setTimeout(() => {
+      handleFlightLanding(flyingData);
+    }, 1400);
+    return () => clearTimeout(safetyTimer);
+  }, [isFlying, flyingData]);
 
   if (!isOpen || !item) return null;
 
+  const handleFlightLanding = (data: FlyingItemData) => {
+    setImpactRipple({ x: data.endX, y: data.endY });
+    playSound('success');
+
+    // Trigger visual impact in Navbar
+    window.dispatchEvent(new CustomEvent('khadys_cart_item_landed', {
+      detail: { count: data.quantity, x: data.endX, y: data.endY }
+    }));
+
+    // Add item to cart
+    onAddToCart(data.item, data.quantity, data.instructions);
+
+    // Let the landing impact burst show briefly before closing modal cleanly
+    setTimeout(() => {
+      setQuantity(1);
+      setInstructions('');
+      setFlyingData(null);
+      setIsFlying(false);
+      setImpactRipple(null);
+      onClose();
+    }, 220);
+  };
+
   const handleAdd = () => {
-    onAddToCart(item, quantity, instructions);
-    setQuantity(1);
-    setInstructions('');
-    onClose();
+    if (isFlying) return;
+
+    // Source coordinates: center of the Add to Cart button
+    const btnRect = addButtonRef.current?.getBoundingClientRect();
+    const startX = btnRect ? btnRect.left + btnRect.width / 2 : window.innerWidth / 2;
+    const startY = btnRect ? btnRect.top + btnRect.height / 2 : window.innerHeight - 80;
+
+    // Destination coordinates: cart icon in bottom navigation bar
+    const cartEl = document.getElementById('nav-cart-icon') || document.getElementById('nav-cart-btn');
+    const cartRect = cartEl?.getBoundingClientRect();
+    const endX = cartRect ? cartRect.left + cartRect.width / 2 : (window.innerWidth * 0.72);
+    const endY = cartRect ? cartRect.top + cartRect.height / 2 : (window.innerHeight - 44);
+
+    // Parabolic arc: leap up towards the upper-center viewport, then curve down to navbar
+    const midX = (startX + endX) / 2;
+    const peakY = Math.max(90, Math.min(startY, endY) - Math.min(280, window.innerHeight * 0.42));
+
+    const flightData: FlyingItemData = {
+      startX,
+      startY,
+      midX,
+      peakY,
+      endX,
+      endY,
+      item,
+      quantity,
+      instructions,
+    };
+
+    setFlyingData(flightData);
+    setIsFlying(true);
+    playSound('pop');
   };
 
   const handleShare = async () => {
@@ -65,9 +143,16 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
 
   return (
     <>
-      <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 backdrop-blur-md animate-fade-in" onClick={onClose}>
+      <div 
+        className={`fixed inset-0 z-[110] flex items-end justify-center transition-all duration-300 ${
+          isFlying ? 'bg-black/0 pointer-events-none' : 'bg-black/80 backdrop-blur-md animate-fade-in'
+        }`} 
+        onClick={!isFlying ? onClose : undefined}
+      >
         <div 
-          className="bg-white w-full h-[94vh] rounded-t-[4rem] shadow-[0_50px_150px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col relative animate-slide-up border-x-4 border-t-4 border-white"
+          className={`bg-white w-full h-[94vh] rounded-t-[4rem] shadow-[0_50px_150px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col relative border-x-4 border-t-4 border-white transition-all duration-300 ${
+            isFlying ? 'opacity-0 scale-95 translate-y-16 pointer-events-none' : 'opacity-100 animate-slide-up'
+          }`}
           onClick={e => e.stopPropagation()}
         >
           <div className="relative h-80 w-full flex-shrink-0">
@@ -100,7 +185,13 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
                  </button>
               </div>
 
-              <button onClick={onClose} className="absolute top-8 right-8 bg-white/10 backdrop-blur-xl text-white p-3.5 rounded-3xl transition-all shadow-2xl border border-white/20 hover:bg-white/20"><X size={28} /></button>
+              <button 
+                onClick={onClose} 
+                disabled={isFlying}
+                className="absolute top-8 right-8 bg-white/10 backdrop-blur-xl text-white p-3.5 rounded-3xl transition-all shadow-2xl border border-white/20 hover:bg-white/20 disabled:opacity-50"
+              >
+                <X size={28} />
+              </button>
               
               <div className="absolute bottom-10 left-10 right-10">
                  <h2 className="text-4xl font-black text-white leading-none italic uppercase tracking-tighter mb-4 drop-shadow-2xl">{item.name}</h2>
@@ -184,18 +275,107 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({ item, isOpen, onClo
           <div className="p-8 border-t border-gray-100 bg-white shadow-[0_-20px_50px_rgba(0,0,0,0.05)] flex-shrink-0">
               <div className="flex items-center gap-6">
                   <div className="flex items-center gap-6 bg-gray-50 rounded-[2.5rem] px-6 py-4 border-2 border-gray-100 shadow-inner">
-                      <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-12 h-12 flex items-center justify-center bg-white rounded-3xl shadow-lg text-brand-brown active:scale-90 transition-all"><Minus size={24} /></button>
+                      <button 
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))} 
+                        disabled={isFlying}
+                        className="w-12 h-12 flex items-center justify-center bg-white rounded-3xl shadow-lg text-brand-brown active:scale-90 transition-all disabled:opacity-50"
+                      >
+                        <Minus size={24} />
+                      </button>
                       <span className="font-black text-3xl w-12 text-center text-brand-brown italic tracking-tighter">{quantity}</span>
-                      <button onClick={() => setQuantity(quantity + 1)} className="w-12 h-12 flex items-center justify-center bg-brand-brown text-white rounded-3xl shadow-lg active:scale-90 transition-all hover:bg-brand-orange"><Plus size={24} /></button>
+                      <button 
+                        onClick={() => setQuantity(quantity + 1)} 
+                        disabled={isFlying}
+                        className="w-12 h-12 flex items-center justify-center bg-brand-brown text-white rounded-3xl shadow-lg active:scale-90 transition-all hover:bg-brand-orange disabled:opacity-50"
+                      >
+                        <Plus size={24} />
+                      </button>
                   </div>
-                  <button onClick={handleAdd} className="flex-1 bg-brand-orange text-white py-6 rounded-[3rem] font-black text-xl shadow-[0_20px_50px_rgba(255,111,0,0.3)] active:scale-95 transition-all flex flex-col items-center justify-center leading-none">
-                      <span className="uppercase tracking-tighter italic">Ajouter</span>
-                      <span className="text-[10px] opacity-80 font-black mt-2 uppercase tracking-[0.4em] italic">{(item.price * quantity).toLocaleString()} F CFA</span>
+                  <button 
+                    ref={addButtonRef}
+                    onClick={handleAdd} 
+                    disabled={isFlying}
+                    className="flex-1 bg-brand-orange text-white py-6 rounded-[3rem] font-black text-xl shadow-[0_20px_50px_rgba(255,111,0,0.3)] active:scale-95 transition-all flex flex-col items-center justify-center leading-none disabled:opacity-90 relative overflow-hidden"
+                  >
+                      {isFlying ? (
+                        <div className="flex items-center gap-2 text-white">
+                          <Sparkles size={20} className="animate-spin text-brand-gold" />
+                          <span className="uppercase tracking-tighter italic text-base">Envol vers le panier...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="uppercase tracking-tighter italic">Ajouter</span>
+                          <span className="text-[10px] opacity-80 font-black mt-2 uppercase tracking-[0.4em] italic">{(item.price * quantity).toLocaleString()} F CFA</span>
+                        </>
+                      )}
                   </button>
               </div>
           </div>
         </div>
       </div>
+
+      {/* FLYING ITEM PORTAL TO NAVBAR CART */}
+      {flyingData && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 pointer-events-none z-[9999]">
+          <motion.div
+            initial={{
+              x: flyingData.startX - 36,
+              y: flyingData.startY - 36,
+              scale: 0.6,
+              opacity: 0.2,
+              rotate: -12,
+            }}
+            animate={{
+              x: [flyingData.startX - 36, flyingData.midX - 36, flyingData.endX - 18],
+              y: [flyingData.startY - 36, flyingData.peakY - 36, flyingData.endY - 18],
+              scale: [0.6, 1.25, 0.22],
+              opacity: [0.2, 1, 0.95, 0.4, 0],
+              rotate: [-12, 14, 0],
+            }}
+            transition={{
+              duration: 0.8,
+              times: [0, 0.42, 0.82, 0.96, 1],
+              ease: ["easeOut", "easeInOut"],
+            }}
+            onAnimationComplete={() => handleFlightLanding(flyingData)}
+            className="absolute top-0 left-0 w-[72px] h-[72px] flex items-center justify-center"
+          >
+            {/* Outer Golden Glow Halo */}
+            <div className="absolute -inset-3 bg-gradient-to-tr from-brand-orange via-amber-400 to-brand-gold rounded-full blur-md opacity-80 animate-pulse" />
+            
+            {/* Floating Dish Avatar */}
+            <div className="relative w-full h-full rounded-full border-2 border-brand-gold shadow-[0_15px_35px_rgba(255,111,0,0.6),0_0_20px_rgba(217,119,6,0.5)] overflow-hidden bg-brand-brown">
+              <img 
+                src={flyingData.item.image} 
+                alt={flyingData.item.name} 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+
+            {/* Quantity Pill Badge */}
+            <div className="absolute -top-2 -right-2 bg-gradient-to-r from-brand-orange to-red-500 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full border-2 border-white shadow-xl flex items-center justify-center">
+              +{flyingData.quantity}
+            </div>
+
+            {/* Sparkle Icon Badge */}
+            <div className="absolute -bottom-1 -left-1 bg-brand-brown text-brand-gold p-1.5 rounded-full border border-brand-gold shadow-md">
+              <Sparkles size={12} className="animate-spin" />
+            </div>
+          </motion.div>
+
+          {/* Impact Shockwave Ring upon landing */}
+          {impactRipple && (
+            <motion.div
+              initial={{ scale: 0.3, opacity: 1 }}
+              animate={{ scale: 2.8, opacity: 0 }}
+              transition={{ duration: 0.45, ease: 'easeOut' }}
+              style={{ left: impactRipple.x - 28, top: impactRipple.y - 28 }}
+              className="absolute w-14 h-14 rounded-full border-2 border-brand-gold bg-amber-400/30 shadow-[0_0_20px_rgba(255,183,3,0.8)]"
+            />
+          )}
+        </div>,
+        document.body
+      )}
 
       {is3DOpen && (
         <Dish3DModal 

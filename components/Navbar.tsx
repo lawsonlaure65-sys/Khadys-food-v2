@@ -11,6 +11,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ currentPage, setPage, cartCount }) => {
   const [isBouncing, setIsBouncing] = useState(false);
+  const [isLandingImpact, setIsLandingImpact] = useState(false);
   const prevCount = useRef(cartCount);
 
   useEffect(() => {
@@ -21,6 +22,22 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, setPage, cartCount }) => {
     }
     prevCount.current = cartCount;
   }, [cartCount]);
+
+  // Listen for flying cart item arrival
+  useEffect(() => {
+    const handleCartLanded = () => {
+      setIsLandingImpact(true);
+      setIsBouncing(true);
+      const timer = setTimeout(() => {
+        setIsLandingImpact(false);
+        setIsBouncing(false);
+      }, 700);
+      return () => clearTimeout(timer);
+    };
+
+    window.addEventListener('khadys_cart_item_landed', handleCartLanded);
+    return () => window.removeEventListener('khadys_cart_item_landed', handleCartLanded);
+  }, []);
 
   const navItems = [
     { page: Page.HOME, icon: Home, label: 'Accueil' },
@@ -42,19 +59,35 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage, setPage, cartCount }) => {
             
             return (
               <button 
-                key={item.label} 
+                key={item.label}
+                id={isCart ? 'nav-cart-btn' : undefined}
                 onClick={() => { playSound('pop'); setPage(item.page); }} 
                 className="relative flex flex-col items-center justify-center flex-1 h-full group"
                 title={item.label}
               >
-                <div className={`relative p-2 sm:p-2.5 rounded-2xl transition-all duration-300 ${isActive ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/40 scale-110' : 'text-white/40 group-hover:text-brand-gold'} ${isCart && isBouncing ? 'animate-bounce-subtle' : ''}`}>
+                <div 
+                  id={isCart ? 'nav-cart-icon' : undefined}
+                  className={`relative p-2 sm:p-2.5 rounded-2xl transition-all duration-300 ${
+                    isActive 
+                      ? 'bg-brand-orange text-white shadow-lg shadow-brand-orange/40 scale-110' 
+                      : 'text-white/40 group-hover:text-brand-gold'
+                  } ${isCart && (isBouncing || isLandingImpact) ? 'animate-bounce-subtle scale-125' : ''} ${
+                    isCart && isLandingImpact ? 'ring-4 ring-brand-gold/80 shadow-[0_0_25px_rgba(255,183,3,0.8)]' : ''
+                  }`}
+                >
                   <Icon size={17} strokeWidth={isActive ? 2.2 : 1.5} />
                   
                   {item.badge ? (
-                    <span className={`absolute -top-1 -right-1 bg-brand-gold text-brand-brown text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-brand-brown shadow-md transition-transform ${isBouncing && isCart ? 'scale-150' : 'scale-100'}`}>
+                    <span className={`absolute -top-1 -right-1 bg-brand-gold text-brand-brown text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-brand-brown shadow-md transition-transform ${
+                      (isBouncing || isLandingImpact) && isCart ? 'scale-150 bg-amber-400' : 'scale-100'
+                    }`}>
                       {item.badge}
                     </span>
                   ) : null}
+
+                  {isCart && isLandingImpact && (
+                    <span className="absolute -inset-1 rounded-2xl bg-brand-gold/40 animate-ping pointer-events-none" />
+                  )}
                 </div>
                 <span className={`text-[6.5px] sm:text-[7px] font-black uppercase tracking-tighter mt-1 transition-colors ${isActive ? 'text-brand-gold' : 'text-white/30'}`}>
                   {item.label}
