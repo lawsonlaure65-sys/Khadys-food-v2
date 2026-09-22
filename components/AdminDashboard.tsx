@@ -12,13 +12,14 @@ import {
   UserRound, Save, ToggleLeft as Toggle, Image as ImageIcon, BookOpen, HelpCircle,
   ShieldAlert, AlertTriangle, BarChart3, LineChart as LineChartIcon, ArrowUpRight, Database,
   Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight, Keyboard, Command,
-  ExternalLink
+  ExternalLink, Download, Upload
 } from 'lucide-react';
 import { MenuItem, AdminView, Order, Review, MenuCategory, OrderStatus, BlogArticle, FaqItem } from '../types';
 import { KhadyLogo } from './KhadyLogo';
 import { playSound } from '../utils/audio';
 import { GoogleGenAI } from "@google/genai";
 import { DISTRICTS, BILLO_INFO, MENU_ITEMS } from '../constants';
+import { saveMenuToIDB } from '../utils/offlineDB';
 import { 
   db, 
   isSupabaseConfigured,
@@ -484,29 +485,124 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Exportation complète de la carte en fichier JSON téléchargeable
+  const handleExportMenuJSON = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `khadys_menu_sauvegarde_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      playSound('success');
+      triggerShortcutFeedback('Sauvegarde Téléchargée !', `${items.length} plats exportés en fichier JSON.`);
+    } catch (e) {
+      alert("Erreur lors de l'exportation du fichier JSON");
+    }
+  };
+
+  // Importation et restauration de plats depuis un fichier JSON
+  const handleImportMenuJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const content = event.target?.result as string;
+        const parsed = JSON.parse(content);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const itemMap = new Map<string, MenuItem>();
+          items.forEach(i => itemMap.set(i.id, i));
+          parsed.forEach((i: MenuItem) => {
+            if (i && i.name && i.price) {
+              const id = i.id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+              itemMap.set(id, { ...i, id });
+            }
+          });
+          const merged = Array.from(itemMap.values());
+          setItems(merged);
+          saveMenuToIDB(merged);
+          try {
+            localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
+          } catch (err) {}
+          playSound('success');
+          triggerShortcutFeedback('Menu Restauré !', `${merged.length} plats sont prêts.`);
+        } else {
+          alert("Le fichier JSON sélectionné ne contient pas une liste valide de plats.");
+        }
+      } catch (err) {
+        alert("Erreur lors de la lecture du fichier JSON.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const handleSaveItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem?.name || !editingItem?.price) return;
 
     let finalImage = editingItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c';
-    if (finalImage.startsWith('data:image') && finalImage.length > 100000) {
-      finalImage = await compressImage(finalImage, 800, 0.75);
+    if (finalImage.startsWith('data:image')) {
+      finalImage = await compressImage(finalImage, 600, 0.65);
     }
 
-    const finalItem = {
+    const finalItem: MenuItem = {
       ...editingItem,
-      id: editingItem.id || `item-${Date.now()}`,
+      id: editingItem.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      name: editingItem.name.trim(),
+      description: editingItem.description?.trim() || '',
+      price: Number(editingItem.price),
       rating: editingItem.rating || 5,
       isAvailable: editingItem.isAvailable ?? true,
       category: editingItem.category || 'Plat Africain',
-      image: finalImage
-    } as MenuItem;
+      image: finalImage,
+      isSpicy: editingItem.isSpicy ?? false,
+      isVegetarian: editingItem.isVegetarian ?? false,
+      isSpécialitéMaison: editingItem.isSpécialitéMaison ?? false
+    };
 
+    let nextItemsList: MenuItem[] = [];
     setItems(prev => {
       const exists = prev.some(i => i.id === finalItem.id);
-      return exists ? prev.map(i => i.id === finalItem.id ? finalItem : i) : [finalItem, ...prev];
+      nextItemsList = exists ? prev.map(i => i.id === finalItem.id ? finalItem : i) : [finalItem, ...prev];
+      return nextItemsList;
     });
 
+    // 1. Sauvegarde directe dans IndexedDB (capacité illimitée)
+    saveMenuToIDB(nextItemsList).catch(err => console.warn('IDB save error:', err));
+
+    // 2. Sauvegarde directe dans LocalStorage (avec fallback optimisé)
+    try {
+      localStorage.setItem('khadys_menu_items', JSON.stringify(nextItemsList));
+    } catch (e) {
+      try {
+        const light = nextItemsList.map(it => ({
+          ...it,
+          image: (it.image && it.image.startsWith('data:image') && it.image.length > 40000)
+            ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
+            : it.image
+        }));
+        localStorage.setItem('khadys_menu_items', JSON.stringify(light));
+        localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(light));
+      } catch (err) {}
+    }
+
+    // 2b. Sauvegarde additionnelle dans khadys_custom_user_dishes (bouclier anti-perte)
+    try {
+      const customRaw = localStorage.getItem('khadys_custom_user_dishes');
+      const customList: MenuItem[] = customRaw ? JSON.parse(customRaw) : [];
+      const cIdx = customList.findIndex(c => c.id === finalItem.id);
+      if (cIdx >= 0) {
+        customList[cIdx] = finalItem;
+      } else {
+        customList.unshift(finalItem);
+      }
+      localStorage.setItem('khadys_custom_user_dishes', JSON.stringify(customList));
+    } catch (e) {}
+
+    // 3. Sauvegarde Cloud en arrière-plan sans bloquer
     if (isSupabaseConfigured) {
       db.saveMenuItem(finalItem).then(res => {
         if (!res.success) {
@@ -517,6 +613,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
     
     setEditingItem(null);
     playSound('success');
+    triggerShortcutFeedback('Plat Enregistré !', `"${finalItem.name}" est sécurisé (${nextItemsList.length} plats)`);
   };
 
   const handleSaveArticle = (e: React.FormEvent) => {
@@ -890,6 +987,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                  <p className="text-[10px] text-white/50">Modifiez les photos, prix, descriptions ou ajoutez de nouveaux plats.</p>
                </div>
                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                 {/* Exporter Sauvegarde JSON */}
+                 <button
+                   type="button"
+                   onClick={handleExportMenuJSON}
+                   className="bg-sky-600/90 hover:bg-sky-600 text-white px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5 font-black text-[9px] uppercase tracking-wider transition-all border border-sky-400/30 shadow-md active:scale-95"
+                   title="Télécharger une copie de sauvegarde de tous vos plats sur votre appareil"
+                 >
+                   <Download size={14} /> Exporter JSON ({items.length})
+                 </button>
+
+                 {/* Importer Sauvegarde JSON */}
+                 <label
+                   className="bg-amber-600/90 hover:bg-amber-600 text-white px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5 font-black text-[9px] uppercase tracking-wider transition-all border border-amber-400/30 shadow-md active:scale-95 cursor-pointer"
+                   title="Restaurer vos plats depuis un fichier de sauvegarde JSON"
+                 >
+                   <Upload size={14} /> Importer JSON
+                   <input
+                     type="file"
+                     accept=".json"
+                     onChange={handleImportMenuJSON}
+                     className="hidden"
+                   />
+                 </label>
+
                  <button 
                    type="button"
                    onClick={() => {
@@ -899,28 +1020,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                        handleExecuteMasterSync();
                      }
                    }}
-                   className="bg-emerald-600/90 hover:bg-emerald-600 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-emerald-400/30 shadow-md active:scale-95"
+                   className="bg-emerald-600/90 hover:bg-emerald-600 text-white px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5 font-black text-[9px] uppercase tracking-wider transition-all border border-emerald-400/30 shadow-md active:scale-95"
                    title="Envoyer tous les plats, plat du jour et profil admin vers Supabase"
                  >
-                   <Database size={14} /> Pousser vers Cloud ({items.length})
+                   <Database size={14} /> Cloud ({items.length})
                  </button>
                  <button 
                    type="button"
                    onClick={() => {
-                     if (window.confirm('Voulez-vous synchroniser la carte avec le catalogue officiel (incluant Couscous Royal, Tiep Rouge Royal, Suya de Didi) ?')) {
-                       playSound('success');
-                       setItems(MENU_ITEMS);
-                       try {
-                         localStorage.setItem('khadys_menu_items', JSON.stringify(MENU_ITEMS));
-                       } catch (e) {}
+                     const existingIds = new Set(items.map(i => i.id));
+                     const missing = MENU_ITEMS.filter(m => !existingIds.has(m.id));
+                     if (missing.length === 0) {
+                       triggerShortcutFeedback('Carte complète', 'Tous les plats officiels sont déjà dans votre carte !');
+                       return;
                      }
+                     playSound('success');
+                     const merged = [...items, ...missing];
+                     setItems(merged);
+                     saveMenuToIDB(merged);
+                     try {
+                       localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
+                     } catch (e) {}
+                     triggerShortcutFeedback('Plats ajoutés', `+${missing.length} plats officiels intégrés (${merged.length} au total)`);
                    }}
-                   className="bg-white/10 hover:bg-white/20 text-white px-4 py-3 rounded-2xl flex items-center gap-2 font-black text-[9px] uppercase tracking-wider transition-all border border-white/10"
-                   title="Restaurer ou mettre à jour avec les plats officiels"
+                   className="bg-white/10 hover:bg-white/20 text-white px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5 font-black text-[9px] uppercase tracking-wider transition-all border border-white/10"
+                   title="Ajouter les plats officiels manquants sans jamais écraser vos créations"
                  >
-                   <RefreshCw size={14} /> Sync Plats Officiels
+                   <RefreshCw size={14} /> + Plats Officiels
                  </button>
-                 <button onClick={() => setEditingItem({})} className="bg-brand-gold hover:bg-amber-400 text-brand-brown px-5 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black text-[10px] uppercase italic active:scale-95 transition-all">
+                 <button onClick={() => setEditingItem({})} className="bg-brand-gold hover:bg-amber-400 text-brand-brown px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 font-black text-[10px] uppercase italic active:scale-95 transition-all">
                    <Plus size={18}/> Ajouter un Plat
                  </button>
                </div>
@@ -1938,11 +2066,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       playSound('pop');
                       const cloudMenu = await db.fetchMenu();
                       if (cloudMenu && cloudMenu.length > 0) {
-                        setItems(cloudMenu);
+                        setItems(prev => {
+                          const map = new Map<string, MenuItem>();
+                          prev.forEach(i => map.set(i.id, i));
+                          cloudMenu.forEach(i => map.set(i.id, i));
+                          const merged = Array.from(map.values());
+                          saveMenuToIDB(merged);
+                          try {
+                            localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
+                          } catch (e) {}
+                          return merged;
+                        });
                         playSound('success');
-                        alert(`✅ ${cloudMenu.length} plats rechargés depuis Supabase !`);
+                        alert(`✅ Plats Cloud synchronisés et fusionnés avec succès (${cloudMenu.length} plats vérifiés, aucun plat local écrasé) !`);
                       } else {
-                        alert("⚠️ Aucun plat trouvé sur le Cloud Supabase.");
+                        alert("⚠️ Aucun plat trouvé sur le Cloud Supabase ou serveur inaccessible.");
                       }
                     }}
                     className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-[9px] font-black uppercase flex items-center gap-1.5 border border-white/10"

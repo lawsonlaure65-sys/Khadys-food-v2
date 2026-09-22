@@ -26,8 +26,8 @@ if ('serviceWorker' in navigator) {
         if (installingWorker) {
           installingWorker.onstatechange = () => {
             if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('Nouvelle version détectée ! Mise à jour...');
-              window.location.reload();
+              console.log('Nouvelle version prête en arrière-plan.');
+              // Do not forcefully reload while user might be entering dishes
             }
           };
         }

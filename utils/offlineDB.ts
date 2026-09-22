@@ -47,14 +47,32 @@ export const initDB = (): Promise<IDBDatabase> => {
 
 // --- MENU STORAGE ---
 export const saveMenuToIDB = async (items: MenuItem[]): Promise<void> => {
+  if (!items || !Array.isArray(items) || items.length === 0) return;
   try {
     const db = await initDB();
-    const tx = db.transaction('menu', 'readwrite');
-    const store = tx.objectStore('menu');
-    await store.clear();
-    for (const item of items) {
-      store.put(item);
-    }
+    return new Promise<void>((resolve) => {
+      const tx = db.transaction('menu', 'readwrite');
+      const store = tx.objectStore('menu');
+      store.clear();
+      for (const item of items) {
+        if (item && item.id) {
+          try {
+            store.put(item);
+          } catch (putErr) {
+            console.warn('Erreur put item dans IDB:', item.id, putErr);
+          }
+        }
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => {
+        console.warn('Erreur transaction IndexedDB:', tx.error);
+        resolve(); // Continue gracefully without crashing
+      };
+      tx.onabort = () => {
+        console.warn('Transaction IndexedDB annulée');
+        resolve();
+      };
+    });
   } catch (err) {
     console.warn('Erreur sauvegarde menu IndexedDB:', err);
   }
@@ -63,12 +81,16 @@ export const saveMenuToIDB = async (items: MenuItem[]): Promise<void> => {
 export const getMenuFromIDB = async (): Promise<MenuItem[]> => {
   try {
     const db = await initDB();
-    const tx = db.transaction('menu', 'readonly');
-    const store = tx.objectStore('menu');
     return new Promise((resolve) => {
+      const tx = db.transaction('menu', 'readonly');
+      const store = tx.objectStore('menu');
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result as MenuItem[] || []);
-      request.onerror = () => resolve([]);
+      request.onsuccess = () => resolve((request.result as MenuItem[]) || []);
+      request.onerror = () => {
+        console.warn('Erreur lecture store menu:', request.error);
+        resolve([]);
+      };
+      tx.onerror = () => resolve([]);
     });
   } catch (err) {
     console.warn('Erreur lecture menu IndexedDB:', err);

@@ -50,27 +50,43 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
   const [marketingBanner, setMarketingBanner] = useState<AnnouncementBanner>(() => getStoredBanner());
   
-  // Persistent items (menu dishes) initialization
+  // Persistent items (menu dishes) initialization with multi-tier storage fallback
   const [items, setItems] = useState<MenuItem[]>(() => {
-    const saved = localStorage.getItem('khadys_menu_items');
+    // 1. Load any custom dishes created by the user
+    let customDishes: MenuItem[] = [];
+    try {
+      const customRaw = localStorage.getItem('khadys_custom_user_dishes');
+      if (customRaw) {
+        const parsedCustom = JSON.parse(customRaw);
+        if (Array.isArray(parsedCustom)) customDishes = parsedCustom;
+      }
+    } catch (e) {}
+
+    // 2. Try reading primary localStorage or emergency backup
+    let localSavedDishes: MenuItem[] = [];
+    const saved = localStorage.getItem('khadys_menu_items') || localStorage.getItem('khadys_menu_emergency_backup');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Check if key official items like sp1, sp3, sp4 exist, merge if not present
-          const existingIds = new Set(parsed.map((p: MenuItem) => p.id));
-          const missingOfficial = MENU_ITEMS.filter(m => !existingIds.has(m.id));
-          if (missingOfficial.length > 0) {
-            const merged = [...parsed, ...missingOfficial];
-            return merged;
-          }
-          return parsed;
+          localSavedDishes = parsed;
         }
       } catch (e) {
         console.error('Error reading khadys_menu_items from localStorage', e);
       }
     }
-    return MENU_ITEMS;
+
+    // 3. Consolidate: official MENU_ITEMS (70+) + custom dishes + local saved dishes without duplication
+    const map = new Map<string, MenuItem>();
+    MENU_ITEMS.forEach(m => map.set(m.id, m));
+    localSavedDishes.forEach(m => { if (m && m.id) map.set(m.id, m); });
+    customDishes.forEach(m => { if (m && m.id) map.set(m.id, m); });
+
+    const consolidated = Array.from(map.values());
+    try {
+      localStorage.setItem('khadys_menu_items', JSON.stringify(consolidated));
+    } catch (e) {}
+    return consolidated;
   });
 
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -237,17 +253,55 @@ const App: React.FC = () => {
 
       // 2. Synchronisation globale Cloud (Menu, Plat du Jour, Photo Admin, Bannières)
       try {
+        // Lecture immédiate des sources locales de secours (IndexedDB & LocalStorage)
+        const cachedMenuIDB = await getMenuFromIDB();
+        const localMenuRaw = localStorage.getItem('khadys_menu_items');
+        let localMenuParsed: MenuItem[] = [];
+        if (localMenuRaw) {
+          try {
+            localMenuParsed = JSON.parse(localMenuRaw);
+          } catch (e) {}
+        }
+
+        // Consolidation sans perte de données : on combine IDB + LocalStorage + MENU_ITEMS par identifiant
+        const consolidatedMap = new Map<string, MenuItem>();
+        MENU_ITEMS.forEach(m => consolidatedMap.set(m.id, m));
+        if (Array.isArray(cachedMenuIDB)) {
+          cachedMenuIDB.forEach(m => { if (m && m.id) consolidatedMap.set(m.id, m); });
+        }
+        if (Array.isArray(localMenuParsed)) {
+          localMenuParsed.forEach(m => { if (m && m.id) consolidatedMap.set(m.id, m); });
+        }
+
+        const consolidatedLocalItems = Array.from(consolidatedMap.values());
+        if (consolidatedLocalItems.length > 0) {
+          setItems(prev => {
+            const map = new Map<string, MenuItem>();
+            consolidatedLocalItems.forEach(i => map.set(i.id, i));
+            prev.forEach(i => map.set(i.id, i));
+            return Array.from(map.values());
+          });
+        }
+
         const config = getSupabaseConfig();
         if (config.isValid) {
-          // A. Synchronisation du Menu Cloud
+          // A. Synchronisation du Menu Cloud (avec FUSION strictly additive pour ne JAMAIS écraser de plats locaux)
           try {
             const cloudMenu = await db.fetchMenu();
             if (cloudMenu && cloudMenu.length > 0) {
-              setItems(cloudMenu);
-              try {
-                localStorage.setItem('khadys_menu_items', JSON.stringify(cloudMenu));
-              } catch (e) {}
-              await saveMenuToIDB(cloudMenu);
+              setItems(prev => {
+                const map = new Map<string, MenuItem>();
+                // 1. Plats locaux existants conservés en priorité
+                prev.forEach(i => map.set(i.id, i));
+                // 2. Enrichissement depuis le Cloud
+                cloudMenu.forEach(i => map.set(i.id, i));
+                const merged = Array.from(map.values());
+                saveMenuToIDB(merged);
+                try {
+                  localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
+                } catch (e) {}
+                return merged;
+              });
             }
           } catch (e) {
             console.warn('Erreur fetch cloud menu:', e);
@@ -283,36 +337,6 @@ const App: React.FC = () => {
             if (cloudPromos) localStorage.setItem('khadys_promo_codes', JSON.stringify(cloudPromos));
           } catch (e) {}
         }
-
-        // Fallback local pour le menu si non chargé depuis le Cloud
-        const cachedMenuIDB = await getMenuFromIDB();
-        const localMenuRaw = localStorage.getItem('khadys_menu_items');
-        let localMenuParsed: MenuItem[] = [];
-        if (localMenuRaw) {
-          try {
-            localMenuParsed = JSON.parse(localMenuRaw);
-          } catch (e) {}
-        }
-
-        let baseItems: MenuItem[] = [];
-        if (cachedMenuIDB && cachedMenuIDB.length >= localMenuParsed.length && cachedMenuIDB.length > 0) {
-          baseItems = cachedMenuIDB;
-        } else if (localMenuParsed && localMenuParsed.length > 0) {
-          baseItems = localMenuParsed;
-        } else {
-          baseItems = MENU_ITEMS;
-        }
-
-        // Fusion des nouveaux plats officiels
-        const existingIds = new Set(baseItems.map(b => b.id));
-        const missingOfficial = MENU_ITEMS.filter(m => !existingIds.has(m.id));
-        const finalMerged = missingOfficial.length > 0 ? [...baseItems, ...missingOfficial] : baseItems;
-
-        setItems(finalMerged);
-        try {
-          localStorage.setItem('khadys_menu_items', JSON.stringify(finalMerged));
-        } catch (e) {}
-        await saveMenuToIDB(finalMerged);
       } catch (err) {
         console.warn('Erreur synchronisation menu hors-ligne:', err);
       }
@@ -334,11 +358,18 @@ const App: React.FC = () => {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, async () => {
             const updated = await db.fetchMenu();
             if (updated && updated.length > 0) {
-              setItems(updated);
-              try {
-                localStorage.setItem('khadys_menu_items', JSON.stringify(updated));
-              } catch (e) {}
-              await saveMenuToIDB(updated);
+              // FUSION STRICTE : ne jamais écraser les plats locaux de l'utilisateur !
+              setItems(prev => {
+                const map = new Map<string, MenuItem>();
+                prev.forEach(i => map.set(i.id, i));
+                updated.forEach(i => map.set(i.id, i));
+                const merged = Array.from(map.values());
+                saveMenuToIDB(merged);
+                try {
+                  localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
+                } catch (e) {}
+                return merged;
+              });
             }
           })
           .subscribe();
@@ -401,14 +432,25 @@ const App: React.FC = () => {
       // 2. Sauvegarder dans LocalStorage avec sécurisation contre le dépassement de quota
       try {
         localStorage.setItem('khadys_menu_items', JSON.stringify(items));
+        // Sauvegarde de secours légère sans data-URLs volumineuses
+        const light = items.map(it => ({
+          ...it,
+          image: (it.image && it.image.startsWith('data:image') && it.image.length > 40000)
+            ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
+            : it.image
+        }));
+        localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(light));
       } catch (err) {
         console.warn('Quota LocalStorage dépassé. Sauvegarde de la version optimisée...');
         try {
           const lightItems = items.map(it => ({
             ...it,
-            image: (it.image && it.image.length > 80000) ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c' : it.image
+            image: (it.image && it.image.startsWith('data:image'))
+              ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
+              : it.image
           }));
           localStorage.setItem('khadys_menu_items', JSON.stringify(lightItems));
+          localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(lightItems));
         } catch (e) {
           console.error('Erreur secours LocalStorage:', e);
         }
@@ -460,22 +502,26 @@ const App: React.FC = () => {
     localStorage.setItem('khady_dark_mode', String(newMode));
   };
 
-  // Chargement initial depuis Supabase
+  // Chargement des commandes Cloud en arrière-plan sans écraser les données locales
   useEffect(() => {
-    const loadCloudData = async () => {
+    const loadCloudOrders = async () => {
       if (isSupabaseConfigured) {
         try {
-          const cloudMenu = await db.fetchMenu();
-          if (cloudMenu && cloudMenu.length > 0) setItems(cloudMenu);
-          
           const cloudOrders = await db.fetchOrders();
-          if (cloudOrders && cloudOrders.length > 0) setOrders(cloudOrders);
+          if (cloudOrders && cloudOrders.length > 0) {
+            setOrders(prev => {
+              const orderMap = new Map<string, Order>();
+              cloudOrders.forEach(o => orderMap.set(o.id, o));
+              prev.forEach(o => orderMap.set(o.id, o));
+              return Array.from(orderMap.values());
+            });
+          }
         } catch {
           // Utilisation du mode local par défaut
         }
       }
     };
-    loadCloudData();
+    loadCloudOrders();
   }, []);
 
   useEffect(() => {

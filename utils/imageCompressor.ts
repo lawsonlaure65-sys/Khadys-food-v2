@@ -4,8 +4,8 @@
  */
 export const compressImage = (
   base64OrDataUrl: string,
-  maxWidth = 800,
-  quality = 0.75
+  maxWidth = 600,
+  quality = 0.65
 ): Promise<string> => {
   return new Promise((resolve) => {
     if (!base64OrDataUrl || !base64OrDataUrl.startsWith('data:image')) {
