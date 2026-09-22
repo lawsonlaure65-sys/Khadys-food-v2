@@ -443,12 +443,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64String = reader.result as string;
-        const compressed = await compressImage(base64String, 500, 0.7);
+        const compressed = await compressImage(base64String, 240, 0.65);
         setAdminAvatar(compressed);
         try {
           localStorage.setItem('khadys_admin_avatar', compressed);
           window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: compressed }));
-          // Enregistrement Cloud immédiat
+          // Enregistrement Cloud immédiat (non-bloquant)
           db.saveAdminAvatar(compressed).catch(() => {});
         } catch (e) {}
         playSound('success');

@@ -72,7 +72,7 @@ const App: React.FC = () => {
           localSavedDishes = parsed;
         }
       } catch (e) {
-        console.error('Error reading khadys_menu_items from localStorage', e);
+        console.warn('Erreur lecture khadys_menu_items depuis localStorage', e);
       }
     }
 
@@ -452,7 +452,7 @@ const App: React.FC = () => {
           localStorage.setItem('khadys_menu_items', JSON.stringify(lightItems));
           localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(lightItems));
         } catch (e) {
-          console.error('Erreur secours LocalStorage:', e);
+          console.warn('Secours LocalStorage non disponible:', e);
         }
       }
     }
@@ -599,7 +599,7 @@ const App: React.FC = () => {
       try {
         await db.placeOrder(order);
       } catch (e) {
-        console.error("Erreur sauvegarde commande:", e);
+        console.warn("Avertissement synchronisation commande:", e);
         await savePendingOrderToIDB(order);
       }
     }

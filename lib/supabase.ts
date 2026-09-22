@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { MenuItem, Order } from '../types';
 import { PlatDuJourConfig } from '../utils/marketing';
+import { compressImage } from '../utils/imageCompressor';
 
 export const DEFAULT_SUPABASE_URL = 'https://veygphkhehdnxefnnlwo.supabase.co';
 export const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZleWdwaGtoZWhkbnhlZm5ubHdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1MTE0MjgsImV4cCI6MjEwMTA4NzQyOH0.FsSg9wjrvVZ1zNHZH_D7qVxPd3EC1h1yM1mDMvxfAqw';
@@ -402,7 +403,11 @@ export const db = {
           .select();
 
         if (fallbackRes.error) {
-          console.error('❌ Erreur Supabase saveMenuItem:', fallbackRes.error);
+          if (isSupabaseNetworkError(fallbackRes.error)) {
+            console.warn('⚠️ Mode Hors-Ligne: Sauvegarde cloud Supabase différée pour saveMenuItem:', fallbackRes.error.message || fallbackRes.error);
+          } else {
+            console.warn('⚠️ Avertissement Supabase saveMenuItem:', fallbackRes.error.message || fallbackRes.error);
+          }
           return { success: false, error: formatSupabaseErrorMessage(fallbackRes.error.message) };
         }
       }
@@ -458,7 +463,11 @@ export const db = {
           .upsert(basePayloads, { onConflict: 'id' });
 
         if (fallbackRes.error) {
-          console.error('❌ Erreur Supabase syncAllMenuItems:', fallbackRes.error);
+          if (isSupabaseNetworkError(fallbackRes.error)) {
+            console.warn('⚠️ Mode Hors-Ligne: Synchronisation cloud Supabase différée pour syncAllMenuItems:', fallbackRes.error.message || fallbackRes.error);
+          } else {
+            console.warn('⚠️ Avertissement Supabase syncAllMenuItems:', fallbackRes.error.message || fallbackRes.error);
+          }
           return { success: false, error: formatSupabaseErrorMessage(fallbackRes.error.message), count: 0 };
         }
       }
@@ -510,12 +519,21 @@ export const db = {
           updated_at: new Date().toISOString()
         }, { onConflict: 'key' });
       if (error) {
-        console.error(`❌ Erreur saveSetting (${key}):`, error);
-        return { success: false, error: error.message };
+        if (isSupabaseNetworkError(error)) {
+          console.warn(`⚠️ Mode Hors-Ligne: Synchronisation différée pour (${key}) :`, error.message || error);
+        } else {
+          console.warn(`⚠️ Avertissement saveSetting (${key}):`, error.message || error);
+        }
+        return { success: false, error: formatSupabaseErrorMessage(error) };
       }
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message };
+      if (isSupabaseNetworkError(e)) {
+        console.warn(`⚠️ Mode Hors-Ligne: Synchronisation différée pour (${key}) :`, e.message || e);
+      } else {
+        console.warn(`⚠️ Exception saveSetting (${key}):`, e.message || e);
+      }
+      return { success: false, error: formatSupabaseErrorMessage(e.message || e) };
     }
   },
 
@@ -534,7 +552,13 @@ export const db = {
   },
 
   saveAdminAvatar: async (avatarBase64OrUrl: string): Promise<{ success: boolean; error?: string }> => {
-    return db.saveSetting('admin_avatar', avatarBase64OrUrl);
+    let finalAvatar = avatarBase64OrUrl;
+    if (typeof window !== 'undefined' && finalAvatar && finalAvatar.startsWith('data:image') && finalAvatar.length > 35000) {
+      try {
+        finalAvatar = await compressImage(finalAvatar, 250, 0.65);
+      } catch {}
+    }
+    return db.saveSetting('admin_avatar', finalAvatar);
   },
 
   // --- SYNC MASTER GLOBAL (Tout pousser vers Supabase en 1 clic) ---
@@ -650,7 +674,11 @@ export const db = {
           address: order.address
         });
       if (error) {
-        console.error('❌ Erreur placeOrder Supabase:', error);
+        if (isSupabaseNetworkError(error)) {
+          console.warn('⚠️ Mode Hors-Ligne: Envoi cloud Supabase différé (commande enregistrée en local) :', error.message || error);
+        } else {
+          console.warn('⚠️ Avertissement placeOrder Supabase:', error.message || error);
+        }
         return { success: false, error: error.message };
       }
       return { success: true };

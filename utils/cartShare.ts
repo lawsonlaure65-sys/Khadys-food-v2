@@ -49,7 +49,7 @@ export function encodeSharedCart(cart: CartItem[]): string {
       .replace(/=+$/, '');
     return base64;
   } catch (e) {
-    console.error('Error encoding shared cart:', e);
+    console.warn('Avertissement encodage panier partagé:', e);
     return encodeURIComponent(JSON.stringify(compactList));
   }
 }

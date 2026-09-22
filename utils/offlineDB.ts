@@ -37,7 +37,7 @@ export const initDB = (): Promise<IDBDatabase> => {
     };
 
     request.onerror = (event) => {
-      console.error('Erreur IndexedDB:', (event.target as IDBOpenDBRequest).error);
+      console.warn('Avertissement IndexedDB:', (event.target as IDBOpenDBRequest).error);
       reject((event.target as IDBOpenDBRequest).error);
     };
   });
