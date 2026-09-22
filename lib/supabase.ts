@@ -166,12 +166,53 @@ export const setCustomSupabaseCredentials = (url: string, key: string): { succes
 };
 
 /**
- * Test connectivity with Supabase database
+ * Helper to identify network / DNS / fetch failures across all browsers (including Safari iOS 'Load failed')
+ */
+export const isSupabaseNetworkError = (errorOrMsg: any): boolean => {
+  if (!errorOrMsg) return false;
+  const msg = typeof errorOrMsg === 'string' 
+    ? errorOrMsg 
+    : (errorOrMsg.message || errorOrMsg.details || errorOrMsg.hint || String(errorOrMsg));
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes('load failed') ||
+    lower.includes('failed to fetch') ||
+    lower.includes('networkerror') ||
+    lower.includes('network error') ||
+    lower.includes('network request failed') ||
+    lower.includes('could not resolve') ||
+    lower.includes('enotfound') ||
+    lower.includes('fetch failed') ||
+    lower.includes('err_name_not_resolved') ||
+    lower.includes('connection refused') ||
+    lower.includes('abort') ||
+    lower.includes('timeout')
+  );
+};
+
+export const formatSupabaseErrorMessage = (errorOrMsg: any, targetUrl?: string): string => {
+  if (!errorOrMsg) return '';
+  const rawMsg = typeof errorOrMsg === 'string' ? errorOrMsg : (errorOrMsg.message || String(errorOrMsg));
+  
+  if (isSupabaseNetworkError(rawMsg)) {
+    return `Serveur Supabase injoignable (${targetUrl || 'URL active'}). Projet en PAUSE sur Supabase ou URL inexistante.`;
+  }
+  if (rawMsg.includes('42P01') || (rawMsg.toLowerCase().includes('relation') && rawMsg.toLowerCase().includes('does not exist'))) {
+    return "Table inexistante dans la base Supabase. Veuillez exécuter le script SQL d'initialisation.";
+  }
+  if (rawMsg.includes('42501') || rawMsg.toLowerCase().includes('permission denied')) {
+    return "Accès refusé par les règles RLS Supabase (exécutez le script SQL fourni).";
+  }
+  return rawMsg;
+};
+
+/**
+ * Test connectivity with Supabase database with timeout & detailed diagnosis
  */
 export const testSupabaseConnection = async (
   customUrl?: string, 
   customKey?: string
-): Promise<{ success: boolean; message: string; details?: any }> => {
+): Promise<{ success: boolean; message: string; isUnreachable?: boolean; details?: any }> => {
   let client = getSupabaseClient();
   let targetUrl = getSupabaseConfig().url;
 
@@ -191,16 +232,57 @@ export const testSupabaseConnection = async (
     };
   }
 
+  const cleanUrl = cleanSupabaseUrl(targetUrl);
+
   try {
-    // 1. Check menu_items table
+    // 1. Direct Ping with timeout to quickly check if the host resolves & is reachable
+    try {
+      const abortCtrl = new AbortController();
+      const timeoutId = setTimeout(() => abortCtrl.abort(), 6000);
+      const pingUrl = `${cleanUrl}/rest/v1/`;
+      await fetch(pingUrl, {
+        method: 'GET',
+        headers: {
+          'apikey': (customKey || getSupabaseConfig().key).trim()
+        },
+        signal: abortCtrl.signal
+      });
+      clearTimeout(timeoutId);
+    } catch (pingErr: any) {
+      if (isSupabaseNetworkError(pingErr)) {
+        return {
+          success: false,
+          isUnreachable: true,
+          message: `⚠️ Impossible de joindre le serveur Supabase (${cleanUrl}).\n\n` +
+            `Erreur détectée : "${pingErr.message || 'Load failed'}" (échec de connexion réseau / DNS).\n\n` +
+            `Causes possibles & Solutions :\n` +
+            `1. ⏸️ Projet Supabase en PAUSE : Supabase met automatiquement en veille les projets inactifs après 7 jours sur le plan gratuit. Connectez-vous sur https://supabase.com/dashboard et cliquez sur "Restore project" (réveil en 1 minute).\n` +
+            `2. 🔄 Nouveau projet ou URL modifiée : Si vous avez un nouveau projet, collez sa nouvelle URL (https://xxxx.supabase.co) et sa clé anon dans "Configuration Manuelle des Clés" ci-dessous.\n` +
+            `3. 🛡️ Vos données locales sont 100% en sécurité : Vos 35 plats, votre Plat du Jour et vos commandes continuent de fonctionner parfaitement dans l'application.`
+        };
+      }
+    }
+
+    // 2. Query table menu_items
     const { data: menuData, error: menuErr } = await client.from('menu_items').select('id').limit(1);
     
     if (menuErr) {
-      // Check for common RLS error or missing table
+      if (isSupabaseNetworkError(menuErr)) {
+        return {
+          success: false,
+          isUnreachable: true,
+          message: `⚠️ Impossible de joindre le serveur Supabase (${cleanUrl}).\n\n` +
+            `Erreur : "${menuErr.message}" (le serveur ne répond pas).\n\n` +
+            `Causes & Solutions :\n` +
+            `1. ⏸️ Projet en PAUSE sur Supabase : Rendez-vous sur https://supabase.com/dashboard pour cliquer sur "Restore project" / "Unpause".\n` +
+            `2. 🔄 Clés modifiées : Vérifiez l'URL de votre projet dans les paramètres Supabase.\n` +
+            `3. 🛡️ Vos données sont en sécurité : Plats, commandes et réglages restent enregistrés sur votre appareil.`
+        };
+      }
       if (menuErr.code === '42P01') {
         return {
           success: false,
-          message: "La table 'menu_items' n'existe pas encore dans votre base Supabase. Veuillez exécuter le script SQL fourni."
+          message: "La table 'menu_items' n'existe pas encore dans votre base Supabase. Veuillez exécuter le script SQL fourni dans l'onglet 'Script SQL'."
         };
       }
       if (menuErr.message?.includes('permission denied') || menuErr.code === '42501') {
@@ -214,14 +296,15 @@ export const testSupabaseConnection = async (
 
     return {
       success: true,
-      message: `Connexion réussie au projet Supabase (${targetUrl}) ! Les tables sont accessibles et prêtes.`
+      message: `Connexion réussie au projet Supabase (${cleanUrl}) ! Les tables sont accessibles et prêtes.`
     };
   } catch (err: any) {
     const errorMsg = String(err?.message || err);
-    if (errorMsg.includes('Failed to fetch') || errorMsg.includes('NetworkError')) {
+    if (isSupabaseNetworkError(errorMsg)) {
       return {
         success: false,
-        message: `⚠️ Impossible de joindre votre projet Supabase (${targetUrl}).\n\nCauses possibles :\n1. Projet en PAUSE sur Supabase (très fréquent sur le plan gratuit après 7 jours d'inactivité) : Rendez-vous sur https://supabase.com/dashboard, ouvrez votre projet et cliquez sur "Restore Project" / "Unpause".\n2. Bloqué par le navigateur / iframe d'aperçu : testez directement depuis votre site Vercel en ligne.\n3. Connexion Internet instable.`
+        isUnreachable: true,
+        message: `⚠️ Impossible de joindre votre projet Supabase (${cleanUrl}).\n\nCauses possibles :\n1. Projet en PAUSE sur Supabase (plan gratuit) : Rendez-vous sur https://supabase.com/dashboard et cliquez sur "Restore project" / "Unpause".\n2. URL de projet modifiée ou supprimée.\n3. Vos données locales restent 100% disponibles.`
       };
     }
     return { success: false, message: `Échec de connexion : ${errorMsg}` };
@@ -299,6 +382,9 @@ export const db = {
         .select();
 
       if (error) {
+        if (isSupabaseNetworkError(error)) {
+          return { success: false, error: formatSupabaseErrorMessage(error) };
+        }
         // Fallback for base table schema (columns: id, name, description, price, category, image, is_plat_du_jour)
         const basePayload = {
           id: item.id,
@@ -317,13 +403,13 @@ export const db = {
 
         if (fallbackRes.error) {
           console.error('❌ Erreur Supabase saveMenuItem:', fallbackRes.error);
-          return { success: false, error: fallbackRes.error.message };
+          return { success: false, error: formatSupabaseErrorMessage(fallbackRes.error.message) };
         }
       }
 
       return { success: true, data };
     } catch (e: any) {
-      return { success: false, error: e.message || 'Erreur inconnue' };
+      return { success: false, error: formatSupabaseErrorMessage(e.message || 'Erreur inconnue') };
     }
   },
 
@@ -353,6 +439,9 @@ export const db = {
         .upsert(fullPayloads, { onConflict: 'id' });
 
       if (error) {
+        if (isSupabaseNetworkError(error)) {
+          return { success: false, error: formatSupabaseErrorMessage(error), count: 0 };
+        }
         // If the table lacks some columns like is_available or rating, retry with standard base columns
         const basePayloads = items.map(item => ({
           id: item.id,
@@ -370,13 +459,13 @@ export const db = {
 
         if (fallbackRes.error) {
           console.error('❌ Erreur Supabase syncAllMenuItems:', fallbackRes.error);
-          return { success: false, error: fallbackRes.error.message, count: 0 };
+          return { success: false, error: formatSupabaseErrorMessage(fallbackRes.error.message), count: 0 };
         }
       }
 
       return { success: true, count: items.length };
     } catch (e: any) {
-      return { success: false, error: e.message, count: 0 };
+      return { success: false, error: formatSupabaseErrorMessage(e.message || 'Erreur inconnue'), count: 0 };
     }
   },
 
@@ -492,13 +581,17 @@ export const db = {
     if (data.customWhatsApp) await db.saveSetting('custom_whatsapp', data.customWhatsApp);
 
     if (errors.length > 0) {
-      const isFailedToFetch = errors.some(e => e.includes('Failed to fetch') || e.includes('NetworkError'));
-      const advice = isFailedToFetch
-        ? "\n\n💡 Note : L'erreur 'Failed to fetch' signifie que votre projet Supabase est injoignable. Si votre projet est sur l'offre gratuite, connectez-vous sur https://supabase.com/dashboard et cliquez sur 'Restore / Unpause Project' pour le réactiver."
+      const isNetworkIssue = errors.some(e => isSupabaseNetworkError(e));
+      const targetUrl = getSupabaseConfig().url;
+      const advice = isNetworkIssue
+        ? `\n\n💡 Cause de l'erreur : Le serveur Supabase (${targetUrl}) est actuellement inaccessible ("Load failed" / échec DNS).\n` +
+          `• Si votre projet gratuit Supabase est en PAUSE (très courant après 7 jours sans visite) : rendez-vous sur https://supabase.com/dashboard et cliquez sur "Restore project" (réveil en 1 minute).\n` +
+          `• Si vous avez créé un nouveau projet Supabase : collez sa nouvelle URL et sa clé anon dans l'onglet "Clés & Connexion".\n` +
+          `• 🛡️ Rassurez-vous : vos 35 plats, votre Plat du Jour et vos réglages sont 100% conservés et opérationnels en local sur votre appareil !`
         : "";
       return {
         success: false,
-        message: `Synchronisation partielle avec des avertissements : ${errors.join(', ')}${advice}`,
+        message: `Synchronisation partielle avec des avertissements : ${errors.map(e => formatSupabaseErrorMessage(e, targetUrl)).join(', ')}${advice}`,
         errors
       };
     }

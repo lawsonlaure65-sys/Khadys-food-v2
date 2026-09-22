@@ -11,7 +11,8 @@ import {
   MapPin, Clock, Heart, Sliders, DollarSign, MessageCircle, AlertCircle,
   UserRound, Save, ToggleLeft as Toggle, Image as ImageIcon, BookOpen, HelpCircle,
   ShieldAlert, AlertTriangle, BarChart3, LineChart as LineChartIcon, ArrowUpRight, Database,
-  Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight, Keyboard, Command
+  Sun, Moon, Gift, Share2, ToggleLeft, ToggleRight, ArrowRight, Keyboard, Command,
+  ExternalLink
 } from 'lucide-react';
 import { MenuItem, AdminView, Order, Review, MenuCategory, OrderStatus, BlogArticle, FaqItem } from '../types';
 import { KhadyLogo } from './KhadyLogo';
@@ -25,6 +26,7 @@ import {
   getSupabaseClient, 
   setCustomSupabaseCredentials, 
   testSupabaseConnection,
+  isSupabaseNetworkError,
   DEFAULT_SUPABASE_URL,
   DEFAULT_SUPABASE_KEY
 } from '../lib/supabase';
@@ -1872,16 +1874,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </div>
 
                   {masterSyncResult && (
-                    <div className={`p-4 rounded-xl text-xs font-medium border animate-fade-in ${
-                      masterSyncResult.success 
-                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
-                        : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
-                    }`}>
-                      <div className="font-bold flex items-center gap-2">
-                        {masterSyncResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
-                        <span>{masterSyncResult.success ? 'Succès de la synchronisation !' : 'Erreur de synchronisation'}</span>
+                    <div className="space-y-3 animate-fade-in">
+                      <div className={`p-4 rounded-xl text-xs font-medium border ${
+                        masterSyncResult.success 
+                          ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
+                          : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
+                      }`}>
+                        <div className="font-bold flex items-center gap-2">
+                          {masterSyncResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
+                          <span>{masterSyncResult.success ? 'Succès de la synchronisation !' : 'Erreur de synchronisation Cloud'}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-relaxed whitespace-pre-line opacity-95">{masterSyncResult.message}</p>
                       </div>
-                      <p className="mt-1 text-[11px] opacity-90">{masterSyncResult.message}</p>
+
+                      {!masterSyncResult.success && isSupabaseNetworkError(masterSyncResult.message) && (
+                        <div className="p-4 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-200 text-xs space-y-3">
+                          <div className="font-bold flex items-center gap-2 text-amber-300">
+                            <HelpCircle size={16} className="shrink-0" />
+                            <span>Que signifie l'erreur "Load failed" ?</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-white/90">
+                            Sur iPhone / Safari, le message <b>"TypeError: Load failed"</b> signifie que votre appareil ne parvient pas à joindre le serveur Supabase (adresse inaccessible ou projet éteint).
+                          </p>
+                          <div className="bg-black/40 p-3 rounded-lg border border-amber-500/30 text-[10px] space-y-2 text-white/85">
+                            <p className="font-bold text-amber-400 uppercase tracking-wide">💡 Les étapes pour rétablir la connexion :</p>
+                            <p><b>1. Réveiller le projet :</b> Sur l'offre gratuite de Supabase, tout projet inactif pendant 7 jours est automatiquement mis en <b>PAUSE</b>. Cliquez ci-dessous pour ouvrir Supabase et cliquer sur <b>"Restore project"</b> (1 min).</p>
+                            <p><b>2. Nouveau projet :</b> Si vous avez recréé un projet avec une nouvelle adresse, collez sa nouvelle URL et sa clé anon dans l'onglet <b>"Clés & Connexion"</b>.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <a
+                              href="https://supabase.com/dashboard"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-2 bg-brand-gold text-brand-brown rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-400 transition-all shadow-md"
+                            >
+                              <ExternalLink size={13} /> Ouvrir Tableau de Bord Supabase
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => { playSound('pop'); setActiveCloudTab('credentials'); }}
+                              className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all border border-white/10"
+                            >
+                              <Settings size={13} /> Gérer les Clés Supabase
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-emerald-400 flex items-center gap-1.5 pt-1 font-medium">
+                            <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                            <span><b>Rassurez-vous :</b> Vos 35 plats, le Plat du Jour et vos commandes restent 100% enregistrés et fonctionnels sur cet appareil !</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1924,12 +1966,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         Projet Supabase Officiel Khady's Food
                       </h4>
                     </div>
-                    <span className="text-[8px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-                      Prêt & Actif
+                    <span className="text-[8px] bg-brand-gold/20 text-brand-gold font-bold px-2 py-0.5 rounded-full border border-brand-gold/30">
+                      Configuration Prédéfinie
                     </span>
                   </div>
                   <p className="text-[10px] text-white/70">
-                    Plus besoin de copier-coller manuellement ! Cliquez ci-dessous pour injecter instantanément votre projet <code className="text-brand-gold font-mono font-bold">veygphkhehdnxefnnlwo</code> et connecter l'application en 1 seconde :
+                    Plus besoin de copier-coller manuellement ! Cliquez ci-dessous pour injecter votre projet <code className="text-brand-gold font-mono font-bold">veygphkhehdnxefnnlwo</code> et tester sa disponibilité :
                   </p>
                   <button
                     type="button"
@@ -2142,16 +2184,46 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   )}
 
                   {testResult && (
-                    <div className={`p-4 rounded-xl text-xs border animate-fade-in ${
-                      testResult.success 
-                        ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
-                        : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
-                    }`}>
-                      <div className="font-bold flex items-center gap-2">
-                        {testResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
-                        <span>{testResult.success ? 'Connexion réussie !' : 'Échec de connexion'}</span>
+                    <div className="space-y-3 animate-fade-in">
+                      <div className={`p-4 rounded-xl text-xs border ${
+                        testResult.success 
+                          ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' 
+                          : 'bg-rose-950/60 border-rose-500/50 text-rose-200'
+                      }`}>
+                        <div className="font-bold flex items-center gap-2">
+                          {testResult.success ? <CheckCircle2 size={16} className="text-emerald-400" /> : <AlertTriangle size={16} className="text-rose-400" />}
+                          <span>{testResult.success ? 'Connexion réussie !' : 'Échec de connexion Supabase'}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] leading-relaxed whitespace-pre-line">{testResult.message}</p>
                       </div>
-                      <p className="mt-1 text-[11px] leading-relaxed whitespace-pre-line">{testResult.message}</p>
+
+                      {!testResult.success && isSupabaseNetworkError(testResult.message) && (
+                        <div className="p-4 rounded-xl bg-amber-950/60 border border-amber-500/50 text-amber-200 text-xs space-y-3">
+                          <div className="font-bold flex items-center gap-2 text-amber-300">
+                            <HelpCircle size={16} className="shrink-0" />
+                            <span>Que signifie "Load failed" ?</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-white/90">
+                            Sur iPhone (Safari), <b>"Load failed"</b> apparaît quand l'adresse du serveur Supabase ne répond pas ou est introuvable sur Internet.
+                          </p>
+                          <div className="bg-black/40 p-3 rounded-lg border border-amber-500/30 text-[10px] space-y-1.5 text-white/80">
+                            <p className="font-bold text-amber-400 uppercase tracking-wide">💡 Comment débloquer en 1 minute :</p>
+                            <p><b>1.</b> Connectez-vous sur votre compte : <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-brand-gold underline font-bold">supabase.com/dashboard</a></p>
+                            <p><b>2.</b> Si le statut indique <b>"Paused" (En veille)</b>, cliquez sur le bouton vert <b>"Restore project"</b>.</p>
+                            <p><b>3.</b> Si vous avez créé un nouveau projet, copiez sa nouvelle <b>Project URL</b> et sa clé <b>anon public</b> (depuis Project Settings &gt; API) et collez-les dans les champs ci-dessus.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <a
+                              href="https://supabase.com/dashboard"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-3.5 py-2 bg-brand-gold text-brand-brown rounded-lg font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-400 transition-all shadow-md"
+                            >
+                              <ExternalLink size={13} /> Ouvrir Dashboard Supabase (Réactiver)
+                            </a>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
