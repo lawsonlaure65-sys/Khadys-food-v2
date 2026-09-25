@@ -317,26 +317,19 @@ export const CartView: React.FC<CartProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-              {/* WhatsApp instant checkout */}
+            <div className="pt-1">
+              {/* WhatsApp instant checkout - Primary official channel */}
               <button
                 type="button"
                 onClick={() => handleCheckout(true)}
-                className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40 transition-all"
+                className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 transition-all hover:scale-[1.01] active:scale-95"
               >
-                <MessageSquare className="w-4 h-4" />
-                <span>Commander sur WhatsApp</span>
+                <MessageSquare className="w-5 h-5" />
+                <span>COMMANDER SUR WHATSAPP</span>
               </button>
-
-              {/* Direct Web Order */}
-              <button
-                type="button"
-                onClick={() => handleCheckout(false)}
-                className="py-3 px-4 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-950/40 transition-all"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Valider & Suivre en direct</span>
-              </button>
+              <p className="text-[11px] text-center text-stone-400 mt-2">
+                Votre commande sera envoyée instantanément au restaurant sur WhatsApp (+227 74 44 16 21) pour confirmation et livraison rapide.
+              </p>
             </div>
           </div>
         )}
