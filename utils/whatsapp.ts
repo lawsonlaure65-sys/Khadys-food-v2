@@ -1,85 +1,61 @@
-import { Order } from '../types';
-import { RESTAURANT_INFO, BILLO_INFO } from '../constants';
+import { Order, CartItem, MenuItem, TraiteurPackage } from '../types';
+import { RESTAURANT_INFO } from '../constants';
 
-export const cleanPhoneNumber = (phone: string): string => {
-  if (!phone) return RESTAURANT_INFO.whatsappClean;
-  
-  // Remove non-digit characters
-  let digits = phone.replace(/\D/g, '');
-  
-  // Remove leading 00
-  if (digits.startsWith('00')) {
-    digits = digits.slice(2);
-  }
-  
-  // If Niger 8-digit number without country code (e.g. 70032552 or 90202525)
-  if (digits.length === 8) {
-    digits = '227' + digits;
-  }
-  
-  return digits || RESTAURANT_INFO.whatsappClean;
-};
+export function generateWhatsAppOrderLink(order: Order): string {
+  const itemsText = order.items
+    .map(ci => `• ${ci.quantity}x *${ci.item.name}* (${(ci.item.price * ci.quantity).toLocaleString()} FCFA)${ci.spice ? ` [Piment: ${ci.spice}]` : ''}${ci.notes ? ` (Note: ${ci.notes})` : ''}`)
+    .join('\n');
 
-export const getStoredRestaurantWhatsApp = (): { display: string; clean: string } => {
-  const saved = localStorage.getItem('khadys_custom_whatsapp');
-  if (saved && saved.trim()) {
-    const clean = cleanPhoneNumber(saved);
-    return { display: saved, clean };
-  }
-  return {
-    display: RESTAURANT_INFO.whatsapp,
-    clean: RESTAURANT_INFO.whatsappClean
-  };
-};
+  const text = `🍽️ *NOUVELLE COMMANDE KHADY'S FOOD* 🍽️
+Référence: #${order.id}
+Date: ${new Date(order.createdAt).toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
 
-export const buildCustomerConfirmationMessage = (order: Order): string => {
-  let msg = `*Bonjour ${order.customerName} !* 👩‍🍳✨\n\n`;
-  msg += `Votre commande *#${order.id}* d'un montant de *${order.total + order.deliveryFee} F CFA* a bien été reçue par *Khady's Food & Event*.\n\n`;
-  msg += `🔥 *Les Cheffes s'activent actuellement en cuisine pour sa préparation !*\n\n`;
-  msg += `📍 *Destination :* ${order.district}${order.address ? ` (${order.address})` : ''}\n`;
-  msg += `🛵 *Livraison :* Prise en charge par *Billo Express* dès la sortie des fourneaux.\n\n`;
-  msg += `*Détail :*\n`;
-  order.items.forEach(it => {
-    msg += `• ${it.quantity}x ${it.name} (${it.price * it.quantity} F)\n`;
-  });
-  msg += `\nMerci infiniment pour votre confiance et excellent appétit ! 🍲🌟\n`;
-  msg += `_Khady's Food & Event — L'excellence en un clic_`;
-  return msg;
-};
+👤 *Client:* ${order.customerName}
+📞 *Téléphone:* ${order.phone}
+📍 *Quartier:* ${order.district}
+🏠 *Adresse exacte:* ${order.address}
+${order.notes ? `📝 *Remarques:* ${order.notes}\n` : ''}
+📋 *Articles commandés:*
+${itemsText}
 
-export const buildKitchenOrderMessage = (order: Order): string => {
-  let msg = `*Salam Khady's Food ! NOUVELLE COMMANDE EN CUISINE (#${order.id})* 🥘✨\n\n`;
-  msg += `👤 *Client :* ${order.customerName}\n`;
-  msg += `📞 *Téléphone :* ${order.phone}\n`;
-  msg += `📍 *Quartier / Adresse :* ${order.district} - ${order.address || 'Au restaurant'}\n\n`;
-  msg += `📋 *DÉTAIL DU FESTIN :*\n`;
-  order.items.forEach(it => {
-    msg += `• ${it.quantity}x ${it.name} (${it.price * it.quantity} F CFA)\n`;
-  });
-  msg += `\n💰 *Sous-Total Repas :* ${order.total} F CFA\n`;
-  msg += `🛵 *Frais Livraison Billo :* ${order.deliveryFee} F CFA\n`;
-  msg += `💵 *TOTAL NET À RECOUVRER :* ${order.total + order.deliveryFee} F CFA\n`;
-  msg += `💳 *Mode de Paiement :* ${order.paymentMethod}\n`;
-  if (order.paymentTransactionId) {
-    msg += `📌 *Réf Transaction / Dépôt :* ${order.paymentTransactionId}\n`;
-  }
-  msg += `\n👩‍🍳 *Action requise :* Lancer la préparation en cuisine immédiatement !`;
-  return msg;
-};
+💰 *Sous-total:* ${order.subtotal.toLocaleString()} FCFA
+🛵 *Frais de livraison:* ${order.deliveryFee.toLocaleString()} FCFA
+⭐ *TOTAL À RÉGLER:* *${order.totalAmount.toLocaleString()} FCFA*
+💳 *Mode de paiement:* ${order.paymentMethod.toUpperCase()}
 
-export const buildBilloDispatchMessage = (order: Order): string => {
-  let msg = `*Bonjour Billo Express ! DEMANDE DE COURSE LIVRAISON (#${order.id})* 🏍️💨\n\n`;
-  msg += `👤 *Client :* ${order.customerName}\n`;
-  msg += `📞 *Téléphone Client :* ${order.phone}\n`;
-  msg += `📍 *Adresse de Livraison :* ${order.district} - ${order.address || 'Plateau'}\n`;
-  msg += `🏢 *Point de Ramassage :* Khady's Food (Grande mosquée Muamar Kadafi, Niamey)\n`;
-  msg += `💵 *Montant Total :* ${order.total + order.deliveryFee} F CFA (${order.paymentMethod})\n`;
-  msg += `\nMerci de dépêcher un coursier pour l'enlèvement !`;
-  return msg;
-};
+_Merci de confirmer la prise en charge et le délai de livraison._`;
 
-export const openWhatsApp = (phone: string, text: string): void => {
-  const clean = cleanPhoneNumber(phone);
-  const url = `https://api.whatsapp.com/send?phone=${clean}&text=${encodeURIComponent(text)}`;
-  window.open(url, '_blank');
-};
+  return `https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=${encodeURIComponent(text)}`;
+}
+
+export function generateWhatsAppTraiteurLink(
+  pkg: TraiteurPackage,
+  details: { guestCount: number; date: string; location: string; name: string; phone: string; notes?: string }
+): string {
+  const totalEstime = (pkg.pricePerPerson * details.guestCount).toLocaleString();
+
+  const text = `🎉 *DEMANDE DE DEVIS SERVICE TRAITEUR KHADY'S EVENT* 🎉
+
+Formule choisie: *${pkg.title}*
+Prix indicatif: ${pkg.pricePerPerson.toLocaleString()} FCFA / invité
+Nombre de convives: *${details.guestCount} personnes*
+Budget estimatif: *~${totalEstime} FCFA*
+
+📅 *Date de l'événement:* ${details.date}
+📍 *Lieu / Salle:* ${details.location}
+👤 *Nom:* ${details.name}
+📞 *Contact:* ${details.phone}
+${details.notes ? `💬 *Souhaits spécifiques:* ${details.notes}` : ''}
+
+Bonjour l'équipe Khady's Event, je souhaite recevoir une proposition détaillée et échanger sur notre réception.`;
+
+  return `https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=${encodeURIComponent(text)}`;
+}
+
+export function shareDishOnWhatsApp(item: MenuItem): void {
+  const text = `Découvre ce délicieux plat chez *KHADY'S FOOD* à Niamey :
+🍛 *${item.name}* (${item.price.toLocaleString()} FCFA)
+"${item.description}"
+👉 Commande directement avec livraison rapide à Niamey !`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}

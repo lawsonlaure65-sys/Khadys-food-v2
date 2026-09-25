@@ -1,1216 +1,779 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import Navbar from './components/Navbar';
-import AIChat from './components/AIChat';
-import AdminDashboard from './components/AdminDashboard';
+import React, { useState, useEffect, useRef } from 'react';
+import { MenuItem, CartItem, Order, ToastMessage } from './types';
+import { INITIAL_MENU_ITEMS, RESTAURANT_INFO } from './constants';
+import { loadStoredMenuItems, saveStoredMenuItems, loadStoredOrders, saveStoredOrders } from './utils/offlineDB';
+import { Navbar } from './components/Navbar';
+import { MenuView } from './components/MenuView';
+import { TraiteurView } from './components/TraiteurView';
+import { OrderTracking } from './components/OrderTracking';
+import { AdminDashboard } from './components/AdminDashboard';
+import { ItemDetailsModal } from './components/ItemDetailsModal';
+import { CartView } from './components/CartView';
+import { ToastContainer } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import MenuView from './components/MenuView';
-import CartView from './components/CartView';
-import AccountView from './components/AccountView';
-import TraiteurView from './components/TraiteurView';
-import GuideView from './components/GuideView';
-import GalleryView from './components/GalleryView';
-import VideoDemoView from './components/VideoDemoView';
-import WhatsAppAutomationView from './components/WhatsAppAutomationView';
-import BlogView, { INITIAL_BLOG_ARTICLES } from './components/BlogView';
-import FaqView, { INITIAL_FAQS } from './components/FaqView';
-import SettingsView from './components/SettingsView';
-import ItemDetailsModal from './components/ItemDetailsModal';
-import UpsellModal from './components/UpsellModal';
-import OrderNotificationModal from './components/OrderNotificationModal';
 import { VoiceOrderModal } from './components/VoiceOrderModal';
-import { LiveDriverMapModal } from './components/LiveDriverMapModal';
-import { SatisfactionSurveyModal } from './components/SatisfactionSurveyModal';
-import { QrLoyaltyModal } from './components/QrLoyaltyModal';
-import { PushNotificationManager } from './components/PushNotificationManager';
-import Receipt from './components/Receipt';
-import Toast, { ToastType } from './components/Toast';
-import DeliveryEstimator from './components/DeliveryEstimator';
-import ReviewsSection from './components/ReviewsSection';
-import PromotionCalendar from './components/PromotionCalendar';
-import FlashOffer from './components/FlashOffer';
-import { MenuDuJourTrio } from './components/MenuDuJourTrio';
-import { Page, MenuItem, Order, Review, CartItem, UserProfile, BlogArticle, FaqItem } from './types';
-import { MENU_ITEMS, REVIEWS, LOGO_URL, POINTS_PER_1000, RESTAURANT_INFO } from './constants';
-import { playSound } from './utils/audio';
-import { db, isSupabaseConfigured, getSupabaseClient, getSupabaseConfig } from './lib/supabase';
-import { ShoppingBag, User as UserIcon, Heart, Utensils, Star, Sparkles, Navigation, Image as ImageIcon, Video, MessageSquare, Moon, Sun, ShieldCheck, Zap, BookOpen, Settings, Bell, Mic, WifiOff, Database } from 'lucide-react';
-import { 
-  saveMenuToIDB, 
-  getMenuFromIDB, 
-  saveCartToIDB, 
-  getCartFromIDB, 
-  savePendingOrderToIDB, 
-  getPendingOrdersFromIDB, 
-  clearPendingOrdersFromIDB 
-} from './utils/offlineDB';
+import { PushNotificationsModal } from './components/PushNotificationsModal';
+import { GalleryView } from './components/GalleryView';
+import { Demo4kView } from './components/Demo4kView';
+import { ProfileModal } from './components/ProfileModal';
+import { BlogModal } from './components/BlogModal';
+import { ContactModal } from './components/ContactModal';
+import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
+import {
+  Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
+  ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
+  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings
+} from 'lucide-react';
 
-import { getStoredBanner, AnnouncementBanner } from './utils/marketing';
-import { decodeSharedCart } from './utils/cartShare';
-
-const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
-  const [marketingBanner, setMarketingBanner] = useState<AnnouncementBanner>(() => getStoredBanner());
-  
-  // Persistent items (menu dishes) initialization with multi-tier storage fallback
-  const [items, setItems] = useState<MenuItem[]>(() => {
-    // 1. Load any custom dishes created by the user
-    let customDishes: MenuItem[] = [];
-    try {
-      const customRaw = localStorage.getItem('khadys_custom_user_dishes');
-      if (customRaw) {
-        const parsedCustom = JSON.parse(customRaw);
-        if (Array.isArray(parsedCustom)) customDishes = parsedCustom;
-      }
-    } catch (e) {}
-
-    // 2. Try reading primary localStorage or emergency backup
-    let localSavedDishes: MenuItem[] = [];
-    const saved = localStorage.getItem('khadys_menu_items') || localStorage.getItem('khadys_menu_emergency_backup');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          localSavedDishes = parsed;
-        }
-      } catch (e) {
-        console.warn('Erreur lecture khadys_menu_items depuis localStorage', e);
-      }
-    }
-
-    // 3. Consolidate: official MENU_ITEMS (70+) + custom dishes + local saved dishes without duplication
-    const map = new Map<string, MenuItem>();
-    MENU_ITEMS.forEach(m => map.set(m.id, m));
-    localSavedDishes.forEach(m => { if (m && m.id) map.set(m.id, m); });
-    customDishes.forEach(m => { if (m && m.id) map.set(m.id, m); });
-
-    const consolidated = Array.from(map.values());
-    try {
-      localStorage.setItem('khadys_menu_items', JSON.stringify(consolidated));
-    } catch (e) {}
-    return consolidated;
-  });
-
+export const App: React.FC = () => {
+  // Master reactive state for menu items (synced with offline storage)
+  const [items, setItems] = useState<MenuItem[]>(() => loadStoredMenuItems());
   const [cart, setCart] = useState<CartItem[]>([]);
-  
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('khadys_orders');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return [];
+  const [orders, setOrders] = useState<Order[]>(() => loadStoredOrders());
+  const [activeTab, setActiveTab] = useState<string>('accueil');
+  const [selectedItemForModal, setSelectedItemForModal] = useState<MenuItem | null>(null);
+
+  // Modals & Panels state
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [isPushOpen, setIsPushOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isBlogOpen, setIsBlogOpen] = useState(false);
+  const [isContactOpen, setIsContactOpen] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+
+  const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
+    const list = loadStoredOrders();
+    return list.length > 0 ? list[list.length - 1] : null;
   });
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  const [reviews, setReviews] = useState<Review[]>(() => {
-    const saved = localStorage.getItem('khadys_reviews');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return REVIEWS;
-  });
+  // Ref for smooth horizontal scrolling of rectangles
+  const rectanglesContainerRef = useRef<HTMLDivElement>(null);
 
-  const [blogArticles, setBlogArticles] = useState<BlogArticle[]>(() => {
-    const saved = localStorage.getItem('khadys_blog_articles');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_BLOG_ARTICLES;
-  });
-
-  const [faqs, setFaqs] = useState<FaqItem[]>(() => {
-    const saved = localStorage.getItem('khadys_faqs');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
-    }
-    return INITIAL_FAQS;
-  });
-
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    return localStorage.getItem('khady_dark_mode') === 'true';
-  });
-
-  const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: 'Abdou R.',
-    phone: '+227 90 00 00 00',
-    points: 1250,
-    rank: 'Gold',
-    referralCode: 'KHADY-GOLD'
-  });
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-  const [isUpsellOpen, setIsUpsellOpen] = useState(false);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
-  const [notificationOrder, setNotificationOrder] = useState<Order | null>(null);
-  const [toast, setToast] = useState<{ message: string, type: ToastType } | null>(null);
-  const [activeMenuSection, setActiveMenuSection] = useState('CARTE');
-  const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
-
-  // Modals for new feature requests
-  const [showVoiceModal, setShowVoiceModal] = useState(false);
-  const [showLiveDriverMapModal, setShowLiveDriverMapModal] = useState(false);
-  const [showSurveyModal, setShowSurveyModal] = useState(false);
-  const [showQrLoyaltyModal, setShowQrLoyaltyModal] = useState(false);
-  const [showPushNotificationModal, setShowPushNotificationModal] = useState(false);
-
-  const [greetingIndex, setGreetingIndex] = useState(0);
-  const greetings = ["SALAM 👋🏾", "BONJOUR 👋🏾", "BARKA 👋🏾", "FOFO 👋🏾", "VOTRE FESTIN ? 🥘"];
-
-  // Offline Mode & IndexedDB Initialization
+  // Brief initial splash display matching Screenshot 3
   useEffect(() => {
-    const handleOnline = async () => {
-      setIsOffline(false);
-      setToast({ message: 'Connexion Internet rétablie ! Sync en cours...', type: 'success' });
-      // Synchronisation des commandes enregistrées hors-ligne dans IndexedDB
-      const pendingOrders = await getPendingOrdersFromIDB();
-      if (pendingOrders.length > 0) {
-        if (isSupabaseConfigured) {
-          for (const ord of pendingOrders) {
-            try {
-              await db.placeOrder(ord);
-            } catch {
-              // Ignore errors
-            }
-          }
-        }
-        await clearPendingOrdersFromIDB();
-        setToast({ message: `${pendingOrders.length} commande(s) hors-ligne synchronisée(s) !`, type: 'success' });
-      }
-    };
-
-    const handleOffline = () => {
-      setIsOffline(true);
-      setToast({ message: 'Mode Hors-ligne Actif — Consultation de la carte & panier disponibles (IndexedDB)', type: 'info' });
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // BroadcastChannel listener for real-time order alerts across tabs/windows
-    let orderChannel: BroadcastChannel | null = null;
-    if ('BroadcastChannel' in window) {
-      orderChannel = new BroadcastChannel('khadys_orders_channel');
-      orderChannel.onmessage = (event) => {
-        if (event.data && event.data.type === 'NEW_ORDER' && event.data.order) {
-          const incomingOrder = event.data.order;
-          setOrders(prev => {
-            if (prev.some(o => o.id === incomingOrder.id)) return prev;
-            return [incomingOrder, ...prev];
-          });
-          setNotificationOrder(incomingOrder);
-          playSound('orderAlert');
-          setToast({ message: `🔔 ALERTE DIRECTE : Nouvelle commande #${incomingOrder.id} (${incomingOrder.total} F CFA) !`, type: 'success' });
-        }
-      };
-    }
-
-    // Synchronisation IndexedDB, LocalStorage, Panier Partagé & Cloud Supabase au démarrage
-    const initStorageAndCloudSync = async () => {
-      // 0. Vérifier la présence d'un panier partagé via lien URL (?shared_cart=... ou ?cart=...)
-      let hasLoadedSharedCart = false;
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const sharedCartData = urlParams.get('shared_cart') || urlParams.get('cart');
-        if (sharedCartData) {
-          const decodedItems = decodeSharedCart(sharedCartData);
-          if (decodedItems && decodedItems.length > 0) {
-            setCart(decodedItems);
-            await saveCartToIDB(decodedItems);
-            setCurrentPage(Page.CART);
-            hasLoadedSharedCart = true;
-            playSound('cash');
-            setToast({
-              message: `🎁 Panier partagé chargé avec succès (${decodedItems.length} plat${decodedItems.length > 1 ? 's' : ''}) !`,
-              type: 'success'
-            });
-            // Nettoyer l'URL proprement sans recharger la page
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete('shared_cart');
-            cleanUrl.searchParams.delete('cart');
-            window.history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.hash);
-          }
-        }
-      } catch (e) {
-        console.warn('Erreur lecture panier partagé:', e);
-      }
-
-      // 1. Charger le panier sauvegardé en local dans IndexedDB si aucun panier partagé reçu
-      if (!hasLoadedSharedCart) {
-        const cachedCart = await getCartFromIDB();
-        if (cachedCart && cachedCart.length > 0) {
-          setCart(cachedCart);
-        }
-      }
-
-      // 2. Synchronisation globale Cloud (Menu, Plat du Jour, Photo Admin, Bannières)
-      try {
-        // Lecture immédiate des sources locales de secours (IndexedDB & LocalStorage)
-        const cachedMenuIDB = await getMenuFromIDB();
-        const localMenuRaw = localStorage.getItem('khadys_menu_items');
-        let localMenuParsed: MenuItem[] = [];
-        if (localMenuRaw) {
-          try {
-            localMenuParsed = JSON.parse(localMenuRaw);
-          } catch (e) {}
-        }
-
-        // Consolidation sans perte de données : on combine IDB + LocalStorage + MENU_ITEMS par identifiant
-        const consolidatedMap = new Map<string, MenuItem>();
-        MENU_ITEMS.forEach(m => consolidatedMap.set(m.id, m));
-        if (Array.isArray(cachedMenuIDB)) {
-          cachedMenuIDB.forEach(m => { if (m && m.id) consolidatedMap.set(m.id, m); });
-        }
-        if (Array.isArray(localMenuParsed)) {
-          localMenuParsed.forEach(m => { if (m && m.id) consolidatedMap.set(m.id, m); });
-        }
-
-        const consolidatedLocalItems = Array.from(consolidatedMap.values());
-        if (consolidatedLocalItems.length > 0) {
-          setItems(prev => {
-            const map = new Map<string, MenuItem>();
-            consolidatedLocalItems.forEach(i => map.set(i.id, i));
-            prev.forEach(i => map.set(i.id, i));
-            return Array.from(map.values());
-          });
-        }
-
-        const config = getSupabaseConfig();
-        if (config.isValid) {
-          // A. Synchronisation du Menu Cloud (avec FUSION strictly additive pour ne JAMAIS écraser de plats locaux)
-          try {
-            const cloudMenu = await db.fetchMenu();
-            if (cloudMenu && cloudMenu.length > 0) {
-              setItems(prev => {
-                const map = new Map<string, MenuItem>();
-                // 1. Plats locaux existants conservés en priorité
-                prev.forEach(i => map.set(i.id, i));
-                // 2. Enrichissement depuis le Cloud
-                cloudMenu.forEach(i => map.set(i.id, i));
-                const merged = Array.from(map.values());
-                saveMenuToIDB(merged);
-                try {
-                  localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
-                } catch (e) {}
-                return merged;
-              });
-            }
-          } catch (e) {
-            console.warn('Erreur fetch cloud menu:', e);
-          }
-
-          // B. Synchronisation du Plat du Jour Cloud
-          try {
-            const cloudPlat = await db.fetchPlatDuJour();
-            if (cloudPlat && cloudPlat.dishName) {
-              localStorage.setItem('khadys_plat_du_jour', JSON.stringify(cloudPlat));
-              window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: cloudPlat }));
-            }
-          } catch (e) {}
-
-          // C. Synchronisation de la Photo de Profil Admin Cloud
-          try {
-            const cloudAvatar = await db.fetchAdminAvatar();
-            if (cloudAvatar) {
-              localStorage.setItem('khadys_admin_avatar', cloudAvatar);
-              window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: cloudAvatar }));
-            }
-          } catch (e) {}
-
-          // D. Synchronisation des Paramètres Marketing (Bannière, Flash Deal, Codes Promo)
-          try {
-            const cloudBanner = await db.fetchSetting('announcement_banner');
-            if (cloudBanner) localStorage.setItem('khadys_announcement_banner', JSON.stringify(cloudBanner));
-
-            const cloudFlash = await db.fetchSetting('flash_deal');
-            if (cloudFlash) localStorage.setItem('khadys_flash_deal', JSON.stringify(cloudFlash));
-
-            const cloudPromos = await db.fetchSetting('promo_codes');
-            if (cloudPromos) localStorage.setItem('khadys_promo_codes', JSON.stringify(cloudPromos));
-          } catch (e) {}
-        }
-      } catch (err) {
-        console.warn('Erreur synchronisation menu hors-ligne:', err);
-      }
-    };
-
-    initStorageAndCloudSync();
-
-    // 3. Écouteur Temps Réel Supabase (Menu, App Settings, Commandes)
-    let realtimeMenuChannel: any = null;
-    let realtimeSettingsChannel: any = null;
-
-    const setupRealtime = () => {
-      const client = getSupabaseClient();
-      if (!client) return;
-
-      try {
-        realtimeMenuChannel = client
-          .channel('public_menu_sync')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, async () => {
-            const updated = await db.fetchMenu();
-            if (updated && updated.length > 0) {
-              // FUSION STRICTE : ne jamais écraser les plats locaux de l'utilisateur !
-              setItems(prev => {
-                const map = new Map<string, MenuItem>();
-                prev.forEach(i => map.set(i.id, i));
-                updated.forEach(i => map.set(i.id, i));
-                const merged = Array.from(map.values());
-                saveMenuToIDB(merged);
-                try {
-                  localStorage.setItem('khadys_menu_items', JSON.stringify(merged));
-                } catch (e) {}
-                return merged;
-              });
-            }
-          })
-          .subscribe();
-
-        realtimeSettingsChannel = client
-          .channel('public_settings_sync')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, (payload: any) => {
-            if (payload?.new) {
-              const { key, value } = payload.new;
-              if (key === 'plat_du_jour' && value) {
-                localStorage.setItem('khadys_plat_du_jour', JSON.stringify(value));
-                window.dispatchEvent(new CustomEvent('khadys_plat_du_jour_updated', { detail: value }));
-              } else if (key === 'admin_avatar' && value) {
-                localStorage.setItem('khadys_admin_avatar', value);
-                window.dispatchEvent(new CustomEvent('khadys_admin_avatar_updated', { detail: value }));
-              } else if (key === 'announcement_banner' && value) {
-                localStorage.setItem('khadys_announcement_banner', JSON.stringify(value));
-              } else if (key === 'flash_deal' && value) {
-                localStorage.setItem('khadys_flash_deal', JSON.stringify(value));
-              } else if (key === 'promo_codes' && value) {
-                localStorage.setItem('khadys_promo_codes', JSON.stringify(value));
-              }
-            }
-          })
-          .subscribe();
-      } catch (e) {
-        console.warn('Realtime subscription error:', e);
-      }
-    };
-
-    setupRealtime();
-
-    const handleConfigChange = () => {
-      initStorageAndCloudSync();
-      setupRealtime();
-    };
-
-    window.addEventListener('khadys_supabase_config_changed', handleConfigChange);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('khadys_supabase_config_changed', handleConfigChange);
-      if (realtimeMenuChannel) realtimeMenuChannel.unsubscribe?.();
-      if (realtimeSettingsChannel) realtimeSettingsChannel.unsubscribe?.();
-    };
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1100);
+    return () => clearTimeout(timer);
   }, []);
 
-  // Sauvegarde automatique du panier dans IndexedDB à chaque modification
+  // Sync items changes to offline storage
   useEffect(() => {
-    saveCartToIDB(cart);
-  }, [cart]);
-
-  // Sauvegarde automatique du menu dans IndexedDB & LocalStorage à chaque modification
-  useEffect(() => {
-    if (items && items.length > 0) {
-      // 1. Toujours sauvegarder dans IndexedDB en premier (capacité illimitée)
-      saveMenuToIDB(items).catch(err => console.warn('Erreur saveMenuToIDB:', err));
-
-      // 2. Sauvegarder dans LocalStorage avec sécurisation contre le dépassement de quota
-      try {
-        localStorage.setItem('khadys_menu_items', JSON.stringify(items));
-        // Sauvegarde de secours légère sans data-URLs volumineuses
-        const light = items.map(it => ({
-          ...it,
-          image: (it.image && it.image.startsWith('data:image') && it.image.length > 40000)
-            ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
-            : it.image
-        }));
-        localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(light));
-      } catch (err) {
-        console.warn('Quota LocalStorage dépassé. Sauvegarde de la version optimisée...');
-        try {
-          const lightItems = items.map(it => ({
-            ...it,
-            image: (it.image && it.image.startsWith('data:image'))
-              ? 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'
-              : it.image
-          }));
-          localStorage.setItem('khadys_menu_items', JSON.stringify(lightItems));
-          localStorage.setItem('khadys_menu_emergency_backup', JSON.stringify(lightItems));
-        } catch (e) {
-          console.warn('Secours LocalStorage non disponible:', e);
-        }
-      }
-    }
+    saveStoredMenuItems(items);
   }, [items]);
 
-  // Sauvegarde automatique des commandes dans LocalStorage
+  // Sync orders to offline storage
   useEffect(() => {
-    try {
-      localStorage.setItem('khadys_orders', JSON.stringify(orders));
-    } catch (e) {
-      console.warn('Erreur sauvegarde orders LocalStorage', e);
-    }
+    saveStoredOrders(orders);
   }, [orders]);
 
-  // Sauvegarde automatique des avis dans LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('khadys_reviews', JSON.stringify(reviews));
-    } catch (e) {
-      console.warn('Erreur sauvegarde reviews LocalStorage', e);
-    }
-  }, [reviews]);
-
-  // Sauvegarde automatique des articles du blog dans LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('khadys_blog_articles', JSON.stringify(blogArticles));
-    } catch (e) {
-      console.warn('Erreur sauvegarde blogArticles LocalStorage', e);
-    }
-  }, [blogArticles]);
-
-  // Sauvegarde automatique des FAQs dans LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('khadys_faqs', JSON.stringify(faqs));
-    } catch (e) {
-      console.warn('Erreur sauvegarde faqs LocalStorage', e);
-    }
-  }, [faqs]);
-
-  // Toggle Dark Mode
-  const toggleDarkMode = () => {
-    playSound('pop');
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    localStorage.setItem('khady_dark_mode', String(newMode));
-  };
-
-  // Chargement des commandes Cloud en arrière-plan sans écraser les données locales
-  useEffect(() => {
-    const loadCloudOrders = async () => {
-      if (isSupabaseConfigured) {
-        try {
-          const cloudOrders = await db.fetchOrders();
-          if (cloudOrders && cloudOrders.length > 0) {
-            setOrders(prev => {
-              const orderMap = new Map<string, Order>();
-              cloudOrders.forEach(o => orderMap.set(o.id, o));
-              prev.forEach(o => orderMap.set(o.id, o));
-              return Array.from(orderMap.values());
-            });
-          }
-        } catch {
-          // Utilisation du mode local par défaut
-        }
-      }
-    };
-    loadCloudOrders();
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGreetingIndex((prev) => (prev + 1) % greetings.length);
+  const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => {
+    const id = `t-${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, type, title, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
     }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const showToast = (message: string, type: ToastType = 'success') => {
-    setToast({ message, type });
   };
 
-  const handleAddToCart = (item: MenuItem, quantity: number, instructions: string) => {
-    const cartItem: CartItem = { ...item, quantity, instructions };
-    setCart(prev => [...prev, cartItem]);
-    showToast(`${quantity}x ${item.name} ajouté !`);
-    playSound('pop');
-    
-    if (item.category === 'Plat Africain' || item.category === 'Spécialité Maison') {
-      setIsUpsellOpen(true);
-    }
-  };
-
-  const handleOrderPlace = async (order: Order) => {
-    setOrders(prev => [order, ...prev]);
-    setLastOrder(order);
-    
-    // Trigger Instant Audible & Visual Order Notification Alert
-    setNotificationOrder(order);
-    playSound('orderAlert');
-
-    // Broadcast order across all browser windows & tabs
-    try {
-      if ('BroadcastChannel' in window) {
-        const channel = new BroadcastChannel('khadys_orders_channel');
-        channel.postMessage({ type: 'NEW_ORDER', order });
-        channel.close();
+  // Add to cart handler
+  const handleAddToCart = (
+    item: MenuItem,
+    quantity = 1,
+    spice?: 'doux' | 'moyen' | 'pimenté',
+    notes?: string
+  ) => {
+    setCart(prev => {
+      const existingIdx = prev.findIndex(ci => ci.item.id === item.id && ci.spice === spice && ci.notes === notes);
+      if (existingIdx >= 0) {
+        const next = [...prev];
+        next[existingIdx].quantity += quantity;
+        return next;
       }
-    } catch (err) {
-      console.warn("BroadcastChannel error:", err);
-    }
-
-    // Trigger Browser Notification if permission granted
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        new Notification("🔔 Nouvelle Commande Khady's Food !", {
-          body: `Commande #${order.id} reçue (${order.total} F CFA) pour ${order.customerName}.`,
-          icon: '/manifest-icon-512.png'
-        });
-      } catch (e) {}
-    }
-
-    // Attribution des points : 100 points par 1000 F
-    const pointsEarned = Math.floor(order.total / 1000) * POINTS_PER_1000;
-    
-    setUserProfile(prev => {
-      const newPoints = prev.points + pointsEarned;
-      let newRank = prev.rank;
-      if (newPoints > 5000) newRank = 'Platinum';
-      else if (newPoints > 2000) newRank = 'Gold';
-      else newRank = 'Silver';
-
-      return { ...prev, points: newPoints, rank: newRank };
+      return [...prev, { item, quantity, spice, notes }];
     });
 
-    setCurrentPage(Page.HOME);
-    showToast(`🔔 Commande #${order.id} enregistrée en direct ! +${pointsEarned} points`, 'success');
+    addToast('success', `${quantity}x ${item.name} ajouté(s)`, 'Visible dans votre panier');
+  };
 
-    // Sauvegarde Cloud ou Hors-ligne IndexedDB
-    if (!navigator.onLine) {
-      await savePendingOrderToIDB(order);
-      showToast(`📦 Commande enregistrée en mode Hors-Ligne (IndexedDB) ! Elle sera synchronisée à la reconnexion.`, 'info');
-    } else if (isSupabaseConfigured) {
-      try {
-        await db.placeOrder(order);
-      } catch (e) {
-        console.warn("Avertissement synchronisation commande:", e);
-        await savePendingOrderToIDB(order);
+  // Admin dish handlers
+  const handleSaveItem = (savedItem: MenuItem) => {
+    setItems(prev => {
+      const idx = prev.findIndex(i => i.id === savedItem.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = savedItem;
+        return updated;
+      } else {
+        // Prepend so newly added dishes immediately appear first in the home rectangles!
+        return [savedItem, ...prev];
       }
+    });
+
+    addToast('success', 'Plat enregistré !', `"${savedItem.name}" apparaît maintenant dans les rectangles de l'accueil.`);
+  };
+
+  const handleDeleteItem = (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+    addToast('info', 'Plat supprimé', 'Le menu a été mis à jour.');
+  };
+
+  const handleToggleAvailability = (id: string) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, available: !i.available } : i));
+  };
+
+  const handleToggleFeatured = (id: string) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, isFeatured: !i.isFeatured } : i));
+  };
+
+  // Cart operations
+  const handleUpdateCartQty = (idx: number, newQty: number) => {
+    if (newQty <= 0) {
+      setCart(prev => prev.filter((_, i) => i !== idx));
+    } else {
+      setCart(prev => {
+        const next = [...prev];
+        next[idx].quantity = newQty;
+        return next;
+      });
     }
   };
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case Page.HOME:
-        return (
-          <div className="pb-40 animate-fade-in w-full max-w-2xl mx-auto">
-            {/* Banner Mode Hors-ligne IndexedDB */}
-            {isOffline && (
-              <div className="bg-amber-500 text-brand-brown font-black px-4 py-2.5 text-[10px] uppercase tracking-widest text-center flex items-center justify-center gap-2 shadow-lg mb-2 rounded-2xl mx-4 animate-pulse border border-amber-600">
-                <WifiOff size={14} className="shrink-0" />
-                <span>Mode Hors-ligne Actif — Consultation Carte & Panier Disponibles (IndexedDB)</span>
-                <Database size={14} className="shrink-0 ml-1 text-brand-brown/70" />
-              </div>
-            )}
+  const handleRemoveCartItem = (idx: number) => {
+    setCart(prev => prev.filter((_, i) => i !== idx));
+  };
 
-            {/* Header Elite avec Salutations Alternatives & Main Animée 👋🏾 */}
-            <header className={`sticky top-0 z-50 px-4 sm:px-6 py-4 flex justify-between items-center rounded-b-[2.5rem] shadow-lg mb-6 transition-all duration-300 ${
-              isDarkMode ? 'bg-[#140C0A]/90 border-b border-brand-gold/20 backdrop-blur-xl text-white' : 'glass-card'
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <img src={LOGO_URL} alt="Logo" className="w-11 h-11 rounded-full border-2 border-brand-brown/10 shadow-md object-cover" />
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
-                </div>
-                <div className="flex flex-col">
-                  {/* Salutations rotatives avec main animée */}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base inline-block animate-wave origin-[70%_70%] select-none">
-                      👋🏾
-                    </span>
-                    <span className="text-[10px] font-black text-brand-orange uppercase tracking-wider transition-all duration-300">
-                      {greetings[greetingIndex]}
-                    </span>
-                  </div>
-                  <h1 className={`text-[12px] font-black italic uppercase tracking-tighter leading-none mt-0.5 ${isDarkMode ? 'text-brand-gold' : 'text-brand-brown'}`}>
-                    Khady's Food & Event
-                  </h1>
-                </div>
-              </div>
+  const handleOrderPlaced = (order: Order) => {
+    setOrders(prev => [order, ...prev]);
+    setActiveOrder(order);
+    setCart([]);
+    setIsCartOpen(false);
+    setActiveTab('suivi');
+    addToast('success', 'Commande validée avec succès !', `Réf #${order.id} - En cours de préparation`);
+  };
 
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                {/* Voice Order Quick Button */}
-                <button 
-                  onClick={() => { playSound('pop'); setShowVoiceModal(true); }}
-                  className="w-10 h-10 rounded-xl bg-brand-orange text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
-                  title="Commande Vocale 🎙️"
-                >
-                  <Mic size={18} className="animate-pulse" />
-                </button>
+  // Horizontal scroll buttons for Incontournables
+  const scrollRectangles = (direction: 'left' | 'right') => {
+    if (rectanglesContainerRef.current) {
+      const offset = direction === 'left' ? -320 : 320;
+      rectanglesContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+    }
+  };
 
-                {/* Push Notification Button */}
-                <button 
-                  onClick={() => { playSound('pop'); setShowPushNotificationModal(true); }}
-                  className="w-10 h-10 rounded-xl bg-brand-gold text-brand-brown flex items-center justify-center shadow-lg active:scale-90 transition-transform relative"
-                  title="Notifications Push 🔔"
-                >
-                  <Bell size={18} className="animate-bounce" />
-                </button>
+  // The featured items for the Home page rectangles:
+  // Shows featured, popular, or newly added items first!
+  const displayedIncontournables = items.filter(it => it.isFeatured || it.isPopular).concat(
+    items.filter(it => !it.isFeatured && !it.isPopular)
+  );
 
-                {/* Night Luxe Mode Toggle */}
-                <button 
-                  onClick={toggleDarkMode}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                    isDarkMode ? 'bg-white/10 text-brand-gold' : 'bg-brand-brown/5 text-brand-brown hover:bg-brand-brown/10'
-                  }`}
-                  title="Thème Nuit Or"
-                >
-                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                </button>
+  return (
+    <ErrorBoundary fallbackTitle="Une erreur inattendue est survenue dans l'application">
+      {/* 1. Splash Screen matching Screenshot 3 */}
+      {showSplash && (
+        <div className="fixed inset-0 z-50 bg-[#35201A] flex items-center justify-center animate-fade-out pointer-events-none">
+          <div className="text-center space-y-4 animate-scale-up">
+            <KhadyOriginalLogo size={180} withSquircle={true} className="shadow-2xl mx-auto" />
+          </div>
+        </div>
+      )}
 
-                <button onClick={() => { playSound('pop'); setCurrentPage(Page.COMPTE); }} className="w-10 h-10 bg-brand-brown text-brand-gold rounded-xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
-                  <UserIcon size={18}/>
-                </button>
-              </div>
-            </header>
+      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-24 md:pb-12">
+        {/* Navigation Bar matching Screenshot 1 & 2 */}
+        <Navbar
+          currentTab={activeTab}
+          onTabChange={setActiveTab}
+          cartCount={cart.reduce((sum, ci) => sum + ci.quantity, 0)}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenVoice={() => setIsVoiceOpen(true)}
+          onOpenNotifications={() => setIsPushOpen(true)}
+          onOpenProfile={() => setIsAdminOpen(true)} // Directly opens Admin console or Profile
+        />
 
-            {/* Banner Hero */}
-            <div className="px-4 sm:px-6 mb-4 overflow-hidden">
-              <div className="relative h-60 rounded-[3rem] shadow-2xl overflow-hidden group cursor-pointer border-2 border-brand-gold/20" onClick={() => setCurrentPage(Page.MENU)}>
-                <div className="absolute inset-0 z-10 bg-gradient-to-r from-black/85 via-black/40 to-transparent"></div>
-                <img 
-                  src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=1000" 
-                  className="absolute inset-0 w-full h-full object-cover animate-zoom-dezoom" 
-                  alt="Banner" 
+        {/* Content View Switching */}
+        <main className="flex-1">
+          {activeTab === 'accueil' && (
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-5 sm:space-y-6">
+              
+              {/* 1. HERO CARD (Screenshot 1 & 2: "L'EXCELLENCE À NIAMEY", "LE GOÛT DES ROIS", "COMMANDER MAINTENANT ↗") */}
+              <section className="relative rounded-[34px] sm:rounded-[38px] overflow-hidden border-2 border-amber-500/50 shadow-2xl bg-[#19120E] aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[460px]">
+                <img
+                  src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1400&q=85"
+                  alt="Le Goût des Rois - Grillades Khady"
+                  className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 z-20 flex flex-col justify-center px-8 sm:px-10">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles size={14} className="text-brand-gold animate-pulse" />
-                    <span className="bg-brand-orange text-white text-[8px] font-black px-4 py-1.5 rounded-full uppercase italic tracking-widest shadow-lg">L'Excellence à Niamey</span>
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl font-black text-white italic uppercase tracking-tighter leading-[0.9] mb-4">
-                    LE GOÛT <br/><span className="text-brand-gold">DES ROIS</span>
-                  </h2>
-                  <button className="bg-white text-brand-brown px-6 py-2.5 rounded-full text-[9px] font-black uppercase italic self-start shadow-xl flex items-center gap-2 group-hover:bg-brand-gold transition-colors">
-                    Commander maintenant <Navigation size={12} />
-                  </button>
-                </div>
-              </div>
-            </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/25" />
 
-            {/* Notification Précommande WhatsApp du Restaurant */}
-            <div className="px-4 sm:px-6 mb-6">
-              <div 
-                onClick={() => {
-                  playSound('pop');
-                  const url = `https://wa.me/${RESTAURANT_INFO.whatsappClean}?text=${encodeURIComponent("Salam Khady's Food ! Je souhaite faire une précommande pour aujourd'hui / un événement : ")}`;
-                  window.open(url, '_blank');
-                }}
-                className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-[#12261A] text-white p-4 sm:p-5 rounded-[2.2rem] shadow-xl border-2 border-emerald-500/40 flex items-center justify-between cursor-pointer hover:border-emerald-400 active:scale-98 transition-all group relative overflow-hidden"
-              >
-                <div className="absolute -right-6 -bottom-6 opacity-10 text-emerald-300 pointer-events-none">
-                  <MessageSquare size={90} />
-                </div>
-                <div className="flex items-center gap-3.5 relative z-10">
-                  <div className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-                    <MessageSquare size={22} className="animate-pulse" />
-                  </div>
+                <div className="absolute inset-0 p-5 sm:p-8 md:p-12 flex flex-col justify-between z-10">
+                  {/* Top Badge */}
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="bg-emerald-500/20 text-emerald-300 text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-emerald-500/30">
-                        📞 Service Traiteur & Repas
+                    <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#E65100] text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-lg">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                      L'EXCELLENCE À NIAMEY
+                    </span>
+                  </div>
+
+                  {/* Headline & CTA */}
+                  <div className="space-y-3.5 max-w-xl">
+                    <h1 className="font-black italic uppercase tracking-tight leading-[0.92] drop-shadow-2xl font-display">
+                      <span className="block text-3xl sm:text-5xl md:text-6xl text-white">
+                        LE GOÛT
                       </span>
+                      <span className="block text-3xl sm:text-5xl md:text-6xl text-[#FFD700]">
+                        DES ROIS
+                      </span>
+                    </h1>
+
+                    <button
+                      onClick={() => setActiveTab('carte')}
+                      className="inline-flex items-center justify-center gap-2 py-3 px-6 sm:px-8 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                    >
+                      <span>COMMANDER MAINTENANT</span>
+                      <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-900 rotate-45" />
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* 2. WHATSAPP PRE-ORDER CARD (Screenshot 1 & 2: "SERVICE TRAITEUR & REPAS", "PRÉCOMMANDE SUR LE NUMÉRO WHATSAPP DU RESTAURANT", "+227 74 44 16 21") */}
+              <section>
+                <a
+                  href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20pr%C3%A9commander%20un%20repas%20ou%20traiteur%20!`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all hover:scale-[1.01] hover:border-emerald-400 group"
+                >
+                  <div className="flex items-center gap-3.5 sm:gap-5">
+                    {/* Emerald WhatsApp Icon Box */}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
+                      <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
-                    <h3 className="font-black text-xs sm:text-sm uppercase italic text-white mt-1">
-                      Précommande sur le numéro WhatsApp du restaurant
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 border border-emerald-500/40">
+                        📞 SERVICE TRAITEUR & REPAS
+                      </span>
+                      <h2 className="text-white font-black italic uppercase text-xs sm:text-base tracking-wide mt-1 leading-snug truncate">
+                        PRÉCOMMANDE SUR LE NUMÉRO WHATSAPP DU RESTAURANT
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs sm:text-sm">
+                        <span className="text-emerald-400 font-bold">
+                          WhatsApp : +227 74 44 16 21
+                        </span>
+                        <span className="text-teal-300 font-medium">
+                          • Cliquez pour discuter
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              </section>
+
+              {/* 3. TWO FEATURE CARDS (Screenshot 1 & 2: "COMMANDE VOCALE / IA VOCALE" & "NOTIFICATIONS PUSH / SUIVI PWA") */}
+              <section className="grid grid-cols-2 gap-3 sm:gap-4">
+                {/* Left Card: IA VOCALE */}
+                <div
+                  onClick={() => setIsVoiceOpen(true)}
+                  className="rounded-[28px] bg-gradient-to-br from-amber-600 via-orange-600 to-orange-700 p-4 sm:p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[155px] cursor-pointer hover:scale-[1.02] active:scale-95 transition-all group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+                      <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-black uppercase tracking-wider">
+                      IA VOCALE
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-black text-xs sm:text-base uppercase tracking-tight leading-tight flex items-center gap-1">
+                      COMMANDE VOCALE 🎙️
                     </h3>
-                    <p className="text-[10px] text-emerald-200/80 font-bold mt-0.5 flex items-center gap-1.5">
-                      <span>WhatsApp : <strong className="text-brand-gold font-mono">{RESTAURANT_INFO.whatsapp}</strong></span>
-                      <span className="text-emerald-400">• Cliquez pour discuter</span>
+                    <p className="text-[10px] sm:text-xs text-white/90 font-medium mt-1 leading-tight">
+                      DICTEZ VOTRE REPAS AU MICRO
                     </p>
                   </div>
                 </div>
-                <div className="hidden sm:flex bg-white/10 group-hover:bg-emerald-500 text-white px-3.5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-wider items-center gap-1.5 transition-colors relative z-10 shrink-0">
-                  <span>Précommander</span>
-                  <Navigation size={12} />
-                </div>
-              </div>
-            </div>
 
-            {/* Smart Dual Banners: Commande Vocale & Notifications Push */}
-            <div className="px-4 sm:px-6 grid grid-cols-2 gap-3 mb-6">
-              <div 
-                onClick={() => { playSound('pop'); setShowVoiceModal(true); }}
-                className="bg-gradient-to-br from-brand-orange to-brand-brown text-white p-5 rounded-[2.2rem] shadow-xl border-2 border-brand-orange/40 flex flex-col justify-between cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
-              >
-                <div className="absolute -right-4 -bottom-4 opacity-15 text-white">
-                  <Mic size={70} />
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-xl bg-white/20 text-white flex items-center justify-center shrink-0 shadow-md">
-                    <Mic size={16} className="animate-pulse" />
+                {/* Right Card: SUIVI PWA */}
+                <div
+                  onClick={() => setIsPushOpen(true)}
+                  className="rounded-[28px] bg-[#231712] border border-amber-500/40 p-4 sm:p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[155px] cursor-pointer hover:scale-[1.02] active:scale-95 transition-all group"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Bell className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black uppercase tracking-wider">
+                      SUIVI PWA
+                    </span>
                   </div>
-                  <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">IA Vocale</span>
-                </div>
-                <div>
-                  <h3 className="font-black text-xs uppercase italic text-white leading-tight">Commande Vocale 🎙️</h3>
-                  <p className="text-[8px] font-bold text-white/70 uppercase mt-0.5">Dictez votre repas au micro</p>
-                </div>
-              </div>
 
-              <div 
-                onClick={() => { playSound('pop'); setShowPushNotificationModal(true); }}
-                className="bg-gradient-to-br from-brand-brown to-[#1A0F0D] text-white p-5 rounded-[2.2rem] shadow-xl border-2 border-brand-gold/40 flex flex-col justify-between cursor-pointer active:scale-95 transition-all relative overflow-hidden group"
-              >
-                <div className="absolute -right-4 -bottom-4 opacity-15 text-brand-gold">
-                  <Bell size={70} />
-                </div>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-xl bg-brand-gold/20 text-brand-gold flex items-center justify-center shrink-0 shadow-md border border-brand-gold/30">
-                    <Bell size={16} className="animate-bounce" />
-                  </div>
-                  <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest">Suivi PWA</span>
-                </div>
-                <div>
-                  <h3 className="font-black text-xs uppercase italic text-brand-gold leading-tight">Notifications Push 🔔</h3>
-                  <p className="text-[8px] font-bold text-white/70 uppercase mt-0.5">Alertes livraison en temps réel</p>
-                </div>
-              </div>
-            </div>
-
-            {/* High Tech Banners & Shortcuts Grid */}
-            <div className="px-4 sm:px-6 grid grid-cols-4 gap-2 sm:gap-3 mb-8">
-              <button 
-                onClick={() => { playSound('pop'); setCurrentPage(Page.WHATSAPP); }}
-                className="bg-white p-3 sm:p-4 rounded-3xl border border-gray-100 shadow-md flex flex-col items-center justify-center text-center active:scale-95 transition-all group hover:border-green-500"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-green-500/10 text-green-600 flex items-center justify-center mb-1 group-hover:bg-green-500 group-hover:text-white transition-colors">
-                  <MessageSquare size={18} />
-                </div>
-                <span className="text-[9px] font-black text-brand-brown uppercase italic leading-tight">WhatsApp</span>
-                <span className="text-[7px] text-gray-400 uppercase font-bold mt-0.5">Commande Directe</span>
-              </button>
-
-              <button 
-                onClick={() => { playSound('pop'); setCurrentPage(Page.GALLERY); }}
-                className="bg-white p-3 sm:p-4 rounded-3xl border border-gray-100 shadow-md flex flex-col items-center justify-center text-center active:scale-95 transition-all group hover:border-brand-gold"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-brand-gold/10 text-brand-gold flex items-center justify-center mb-1 group-hover:bg-brand-gold group-hover:text-brand-brown transition-colors">
-                  <ImageIcon size={18} />
-                </div>
-                <span className="text-[9px] font-black text-brand-brown uppercase italic leading-tight">Galerie</span>
-                <span className="text-[7px] text-gray-400 uppercase font-bold mt-0.5">Photos Plats</span>
-              </button>
-
-              <button 
-                onClick={() => { playSound('pop'); setCurrentPage(Page.BLOG); }}
-                className="bg-white p-3 sm:p-4 rounded-3xl border border-gray-100 shadow-md flex flex-col items-center justify-center text-center active:scale-95 transition-all group hover:border-brand-brown"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-brand-brown/10 text-brand-brown flex items-center justify-center mb-1 group-hover:bg-brand-brown group-hover:text-brand-gold transition-colors">
-                  <BookOpen size={18} />
-                </div>
-                <span className="text-[9px] font-black text-brand-brown uppercase italic leading-tight">Blog</span>
-                <span className="text-[7px] text-gray-400 uppercase font-bold mt-0.5">Recettes & Astuces</span>
-              </button>
-
-              <button 
-                onClick={() => { playSound('pop'); setCurrentPage(Page.SETTINGS); }}
-                className="bg-white p-3 sm:p-4 rounded-3xl border border-gray-100 shadow-md flex flex-col items-center justify-center text-center active:scale-95 transition-all group hover:bg-gray-50"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-gray-100 text-brand-brown flex items-center justify-center mb-1 shadow-md">
-                  <Settings size={18} />
-                </div>
-                <span className="text-[9px] font-black text-brand-brown uppercase italic leading-tight">Contact</span>
-                <span className="text-[7px] text-gray-400 font-bold uppercase mt-0.5">FAQ & Infos</span>
-              </button>
-            </div>
-
-            {/* Mobile Money Guarantee Highlight Banner */}
-            <div className="px-4 sm:px-6 mb-8">
-              <div 
-                onClick={() => setCurrentPage(Page.CART)}
-                className="bg-gradient-to-r from-[#1A0F0D] to-[#2C1814] text-white p-6 rounded-[2.5rem] shadow-xl border-2 border-brand-gold/30 flex items-center justify-between cursor-pointer active:scale-98 transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-brand-gold/20 text-brand-gold rounded-2xl flex items-center justify-center shrink-0 border border-brand-gold/40">
-                    <ShieldCheck size={24} />
-                  </div>
                   <div>
-                    <span className="text-[8px] font-black uppercase text-brand-gold tracking-widest block">Paiement Sécurisé Mobile Money</span>
-                    <h3 className="font-black text-xs uppercase italic text-white mt-0.5">
-                      Zamany Money (Orange), MyNita, Amanata, All-Iza, Zeynab, Airtel, Moov
+                    <h3 className="font-black text-xs sm:text-base uppercase tracking-tight leading-tight text-amber-400 flex items-center gap-1">
+                      NOTIFICATIONS PUSH 🔔
                     </h3>
-                    <p className="text-[8px] font-bold text-white/60 uppercase mt-1">Double Notification WhatsApp & In-App</p>
+                    <p className="text-[10px] sm:text-xs text-stone-300 font-medium mt-1 leading-tight">
+                      ALERTES LIVRAISON TEMPS RÉEL
+                    </p>
                   </div>
                 </div>
-                <Zap size={20} className="text-brand-gold shrink-0 animate-pulse" />
-              </div>
-            </div>
+              </section>
 
-            {/* Interactive Menu du Jour Component — Le Trio Gourmand (Plat du Jour + Doukounou + Attiéké) */}
-            <div className="px-4 sm:px-6">
-              <MenuDuJourTrio
-                items={items}
-                onSelectItem={(item) => {
-                  setSelectedItem(item);
-                  setIsItemModalOpen(true);
-                  playSound('pop');
-                }}
-                onAddToCart={(item, qty, inst) => handleAddToCart(item, qty || 1, inst || '')}
-                isHomeView={true}
-              />
-            </div>
+              {/* 4. FOUR WHITE SQUIRCLE PILLS (Screenshot 5: WHATSAPP, GALERIE, BLOG, CONTACT) */}
+              <section className="grid grid-cols-4 gap-2 sm:gap-3">
+                {/* 1. WHATSAPP */}
+                <a
+                  href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
+                >
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 mb-1 group-hover:bg-emerald-200 transition-colors">
+                    <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-black italic uppercase text-stone-900 block truncate">
+                    WHATSAPP
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-stone-500 block uppercase tracking-wider truncate">
+                    COMMANDE DIRECTE
+                  </span>
+                </a>
 
-            {/* Interactive Flash Offer Component with Dynamic Countdown */}
-            <div className="px-4 sm:px-6">
-              <FlashOffer 
-                onAddToCart={handleAddToCart}
-                onSelectItem={(item) => {
-                  setSelectedItem(item);
-                  setIsItemModalOpen(true);
-                  playSound('pop');
-                }}
-              />
-            </div>
-
-            {/* Interactive Weekly Promotion Calendar Component */}
-            <div className="px-4 sm:px-6">
-              <PromotionCalendar 
-                onSelectOffer={(promo) => {
-                  setToast({ 
-                    message: `🎉 Offre ${promo.dayName} activée ! Code : ${promo.code}`, 
-                    type: 'success' 
-                  });
-                }}
-                onGoToMenu={() => {
-                  setActiveMenuSection('CARTE');
-                  setCurrentPage(Page.MENU);
-                }}
-              />
-            </div>
-
-            {/* Menu Grid */}
-            <div className="px-4 sm:px-6 grid grid-cols-1 sm:grid-cols-5 gap-3 mb-12">
-              <div className="sm:col-span-3 bg-[#1A0F0D] rounded-[2.5rem] p-8 shadow-2xl flex flex-col items-center justify-center relative overflow-hidden group active:scale-95 transition-all cursor-pointer border border-white/5 h-48 sm:h-auto" onClick={() => { setActiveMenuSection('CARTE'); setCurrentPage(Page.MENU); }}>
-                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                <div className="w-16 h-16 bg-brand-gold/10 rounded-2xl flex items-center justify-center text-brand-gold mb-3 relative z-10 border border-white/10"><Utensils size={32}/></div>
-                <span className="text-[11px] font-black uppercase text-brand-gold tracking-[0.4em] italic relative z-10">LA CARTE DU RESTAURANT</span>
-              </div>
-              <div className="sm:col-span-2 flex flex-row sm:flex-col gap-3">
-                <button onClick={() => { setActiveMenuSection('PACK'); setCurrentPage(Page.MENU); }} className="flex-1 bg-brand-gold text-brand-brown py-5 rounded-[1.8rem] font-black uppercase text-[9px] italic flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all border border-white/20">
-                   BUFFET PRO
+                {/* 2. GALERIE */}
+                <button
+                  onClick={() => setActiveTab('galerie')}
+                  className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
+                >
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 mb-1 group-hover:bg-amber-200 transition-colors">
+                    <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-black italic uppercase text-stone-900 block truncate">
+                    GALERIE
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-stone-500 block uppercase tracking-wider truncate">
+                    PHOTOS PLATS
+                  </span>
                 </button>
-                <button onClick={() => { setActiveMenuSection('BOX'); setCurrentPage(Page.MENU); }} className="flex-1 bg-brand-orange text-white py-5 rounded-[1.8rem] font-black uppercase text-[9px] italic flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all border border-white/20">
-                   BOX SAUCES
-                </button>
-              </div>
-              <button onClick={() => setCurrentPage(Page.TRAITEUR)} className="sm:col-span-5 w-full bg-white text-brand-brown py-5 rounded-[1.8rem] font-black uppercase text-[9px] italic border border-gray-100 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all">
-                   EVENT & DEVIS TRAITEUR
-              </button>
-            </div>
 
-            {/* Incontournables */}
-            <section className="mb-12">
-              <div className="flex items-center justify-between mb-8 px-6 sm:px-8">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-brand-orange/10 rounded-xl text-brand-orange"><Heart size={18} fill="currentColor" /></div>
-                  <h3 className="text-sm font-black uppercase text-brand-brown tracking-[0.2em] italic">Incontournables</h3>
+                {/* 3. BLOG */}
+                <button
+                  onClick={() => setIsBlogOpen(true)}
+                  className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
+                >
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-stone-200 flex items-center justify-center text-stone-800 mb-1 group-hover:bg-stone-300 transition-colors">
+                    <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-black italic uppercase text-stone-900 block truncate">
+                    BLOG
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-stone-500 block uppercase tracking-wider truncate">
+                    RECETTES & ASTUCES
+                  </span>
+                </button>
+
+                {/* 4. CONTACT */}
+                <button
+                  onClick={() => setIsContactOpen(true)}
+                  className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
+                >
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-2xl bg-stone-200 flex items-center justify-center text-stone-800 mb-1 group-hover:bg-stone-300 transition-colors">
+                    <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-black italic uppercase text-stone-900 block truncate">
+                    CONTACT
+                  </span>
+                  <span className="text-[8px] sm:text-[9px] font-bold text-stone-500 block uppercase tracking-wider truncate">
+                    FAQ & INFOS
+                  </span>
+                </button>
+              </section>
+
+              {/* 5. MOBILE MONEY BANNER (Screenshot 5: PAIEMENT SÉCURISÉ MOBILE MONEY) */}
+              <section className="rounded-[28px] bg-[#221B17] border-2 border-amber-500/40 p-4 sm:p-5 shadow-xl relative overflow-hidden">
+                <div className="flex items-center gap-3.5 sm:gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-400 block">
+                      PAIEMENT SÉCURISÉ MOBILE MONEY
+                    </span>
+                    <h3 className="font-black italic uppercase text-white text-xs sm:text-sm tracking-wide mt-0.5 leading-snug">
+                      ZAMANY MONEY (ORANGE), MYNITA, AMANATA, ALL-IZA, ZEYNAB, AIRTEL, MOOV
+                    </h3>
+                    <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block mt-0.5">
+                      DOUBLE NOTIFICATION WHATSAPP & IN-APP
+                    </span>
+                  </div>
+
+                  <div className="text-amber-400 flex-shrink-0">
+                    <Zap className="w-6 h-6" />
+                  </div>
                 </div>
-                <button onClick={() => setCurrentPage(Page.MENU)} className="text-[9px] font-black text-brand-orange uppercase tracking-widest underline">Tout voir</button>
-              </div>
-              
-              <div className="relative overflow-hidden w-full">
-                <div className="flex animate-infinite-scroll w-fit gap-6 sm:gap-8 px-6 flex-nowrap py-4">
-                  {[...items.slice(0, 10), ...items.slice(0, 10)].map((item, i) => (
-                    <div key={i} className="w-56 sm:w-60 flex-shrink-0 glass-card rounded-[3rem] p-5 shadow-2xl border border-white/20 flex flex-col cursor-pointer active:scale-95 transition-all group" onClick={() => { setSelectedItem(item); setIsItemModalOpen(true); playSound('pop'); }}>
-                      <div className="w-full h-40 overflow-hidden rounded-[2.2rem] mb-5 shadow-inner bg-gray-100">
-                        <img src={item.image} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-115" alt={item.name} />
+              </section>
+
+              {/* 6. MENU DU JOUR — LE TRIO GOURMAND (Screenshot 4 & 5) */}
+              <section className="rounded-[32px] bg-gradient-to-b from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
+                {/* Header tags */}
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-3 py-1 rounded-full bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow">
+                      ☀️ MENU DU JOUR
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-[#E2B124] text-stone-950 text-[11px] font-black uppercase tracking-wider shadow">
+                      👑 LE TRIO GOURMAND QUOTIDIEN
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-stone-900 border border-stone-700 text-stone-300 text-[11px] font-bold">
+                      Demain Jeudi Midi
+                    </span>
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-black italic uppercase text-white font-display">
+                      MENU DU JOUR — LE TRIO GOURMAND
+                    </h2>
+                    <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-relaxed">
+                      Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.
+                    </p>
+                  </div>
+
+                  <div>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs font-bold">
+                      🎁 3 Emplacements Cuisinés Frais
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dish Card Inside (Screenshot 4) */}
+                <div className="pt-2">
+                  <div className="w-full h-1 bg-orange-600 rounded-full mb-3" />
+                  <div className="rounded-[26px] bg-[#1F1714] border border-amber-500/30 p-3.5 sm:p-4 space-y-3">
+                    <div className="relative rounded-2xl overflow-hidden h-52 sm:h-64 w-full">
+                      <img
+                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80"
+                        alt="Tiep Rouge Royal"
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#E65100] text-white text-xs font-black uppercase tracking-wider shadow-lg">
+                        🍲 PLAT CUISINÉ DU JOUR
+                      </span>
+                      <span className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/80 text-white text-xs font-black flex items-center justify-center border border-white/20">
+                        #1
+                      </span>
+                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/80 text-amber-300 text-xs font-bold backdrop-blur-sm border border-amber-500/30">
+                        25 restants
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <h3 className="text-lg sm:text-xl font-black italic uppercase text-[#FFD700] font-display">
+                        TIEP ROUGE ROYAL
+                      </h3>
+                      <p className="text-xs font-bold italic text-amber-200">
+                        "Le grand classique sénégalais au poisson capitaine braisé..."
+                      </p>
+                      <p className="text-xs text-stone-300">
+                        Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between gap-2 border-t border-stone-800">
+                      <div className="text-base sm:text-lg font-black text-amber-400">
+                        4 950 F CFA
                       </div>
-                      <h4 className="text-[11px] font-black uppercase text-brand-brown italic mb-3 truncate">{item.name}</h4>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-black text-brand-orange px-4 py-1.5 bg-brand-orange/10 rounded-full">{item.price} F</span>
-                        <div className="flex gap-0.5">
-                          {[...Array(5)].map((_, i) => <Star key={i} size={10} fill={i < 4 ? "#FFD700" : "none"} className="text-brand-gold" />)}
-                        </div>
+
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%2C%20je%20commande%20le%20Tiep%20Rouge%20Royal%20du%20Menu%20du%20Jour%20!`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </a>
+                        <button
+                          onClick={() => {
+                            const thieb = items.find(i => i.id === 'item-thieb-rouge') || items[0];
+                            handleAddToCart(thieb, 1, 'moyen');
+                          }}
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md"
+                        >
+                          <span>COMMANDER</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <div className="px-4 sm:px-6 mb-12">
-              <DeliveryEstimator />
+              {/* 7. LA CARTE DU RESTAURANT SECTION (Screenshot 6 & 7) */}
+              <section className="rounded-[32px] bg-[#1E1714] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
+                <div className="text-center space-y-3">
+                  <h3 className="text-base sm:text-lg font-black italic uppercase tracking-wider text-[#FFD700] font-display">
+                    LA CARTE DU RESTAURANT
+                  </h3>
+
+                  {/* 2 Big Buttons: BUFFET PRO & BOX SAUCES (Screenshot 6) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => setActiveTab('traiteur')}
+                      className="py-3 px-4 rounded-full bg-[#E2B124] hover:bg-[#F0BF2D] text-stone-950 font-black italic uppercase text-xs sm:text-sm tracking-wide shadow-lg hover:scale-105 active:scale-95 transition-all"
+                    >
+                      BUFFET PRO
+                    </button>
+                    <button
+                      onClick={() => {
+                        const sauce = items.find(i => i.category === 'sauces') || items[0];
+                        setSelectedItemForModal(sauce);
+                      }}
+                      className="py-3 px-4 rounded-full bg-orange-600 hover:bg-orange-500 text-white font-black italic uppercase text-xs sm:text-sm tracking-wide shadow-lg hover:scale-105 active:scale-95 transition-all"
+                    >
+                      BOX SAUCES
+                    </button>
+                  </div>
+
+                  {/* Wide White Button: EVENT & DEVIS TRAITEUR (Screenshot 6) */}
+                  <div>
+                    <button
+                      onClick={() => setActiveTab('traiteur')}
+                      className="w-full py-3 px-6 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black italic uppercase text-xs sm:text-sm tracking-wider shadow-lg hover:scale-[1.01] active:scale-95 transition-all"
+                    >
+                      EVENT & DEVIS TRAITEUR
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* 8. INCONTOURNABLES — THE EXACT LIGHT-GREY RECTANGLES (Screenshot 6 & 7) */}
+              <section className="space-y-4 pt-2">
+                {/* Header with Heart Icon & TOUT VOIR */}
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center">
+                      <Heart className="w-4 h-4 text-orange-500 fill-orange-500" />
+                    </div>
+                    <h2 className="text-base sm:text-lg font-black italic uppercase tracking-widest text-[#B5A59E] font-display">
+                      INCONTOURNABLES
+                    </h2>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsAdminOpen(true)}
+                      className="px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-xs hover:bg-orange-600/30 flex items-center gap-1"
+                      title="Ajouter un plat dans ces rectangles"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Ajouter plat</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('carte')}
+                      className="text-xs font-black italic uppercase text-[#E65100] hover:text-orange-400 transition-colors"
+                    >
+                      TOUT VOIR
+                    </button>
+                  </div>
+                </div>
+
+                {/* THE FAMOUS RECTANGLES CAROUSEL / ROW (Exact light-grey rounded rectangles from Screenshot 6 & 7) */}
+                <div className="relative group">
+                  {/* Navigation arrows for desktop */}
+                  <button
+                    onClick={() => scrollRectangles('left')}
+                    className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-stone-900/90 text-white shadow-xl border border-stone-700 hidden sm:flex items-center justify-center hover:bg-orange-600 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={() => scrollRectangles('right')}
+                    className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-stone-900/90 text-white shadow-xl border border-stone-700 hidden sm:flex items-center justify-center hover:bg-orange-600 transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+
+                  <div
+                    ref={rectanglesContainerRef}
+                    className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 snap-x snap-mandatory no-scrollbar"
+                  >
+                    {displayedIncontournables.map((dish) => (
+                      <div
+                        key={dish.id}
+                        onClick={() => setSelectedItemForModal(dish)}
+                        className="flex-shrink-0 w-[240px] sm:w-[260px] snap-start cursor-pointer rounded-[34px] sm:rounded-[38px] bg-[#C8C8CE] hover:bg-[#D5D5DC] p-3.5 shadow-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group"
+                      >
+                        {/* Food Image (large & rounded) */}
+                        <div className="relative h-48 sm:h-52 w-full rounded-[26px] sm:rounded-[28px] overflow-hidden bg-stone-300 shadow-inner">
+                          <img
+                            src={dish.image}
+                            alt={dish.name}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src =
+                                "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80";
+                            }}
+                          />
+                        </div>
+
+                        {/* Title & Price Row */}
+                        <div className="pt-3 pb-1 space-y-2">
+                          <h4 className="font-black italic uppercase text-stone-950 text-xs sm:text-sm tracking-wide truncate">
+                            {dish.name}
+                          </h4>
+
+                          <div className="flex items-center justify-between">
+                            {/* Peach/light orange price pill */}
+                            <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm">
+                              {dish.price.toLocaleString()} F
+                            </span>
+
+                            {/* 4 Gold Stars + 1 Empty Star */}
+                            <div className="flex items-center gap-0.5 text-amber-500 text-xs">
+                              <span>★</span>
+                              <span>★</span>
+                              <span>★</span>
+                              <span>★</span>
+                              <span className="text-stone-400">☆</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
             </div>
+          )}
 
-            <div className="px-4 sm:px-6">
-              <ReviewsSection reviews={reviews} />
-            </div>
-          </div>
-        );
-
-      case Page.MENU:
-        return <div className="max-w-4xl mx-auto"><MenuView items={items} onSelectItem={(item) => { setSelectedItem(item); setIsItemModalOpen(true); }} activeSection={activeMenuSection} onSectionChange={setActiveMenuSection} onOpenVoiceModal={() => setShowVoiceModal(true)} /></div>;
-
-      case Page.BLOG:
-        return (
-          <div className="max-w-4xl mx-auto">
-            <BlogView 
-              articles={blogArticles} 
-              onNavigateToMenu={() => setCurrentPage(Page.MENU)} 
+          {activeTab === 'carte' && (
+            <MenuView
+              items={items}
+              onSelectItem={setSelectedItemForModal}
+              onQuickAdd={(item, e) => handleAddToCart(item, 1, 'moyen')}
             />
-          </div>
-        );
+          )}
 
-      case Page.FAQ:
-        return (
-          <div className="max-w-2xl mx-auto">
-            <FaqView 
-              faqs={faqs} 
-              onNavigateToWhatsApp={() => setCurrentPage(Page.WHATSAPP)} 
-            />
-          </div>
-        );
+          {activeTab === 'traiteur' && (
+            <TraiteurView />
+          )}
 
-      case Page.SETTINGS:
-        return (
-          <div className="max-w-2xl mx-auto">
-            <SettingsView 
-              isDarkMode={isDarkMode}
-              onToggleDarkMode={toggleDarkMode}
-              onOpenAdmin={() => setCurrentPage(Page.ADMIN)}
-              onOpenFaq={() => setCurrentPage(Page.FAQ)}
-              onOpenGuide={() => setCurrentPage(Page.INFOS)}
-              onOpenWhatsApp={() => setCurrentPage(Page.WHATSAPP)}
-            />
-          </div>
-        );
+          {activeTab === 'galerie' && (
+            <GalleryView />
+          )}
 
-      case Page.GALLERY:
-        return <div className="max-w-4xl mx-auto"><GalleryView items={items} onAddToCart={handleAddToCart} onNavigateToMenu={() => setCurrentPage(Page.MENU)} /></div>;
+          {activeTab === 'demo4k' && (
+            <Demo4kView />
+          )}
 
-      case Page.VIDEO:
-        return <div className="max-w-4xl mx-auto"><VideoDemoView onNavigateToMenu={() => setCurrentPage(Page.MENU)} onNavigateToTraiteur={() => setCurrentPage(Page.TRAITEUR)} /></div>;
-
-      case Page.WHATSAPP:
-        return <div className="max-w-4xl mx-auto"><WhatsAppAutomationView cart={cart} userProfile={userProfile} onNavigateToCart={() => setCurrentPage(Page.CART)} onNavigateToMenu={() => setCurrentPage(Page.MENU)} /></div>;
-
-      case Page.TRAITEUR:
-        return <div className="max-w-2xl mx-auto"><TraiteurView /></div>;
-
-      case Page.INFOS:
-        return <div className="max-w-2xl mx-auto"><GuideView onClose={() => setCurrentPage(Page.HOME)} /></div>;
-
-      case Page.CART:
-        return <div className="max-w-2xl mx-auto">
-          <CartView 
-            cart={cart} 
-            setCart={setCart} 
-            onOrderPlace={handleOrderPlace} 
-            onClose={() => setCurrentPage(Page.MENU)} 
-            userProfile={userProfile}
-            onConsumePoints={(pts) => setUserProfile(prev => ({ ...prev, points: Math.max(0, prev.points - pts) }))}
-          />
-        </div>;
-
-      case Page.COMPTE:
-        return <div className="max-w-xl mx-auto">
-          <AccountView 
-            orders={orders} 
-            userProfile={userProfile}
-            onAdminAccess={() => setCurrentPage(Page.ADMIN)} 
-            onLoginSuccess={(isAdmin, customProfile) => {
-              if (isAdmin) {
-                setToast({ message: "Session Administrateur Ouverte ! Bienvenue dans la Console Elite 👑", type: 'success' });
-                setCurrentPage(Page.ADMIN);
-              } else {
-                if (customProfile) {
-                  setUserProfile(customProfile);
-                }
-                setCurrentPage(Page.COMPTE);
-              }
-            }} 
-            onOpenGuide={() => setCurrentPage(Page.INFOS)} 
-            onOpenQrLoyalty={() => setShowQrLoyaltyModal(true)}
-            onOpenLiveDriverMap={() => setShowLiveDriverMapModal(true)}
-            onOpenSurvey={() => setShowSurveyModal(true)}
-            onOpenPushNotification={() => setShowPushNotificationModal(true)}
-          />
-        </div>;
-
-      case Page.ADMIN:
-        return (
-          <div className="w-full min-h-screen">
-            <ErrorBoundary fallbackTitle="Espace Administrateur sécurisé">
-              <AdminDashboard 
-                items={items} 
-                setItems={setItems} 
-                orders={orders} 
-                setOrders={setOrders} 
-                reviews={reviews} 
-                setReviews={setReviews} 
-                blogArticles={blogArticles}
-                setBlogArticles={setBlogArticles}
-                faqs={faqs}
-                setFaqs={setFaqs}
-                onExit={() => {
-                  setToast({ message: "Retour à l'espace Client", type: 'info' });
-                  setCurrentPage(Page.COMPTE);
-                }} 
+          {activeTab === 'suivi' && (
+            <div className="max-w-4xl mx-auto px-4 py-8">
+              <OrderTracking
+                order={activeOrder}
+                onNewOrder={() => setActiveTab('carte')}
               />
-            </ErrorBoundary>
-          </div>
-        );
-
-      default:
-        return <div className="max-w-4xl mx-auto"><MenuView items={items} onSelectItem={(item) => { setSelectedItem(item); setIsItemModalOpen(true); }} activeSection={activeMenuSection} onSectionChange={setActiveMenuSection} /></div>;
-    }
-  };
-
-  const upsellSuggestions = useMemo(() => {
-    return items.filter(i => i.category === 'Boisson Froide' || i.category === 'Dessert').slice(0, 4);
-  }, [items]);
-
-  return (
-    <div className={`min-h-screen font-sans transition-colors duration-500 selection:bg-brand-orange selection:text-white pb-safe flex flex-col items-center ${
-      isDarkMode ? 'bg-[#0E0806] text-white' : 'bg-[#FDFCFB] text-brand-brown'
-    }`}>
-      {/* Dynamic Marketing Announcement Banner */}
-      {currentPage !== Page.ADMIN && marketingBanner.isEnabled && (
-        <aside aria-label="Bannière promotionnelle" className="w-full bg-gradient-to-r from-brand-orange via-amber-600 to-brand-gold text-white text-xs font-black py-2.5 px-4 shadow-md z-40 relative flex items-center justify-between gap-3 overflow-hidden animate-fade-in">
-          <div className="flex items-center gap-2 max-w-5xl mx-auto w-full justify-between">
-            <div className="flex items-center gap-2 truncate">
-              <span className="bg-black/30 text-white font-black text-[9px] px-2.5 py-0.5 rounded-full uppercase tracking-wider shrink-0 border border-white/20">
-                {marketingBanner.badge || 'PROMO 🔥'}
-              </span>
-              <span className="truncate text-[11px] sm:text-xs">
-                {marketingBanner.text}{' '}
-                {marketingBanner.highlight && (
-                  <span className="font-mono bg-white/20 px-2 py-0.5 rounded-md font-black tracking-wider text-amber-200">
-                    {marketingBanner.highlight}
-                  </span>
-                )}
-              </span>
             </div>
+          )}
+        </main>
 
-            <button
-              onClick={() => {
-                playSound('pop');
-                setCurrentPage(Page.MENU);
-              }}
-              className="bg-white text-brand-brown px-3 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 transition-all shrink-0 shadow-sm"
-            >
-              Commander →
-            </button>
-          </div>
-        </aside>
-      )}
+        {/* FLOATING WHATSAPP BUTTON (Bottom Right with badge 1 from Screenshots) */}
+        <a
+          href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+          title="WhatsApp direct Khady's Food"
+        >
+          <MessageSquare className="w-7 h-7 text-white fill-white" />
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-xs flex items-center justify-center shadow-md">
+            1
+          </span>
+        </a>
 
-      <div className="w-full h-full flex flex-col items-center">
-        {renderPage()}
-      </div>
-      
-      {currentPage !== Page.ADMIN && (
-        <>
-          <Navbar currentPage={currentPage} setPage={setCurrentPage} cartCount={cart.reduce((a, b) => a + b.quantity, 0)} />
-          <AIChat />
-        </>
-      )}
+        {/* MODALS & OVERLAYS */}
+        {selectedItemForModal && (
+          <ItemDetailsModal
+            item={selectedItemForModal}
+            onClose={() => setSelectedItemForModal(null)}
+            onAddToCart={(item, qty, spice, notes) => {
+              handleAddToCart(item, qty, spice, notes);
+              setSelectedItemForModal(null);
+            }}
+          />
+        )}
 
-      <ItemDetailsModal 
-        item={selectedItem} 
-        isOpen={isItemModalOpen} 
-        onClose={() => setIsItemModalOpen(false)} 
-        onAddToCart={handleAddToCart} 
-      />
+        {isCartOpen && (
+          <CartView
+            items={cart}
+            onUpdateQuantity={handleUpdateCartQty}
+            onRemoveItem={handleRemoveCartItem}
+            onClearCart={() => setCart([])}
+            onClose={() => setIsCartOpen(false)}
+            onOrderPlaced={handleOrderPlaced}
+          />
+        )}
 
-      <UpsellModal 
-        isOpen={isUpsellOpen} 
-        onClose={() => setIsUpsellOpen(false)} 
-        suggestions={upsellSuggestions}
-        onAdd={(item) => { handleAddToCart(item, 1, ''); setIsUpsellOpen(false); }}
-        onProceed={() => { setIsUpsellOpen(false); setCurrentPage(Page.CART); }}
-      />
+        {isAdminOpen && (
+          <AdminDashboard
+            items={items}
+            onSaveItem={handleSaveItem}
+            onDeleteItem={handleDeleteItem}
+            onToggleAvailability={handleToggleAvailability}
+            onToggleFeatured={handleToggleFeatured}
+            orders={orders}
+            onClose={() => setIsAdminOpen(false)}
+          />
+        )}
 
-      {/* Triple / Double Notification Modal */}
-      {notificationOrder && (
-        <OrderNotificationModal 
-          order={notificationOrder} 
-          onClose={() => setNotificationOrder(null)} 
-          onTrackOrder={() => setCurrentPage(Page.COMPTE)}
+        <VoiceOrderModal
+          isOpen={isVoiceOpen}
+          onClose={() => setIsVoiceOpen(false)}
+          items={items}
+          onAddToCart={(item, qty) => handleAddToCart(item, qty || 1, 'moyen')}
         />
-      )}
 
-      {lastOrder && !notificationOrder && (
-        <Receipt order={lastOrder} onClose={() => setLastOrder(null)} />
-      )}
+        <PushNotificationsModal
+          isOpen={isPushOpen}
+          onClose={() => setIsPushOpen(false)}
+        />
 
-      {/* Feature Modals */}
-      <VoiceOrderModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-        menuItems={items}
-        onAddToCart={(item, qty) => {
-          handleAddToCart(item, qty, '');
-          setToast({ message: `${qty}x ${item.name} ajouté via Commande Vocale ! 🎙️`, type: 'success' });
-        }}
-      />
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          orders={orders}
+          onOpenAdmin={() => {
+            setIsProfileOpen(false);
+            setIsAdminOpen(true);
+          }}
+          onOpenOrderTracking={(ord) => {
+            setActiveOrder(ord);
+            setIsProfileOpen(false);
+            setActiveTab('suivi');
+          }}
+        />
 
-      <LiveDriverMapModal
-        isOpen={showLiveDriverMapModal}
-        onClose={() => setShowLiveDriverMapModal(false)}
-        order={orders.length > 0 ? orders[0] : (lastOrder || {
-          id: 'KH-2026-LIVE',
-          customerName: userProfile.name,
-          phone: userProfile.phone,
-          address: 'Avenue de la Francophonie',
-          district: 'Plateau / Niamey',
-          items: cart,
-          total: 12500,
-          deliveryFee: 1000,
-          status: 'DELIVERING',
-          paymentMethod: 'ZAMANY',
-          timestamp: new Date().toISOString()
-        })}
-      />
+        <BlogModal
+          isOpen={isBlogOpen}
+          onClose={() => setIsBlogOpen(false)}
+        />
 
-      <SatisfactionSurveyModal
-        isOpen={showSurveyModal}
-        onClose={() => setShowSurveyModal(false)}
-        onCompleteSurvey={(pts) => {
-          setUserProfile(prev => ({ ...prev, points: prev.points + pts }));
-          setToast({ message: `Avis enregistré ! +${pts} Points Fidélité crédités ! ⭐️`, type: 'success' });
-        }}
-      />
+        <ContactModal
+          isOpen={isContactOpen}
+          onClose={() => setIsContactOpen(false)}
+          onOpenAdmin={() => {
+            setIsContactOpen(false);
+            setIsAdminOpen(true);
+          }}
+        />
 
-      <QrLoyaltyModal
-        isOpen={showQrLoyaltyModal}
-        onClose={() => setShowQrLoyaltyModal(false)}
-        userProfile={userProfile}
-        onAddPoints={(pts) => {
-          setUserProfile(prev => ({ ...prev, points: prev.points + pts }));
-          setToast({ message: `QR Code scanné avec succès ! +${pts} Points Crédités ! 👑`, type: 'success' });
-        }}
-      />
-
-      <PushNotificationManager
-        isOpen={showPushNotificationModal}
-        onClose={() => setShowPushNotificationModal(false)}
-        onShowToast={(msg, type) => setToast({ message: msg, type: type as ToastType })}
-      />
-
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-    </div>
+        <ToastContainer toasts={toasts} onDismiss={(id) => setToasts(prev => prev.filter(t => t.id !== id))} />
+      </div>
+    </ErrorBoundary>
   );
 };
-
 export default App;

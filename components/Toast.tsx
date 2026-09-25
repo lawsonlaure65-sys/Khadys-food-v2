@@ -1,43 +1,51 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
-
-export type ToastType = 'success' | 'error' | 'info';
+import { ToastMessage } from '../types';
 
 interface ToastProps {
-  message: string;
-  type: ToastType;
-  onClose: () => void;
+  toasts: ToastMessage[];
+  onDismiss: (id: string) => void;
 }
 
-const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const config = {
-    success: { icon: CheckCircle2, color: 'bg-green-500', label: 'Succès' },
-    error: { icon: AlertCircle, color: 'bg-red-500', label: 'Erreur' },
-    info: { icon: Info, color: 'bg-blue-500', label: 'Info' }
-  };
-
-  const { icon: Icon, color, label } = config[type];
+export const ToastContainer: React.FC<ToastProps> = ({ toasts, onDismiss }) => {
+  if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-slide-up px-6 py-4 rounded-[2rem] shadow-2xl flex items-center gap-4 min-w-[300px] border border-white/20 backdrop-blur-xl text-white bg-black/80">
-      <div className={`w-10 h-10 ${color} rounded-2xl flex items-center justify-center shadow-lg`}>
-        <Icon size={20} />
-      </div>
-      <div className="flex-1">
-        <p className="text-[10px] font-black uppercase opacity-50 tracking-widest">{label}</p>
-        <p className="text-xs font-bold">{message}</p>
-      </div>
-      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-        <X size={16} />
-      </button>
+    <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+      {toasts.map((toast) => {
+        const icons = {
+          success: <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />,
+          error: <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />,
+          info: <Info className="w-5 h-5 text-amber-400 flex-shrink-0" />
+        };
+
+        const borders = {
+          success: 'border-emerald-500/30 bg-[#16221A]/95',
+          error: 'border-red-500/30 bg-[#251414]/95',
+          info: 'border-amber-500/30 bg-[#241E14]/95'
+        };
+
+        return (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl border backdrop-blur-md shadow-2xl transition-all duration-300 transform translate-y-0 ${borders[toast.type]}`}
+          >
+            {icons[toast.type]}
+            <div className="flex-1 text-sm">
+              <p className="font-semibold text-white">{toast.title}</p>
+              {toast.message && (
+                <p className="text-xs text-stone-300 mt-0.5">{toast.message}</p>
+              )}
+            </div>
+            <button
+              onClick={() => onDismiss(toast.id)}
+              className="text-stone-400 hover:text-white transition-colors p-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };
-
-export default Toast;

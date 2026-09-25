@@ -1,149 +1,189 @@
-
 import React, { useState, useEffect } from 'react';
-import { Order, OrderStatus } from '../types';
-import { playSound } from '../utils/audio';
-import { Clock, CheckCircle2, ChefHat, Bike, PackageCheck, Box, Bell, MapPin, Navigation, Zap, MessageSquare } from 'lucide-react';
+import { Order } from '../types';
+import { CheckCircle2, Clock, ChefHat, Bike, Phone, MessageSquare, MapPin, ArrowRight } from 'lucide-react';
+import { RESTAURANT_INFO } from '../constants';
 
-interface OrderTrackingProps {
-  order: Order;
-  onComplete: () => void;
-  onOpenLiveDriverMap?: () => void;
-  onOpenPushNotification?: () => void;
+interface TrackingProps {
+  order: Order | null;
+  onNewOrder: () => void;
 }
 
-const steps: { status: OrderStatus; label: string; icon: any; sound: any }[] = [
-  { status: 'RECEIVED', label: 'Reçue', icon: Box, sound: 'pop' },
-  { status: 'CONFIRMED', label: 'Confirmée', icon: CheckCircle2, sound: 'notification' },
-  { status: 'PREPARING', label: 'En Cuisine', icon: ChefHat, sound: 'notification' },
-  { status: 'READY', label: 'Emballée !', icon: PackageCheck, sound: 'success' },
-  { status: 'DELIVERING', label: 'En Livraison', icon: Bike, sound: 'delivery' },
-  { status: 'DELIVERED', label: 'Livrée 🍽️', icon: Zap, sound: 'success' }
-];
+export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) => {
+  const [currentStep, setCurrentStep] = useState<number>(1);
 
-const OrderTracking: React.FC<OrderTrackingProps> = ({ order, onComplete, onOpenLiveDriverMap, onOpenPushNotification }) => {
-  const [currentStepIdx, setCurrentStepIdx] = useState(0);
-  const [billoPos, setBilloPos] = useState(0);
-
+  // Progressive delivery simulation for delightful UX
   useEffect(() => {
-    const actualIdx = steps.findIndex(s => s.status === order.status);
-    if (actualIdx !== -1) {
-      setCurrentStepIdx(actualIdx);
-      if (order.status === 'DELIVERED') onComplete();
-    }
-  }, [order.status]);
+    if (!order) return;
+    const t1 = setTimeout(() => setCurrentStep(2), 6000);
+    const t2 = setTimeout(() => setCurrentStep(3), 18000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [order]);
 
-  useEffect(() => {
-    if (steps[currentStepIdx].status === 'DELIVERING') {
-      const interval = setInterval(() => {
-        setBilloPos(prev => (prev < 100 ? prev + 1 : 100));
-      }, 300);
-      return () => clearInterval(interval);
-    }
-  }, [currentStepIdx]);
+  if (!order) {
+    return (
+      <div className="max-w-2xl mx-auto py-16 px-4 text-center">
+        <div className="w-16 h-16 mx-auto rounded-full bg-stone-900 border border-stone-800 flex items-center justify-center text-stone-500 mb-4">
+          <Clock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Aucune commande active</h2>
+        <p className="text-sm text-stone-400 mt-2">
+          Vous n'avez pas encore passé de commande ou votre précédente commande a été archivée.
+        </p>
+        <button
+          onClick={onNewOrder}
+          className="mt-6 px-6 py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm inline-flex items-center gap-2"
+        >
+          <span>Découvrir la carte</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
-  const isDelivered = order.status === 'DELIVERED';
+  const steps = [
+    { num: 1, title: "Commande Reçue", desc: "Validée par le restaurant", icon: <CheckCircle2 className="w-5 h-5" /> },
+    { num: 2, title: "En Préparation", desc: "Mijoté avec passion par Khady", icon: <ChefHat className="w-5 h-5" /> },
+    { num: 3, title: "En Route dans Niamey", desc: `Livraison vers ${order.district}`, icon: <Bike className="w-5 h-5" /> },
+    { num: 4, title: "Livrée", desc: "Bon appétit !", icon: <CheckCircle2 className="w-5 h-5" /> },
+  ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="bg-white p-10 rounded-[4rem] shadow-2xl border border-brand-brown/5 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-brand-orange/5 rounded-full -mr-20 -mt-20"></div>
-        
-        <div className="flex justify-between items-center mb-10 relative z-10">
-           <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-1 italic">Statut Khady's</p>
-              <h3 className="text-2xl font-black italic text-brand-brown uppercase tracking-tighter">{order.id}</h3>
-           </div>
-           <div className="w-14 h-14 bg-brand-brown rounded-[1.8rem] flex items-center justify-center text-brand-gold shadow-xl border-4 border-white animate-pulse">
-              {isDelivered ? <CheckCircle2 size={28} /> : <Navigation size={28} />}
-           </div>
+    <div className="max-w-3xl mx-auto py-8 px-4 sm:px-6 space-y-6">
+      {/* Banner */}
+      <div className="p-6 rounded-3xl bg-gradient-to-br from-[#1C1815] to-[#251E1A] border border-orange-500/25 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">
+              Suivi en direct
+            </span>
+            <h1 className="text-2xl font-bold text-white mt-2">
+              Commande #{order.id}
+            </h1>
+            <p className="text-xs text-stone-400 mt-0.5">
+              Destinataire : <strong className="text-stone-200">{order.customerName}</strong> • {order.phone}
+            </p>
+          </div>
+          <div className="text-left sm:text-right">
+            <span className="text-xs text-stone-400">Temps estimé d'arrivée</span>
+            <div className="text-2xl font-black text-amber-400">~25-35 min</div>
+          </div>
         </div>
 
-        <div className="space-y-8 relative z-10">
-           {steps.map((step, idx) => {
-              const isCompleted = idx < currentStepIdx;
-              const isCurrent = idx === currentStepIdx;
-              const Icon = step.icon;
+        {/* Step tracker */}
+        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {steps.map((st) => {
+            const isDone = currentStep >= st.num;
+            const isCurrent = currentStep === st.num;
 
-              return (
-                 <div key={idx} className={`flex items-center gap-6 transition-all duration-1000 ${isCurrent ? 'scale-110 opacity-100' : isCompleted ? 'opacity-40' : 'opacity-10'}`}>
-                    <div className="relative">
-                       {idx < steps.length - 1 && (
-                         <div className={`absolute left-1/2 -translate-x-1/2 top-full w-0.5 h-8 ${isCompleted ? 'bg-brand-orange' : 'bg-gray-100'}`}></div>
-                       )}
-                       <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border-4 transition-all duration-500 ${isCurrent || isCompleted ? 'bg-brand-orange text-white border-white shadow-2xl' : 'bg-gray-50 text-gray-300 border-gray-100'}`}>
-                          <Icon size={24} className={isCurrent ? 'animate-bounce' : ''} />
-                       </div>
-                    </div>
-                    <div>
-                       <p className="text-[8px] font-black uppercase tracking-[0.3em] text-gray-400 mb-0.5">Étape {idx + 1}</p>
-                       <p className={`text-base font-black italic uppercase tracking-tighter ${isCurrent ? 'text-brand-brown' : 'text-gray-400'}`}>{step.label}</p>
-                    </div>
-                 </div>
-              );
-           })}
+            return (
+              <div
+                key={st.num}
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  isCurrent
+                    ? 'bg-orange-500/20 border-orange-500 text-orange-300 ring-2 ring-orange-500/20'
+                    : isDone
+                    ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
+                    : 'bg-stone-900/50 border-stone-800 text-stone-500'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold">Étape {st.num}</span>
+                  {st.icon}
+                </div>
+                <h4 className="text-xs font-bold text-white truncate">{st.title}</h4>
+                <p className="text-[10px] text-stone-400 mt-0.5">{st.desc}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {isDelivered && (
-        <div className="bg-green-500 p-8 rounded-[3rem] text-white shadow-2xl animate-slide-up border-4 border-white">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="bg-white/20 p-3 rounded-2xl">
-              <MessageSquare size={20} />
+      {/* Driver info & assistance */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="p-5 rounded-2xl bg-[#181615] border border-stone-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-orange-600/20 text-orange-400 flex items-center justify-center">
+              <Bike className="w-6 h-6" />
             </div>
-            <h4 className="font-black uppercase italic text-xs">Message du Livreurs Billo</h4>
+            <div>
+              <h4 className="text-sm font-bold text-white">{order.driverName || "Moussa (Livreur Khady)"}</h4>
+              <p className="text-xs text-stone-400">Livreur dédié Niamey</p>
+            </div>
           </div>
-          <p className="text-sm font-bold italic leading-relaxed">
-            "Votre festin Khady's a été livré ! Bon appétit et merci de votre confiance. Barka !"
-          </p>
+          <a
+            href={`tel:${order.driverPhone || "+22790123456"}`}
+            className="p-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors shadow-md"
+            title="Appeler le livreur"
+          >
+            <Phone className="w-4 h-4" />
+          </a>
         </div>
-      )}
 
-      {(steps[currentStepIdx].status === 'DELIVERING' || steps[currentStepIdx].status === 'READY') && (
-        <div className="bg-brand-brown p-10 rounded-[4rem] shadow-2xl border-4 border-white animate-slide-up relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-full h-full opacity-5 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-           <div className="flex items-center justify-between mb-8 relative z-10">
-              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-brand-orange rounded-xl flex items-center justify-center text-white shadow-lg"><Bike size={22}/></div>
-                 <h4 className="text-brand-gold font-black uppercase italic text-xs tracking-[0.2em]">Billo Express Live</h4>
-              </div>
-              <span className="text-[9px] bg-red-500 text-white px-3 py-1 rounded-full animate-pulse font-black uppercase tracking-widest shadow-lg">En Route</span>
-           </div>
-           
-           <div className="h-4 bg-white/10 rounded-full relative overflow-hidden mb-8 shadow-inner">
-              <div className="absolute left-0 top-0 h-full bg-gradient-to-r from-brand-orange to-brand-gold shadow-[0_0_20px_rgba(255,111,0,0.6)] transition-all duration-1000" style={{ width: `${billoPos}%` }}></div>
-              <div className="absolute top-1/2 -translate-y-1/2 transition-all duration-1000 flex items-center justify-center" style={{ left: `calc(${billoPos}% - 12px)` }}>
-                 <div className="bg-white p-1 rounded-full shadow-2xl border-2 border-brand-orange">
-                    <Bike size={18} className="text-brand-orange" />
-                 </div>
-              </div>
-           </div>
-
-           <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-[0.2em] text-white/40 relative z-10 mb-6">
-              <span className="flex items-center gap-2 text-brand-gold italic"><MapPin size={14}/> Khady's</span>
-              <span className="flex items-center gap-2 italic"><MapPin size={14}/> Chez Vous</span>
-           </div>
-
-           {onOpenLiveDriverMap && (
-             <button
-               onClick={() => { playSound('pop'); onOpenLiveDriverMap(); }}
-               className="w-full bg-brand-gold text-brand-brown py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all relative z-10 italic mb-2"
-             >
-               <Navigation size={16} /> Ouvrir la Carte GPS Live 🗺️
-             </button>
-           )}
-
-           {onOpenPushNotification && (
-             <button
-               onClick={() => { playSound('pop'); onOpenPushNotification(); }}
-               className="w-full bg-brand-orange text-white py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all relative z-10 italic border border-white/20 hover:bg-brand-gold hover:text-brand-brown"
-             >
-               <Bell size={16} className="animate-bounce" /> Activer Notifications Push Delivery 🔔
-             </button>
-           )}
+        <div className="p-5 rounded-2xl bg-[#181615] border border-stone-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white">Service Client Khady</h4>
+              <p className="text-xs text-stone-400">Assistance WhatsApp 7j/7</p>
+            </div>
+          </div>
+          <a
+            href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-2 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-semibold text-white border border-stone-700"
+          >
+            WhatsApp
+          </a>
         </div>
-      )}
+      </div>
+
+      {/* Order Summary Recap */}
+      <div className="p-6 rounded-2xl bg-[#181615] border border-stone-800 space-y-4">
+        <h3 className="text-sm font-bold uppercase tracking-wider text-stone-300">
+          Articles de votre commande
+        </h3>
+
+        <div className="divide-y divide-stone-800/80">
+          {order.items.map((ci, idx) => (
+            <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-orange-400">{ci.quantity}x</span>
+                <span className="text-white">{ci.item.name}</span>
+                {ci.spice && (
+                  <span className="text-[10px] text-stone-400 bg-stone-800 px-1.5 py-0.5 rounded">
+                    {ci.spice}
+                  </span>
+                )}
+              </div>
+              <span className="font-semibold text-amber-400">
+                {(ci.item.price * ci.quantity).toLocaleString()} FCFA
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="pt-3 border-t border-stone-800 space-y-1.5 text-xs text-stone-400">
+          <div className="flex justify-between">
+            <span>Frais de livraison ({order.district})</span>
+            <span className="text-stone-200">{order.deliveryFee.toLocaleString()} FCFA</span>
+          </div>
+          <div className="flex justify-between text-base font-bold text-white pt-1">
+            <span>Total réglé / à régler</span>
+            <span className="text-amber-400 text-lg">{order.totalAmount.toLocaleString()} FCFA</span>
+          </div>
+        </div>
+
+        <div className="pt-2 flex items-start gap-2 text-xs text-stone-400">
+          <MapPin className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
+          <span>{order.address} ({order.district}, Niamey)</span>
+        </div>
+      </div>
     </div>
   );
 };
-
-export default OrderTracking;

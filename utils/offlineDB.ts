@@ -1,169 +1,87 @@
-import { MenuItem, CartItem, Order } from '../types';
+import { MenuItem, Order } from '../types';
+import { INITIAL_MENU_ITEMS } from '../constants';
 
-const DB_NAME = 'KhadysFoodDB';
-const DB_VERSION = 1;
+const MENU_STORAGE_KEY = 'khadys_menu_items_v2';
+const ORDERS_STORAGE_KEY = 'khadys_orders_v2';
+const DRAFT_STORAGE_KEY = 'khadys_admin_item_draft';
 
-let dbPromise: Promise<IDBDatabase> | null = null;
-
-export const initDB = (): Promise<IDBDatabase> => {
-  if (dbPromise) return dbPromise;
-
-  dbPromise = new Promise((resolve, reject) => {
-    if (!('indexedDB' in window)) {
-      reject(new Error('IndexedDB non supporté par ce navigateur.'));
-      return;
-    }
-
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
-      if (!db.objectStoreNames.contains('menu')) {
-        db.createObjectStore('menu', { keyPath: 'id' });
-      }
-
-      if (!db.objectStoreNames.contains('cart')) {
-        db.createObjectStore('cart', { keyPath: 'id' });
-      }
-
-      if (!db.objectStoreNames.contains('pendingOrders')) {
-        db.createObjectStore('pendingOrders', { keyPath: 'id' });
-      }
-    };
-
-    request.onsuccess = (event) => {
-      resolve((event.target as IDBOpenDBRequest).result);
-    };
-
-    request.onerror = (event) => {
-      console.warn('Avertissement IndexedDB:', (event.target as IDBOpenDBRequest).error);
-      reject((event.target as IDBOpenDBRequest).error);
-    };
-  });
-
-  return dbPromise;
-};
-
-// --- MENU STORAGE ---
-export const saveMenuToIDB = async (items: MenuItem[]): Promise<void> => {
-  if (!items || !Array.isArray(items) || items.length === 0) return;
+export function loadStoredMenuItems(): MenuItem[] {
   try {
-    const db = await initDB();
-    return new Promise<void>((resolve) => {
-      const tx = db.transaction('menu', 'readwrite');
-      const store = tx.objectStore('menu');
-      store.clear();
-      for (const item of items) {
-        if (item && item.id) {
-          try {
-            store.put(item);
-          } catch (putErr) {
-            console.warn('Erreur put item dans IDB:', item.id, putErr);
-          }
+    const raw = localStorage.getItem(MENU_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error("Erreur lors de la lecture du menu stocké:", err);
+  }
+  return INITIAL_MENU_ITEMS;
+}
+
+export function saveStoredMenuItems(items: MenuItem[]): boolean {
+  try {
+    localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(items));
+    return true;
+  } catch (err: any) {
+    console.warn("Échec de sauvegarde locale (quota dépassé possible):", err);
+    // If quota exceeded, try stripping heavy base64 images from very old items or notify
+    try {
+      // Emergency trim if needed
+      const lightweight = items.map((item, idx) => {
+        if (idx > 15 && item.image && item.image.startsWith('data:image')) {
+          return { ...item, image: INITIAL_MENU_ITEMS[0].image };
         }
-      }
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => {
-        console.warn('Erreur transaction IndexedDB:', tx.error);
-        resolve(); // Continue gracefully without crashing
-      };
-      tx.onabort = () => {
-        console.warn('Transaction IndexedDB annulée');
-        resolve();
-      };
-    });
-  } catch (err) {
-    console.warn('Erreur sauvegarde menu IndexedDB:', err);
+        return item;
+      });
+      localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(lightweight));
+      return true;
+    } catch {
+      return false;
+    }
   }
-};
+}
 
-export const getMenuFromIDB = async (): Promise<MenuItem[]> => {
+export function loadStoredOrders(): Order[] {
   try {
-    const db = await initDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction('menu', 'readonly');
-      const store = tx.objectStore('menu');
-      const request = store.getAll();
-      request.onsuccess = () => resolve((request.result as MenuItem[]) || []);
-      request.onerror = () => {
-        console.warn('Erreur lecture store menu:', request.error);
-        resolve([]);
-      };
-      tx.onerror = () => resolve([]);
-    });
-  } catch (err) {
-    console.warn('Erreur lecture menu IndexedDB:', err);
-    return [];
-  }
-};
-
-// --- CART STORAGE ---
-export const saveCartToIDB = async (cart: CartItem[]): Promise<void> => {
-  try {
-    const db = await initDB();
-    const tx = db.transaction('cart', 'readwrite');
-    const store = tx.objectStore('cart');
-    await store.clear();
-    for (const item of cart) {
-      store.put(item);
+    const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch (err) {
-    console.warn('Erreur sauvegarde panier IndexedDB:', err);
+    console.error("Erreur lors du chargement des commandes:", err);
   }
-};
+  return [];
+}
 
-export const getCartFromIDB = async (): Promise<CartItem[]> => {
+export function saveStoredOrders(orders: Order[]): void {
   try {
-    const db = await initDB();
-    const tx = db.transaction('cart', 'readonly');
-    const store = tx.objectStore('cart');
-    return new Promise((resolve) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result as CartItem[] || []);
-      request.onerror = () => resolve([]);
-    });
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
   } catch (err) {
-    console.warn('Erreur lecture panier IndexedDB:', err);
-    return [];
+    console.warn("Impossible d'enregistrer les commandes:", err);
   }
-};
+}
 
-// --- PENDING ORDERS (Offline Orders) ---
-export const savePendingOrderToIDB = async (order: Order): Promise<void> => {
+export function saveAdminDraft(draft: Partial<MenuItem> | null): void {
   try {
-    const db = await initDB();
-    const tx = db.transaction('pendingOrders', 'readwrite');
-    const store = tx.objectStore('pendingOrders');
-    store.put(order);
+    if (!draft) {
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    }
   } catch (err) {
-    console.warn('Erreur sauvegarde commande hors-ligne IndexedDB:', err);
+    console.warn("Draft save failed:", err);
   }
-};
+}
 
-export const getPendingOrdersFromIDB = async (): Promise<Order[]> => {
+export function loadAdminDraft(): Partial<MenuItem> | null {
   try {
-    const db = await initDB();
-    const tx = db.transaction('pendingOrders', 'readonly');
-    const store = tx.objectStore('pendingOrders');
-    return new Promise((resolve) => {
-      const request = store.getAll();
-      request.onsuccess = () => resolve(request.result as Order[] || []);
-      request.onerror = () => resolve([]);
-    });
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
   } catch (err) {
-    console.warn('Erreur lecture commandes hors-ligne IndexedDB:', err);
-    return [];
+    console.warn("Draft load failed:", err);
   }
-};
-
-export const clearPendingOrdersFromIDB = async (): Promise<void> => {
-  try {
-    const db = await initDB();
-    const tx = db.transaction('pendingOrders', 'readwrite');
-    const store = tx.objectStore('pendingOrders');
-    await store.clear();
-  } catch (err) {
-    console.warn('Erreur vidage commandes hors-ligne IndexedDB:', err);
-  }
-};
+  return null;
+}

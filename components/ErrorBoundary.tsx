@@ -15,7 +15,7 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
-    error: null
+    error: null,
   };
 
   public static getDerivedStateFromError(error: Error): State {
@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Khady App Error caught by boundary:', error, errorInfo);
+    console.error("Uncaught error caught by Khady ErrorBoundary:", error, errorInfo);
   }
 
   private handleReload = () => {
@@ -38,26 +38,29 @@ export class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-[#1A0F0D] text-white flex flex-col items-center justify-center p-6 text-center">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-3xl max-w-md w-full shadow-2xl space-y-6">
-            <div className="w-16 h-16 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/30">
-              <AlertTriangle size={32} />
+        <div className="min-h-[350px] w-full flex items-center justify-center p-6 bg-[#1A1816]/90 border border-orange-500/20 rounded-2xl text-center my-6">
+          <div className="max-w-md mx-auto space-y-4">
+            <div className="w-14 h-14 mx-auto rounded-full bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+              <AlertTriangle className="w-8 h-8" />
             </div>
-            <div>
-              <h2 className="text-xl font-black italic uppercase text-amber-400">
-                {this.props.fallbackTitle || "Une interruption a été interceptée"}
-              </h2>
-              <p className="text-xs text-white/70 mt-2 font-medium">
-                Vos plats et vos données sont protégés dans le stockage persistant.
-              </p>
-            </div>
-            <div className="flex flex-col gap-3">
+            <h3 className="text-xl font-bold text-white">
+              {this.props.fallbackTitle || "Une interruption est survenue"}
+            </h3>
+            <p className="text-sm text-stone-300">
+              Vos données sont protégées dans votre navigateur. Vous pouvez reprendre là où vous en étiez sans perdre vos informations.
+            </p>
+            {this.state.error?.message && (
+              <div className="p-2.5 rounded bg-black/40 text-xs font-mono text-stone-400 max-h-24 overflow-y-auto text-left">
+                {this.state.error.message}
+              </div>
+            )}
+            <div className="pt-2 flex items-center justify-center gap-3">
               <button
-                type="button"
                 onClick={this.handleReload}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-[#1A0F0D] py-3.5 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all"
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-medium rounded-xl text-sm transition-all flex items-center gap-2 shadow-lg shadow-orange-950/40"
               >
-                <RefreshCw size={16} /> Relancer l'Application en toute sécurité
+                <RefreshCw className="w-4 h-4" />
+                Reprendre en toute sécurité
               </button>
             </div>
           </div>

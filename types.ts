@@ -1,167 +1,75 @@
-
-export type MenuCategory = 
-  | 'Entree' 
-  | 'Entrée'
-  | 'Entrée Chaude'
-  | 'Entrée Froide'
-  | 'Plat Africain' 
-  | 'Plat Européen' 
-  | 'Spécialité Maison' 
-  | 'Plat du Jour' 
-  | 'Menu du Jour'
-  | 'Dessert' 
-  | 'Boisson' 
-  | 'Boisson Froide'
-  | 'Boisson Chaude'
-  | 'Boisson Naturelle'
-  | 'Petit-déjeuner'
-  | 'Déjeuner'
-  | 'Dîner'
-  | 'Box Sauce'
-  | 'Box Repas'
-  | 'Pack'
-  | 'Buffet'
-  | 'Pack-Buffet';
-
-export type OrderStatus = 
-  | 'RECEIVED' 
-  | 'CONFIRMED' 
-  | 'PREPARING' 
-  | 'READY' 
-  | 'DELIVERING' 
-  | 'DELIVERED'
-  | 'CANCELLED';
-
-export type PaymentMethod = 
-  | 'CASH' 
-  | 'AIRTEL_MONEY' 
-  | 'MOOV_MONEY' 
-  | 'ZAMANY' 
-  | 'FLOOZ'
-  | 'NITA' 
-  | 'MYNITA' 
-  | 'AMANA'
-  | 'AMANATA' 
-  | 'ALLIZA' 
-  | 'ZEYNA' 
-  | 'CARD';
+export type CategoryType = 'tous' | 'incontournables' | 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
 
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
-  price: number;
+  price: number; // in FCFA (XOF)
+  category: 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
   image: string;
-  category: MenuCategory;
-  rating: number;
-  isAvailable: boolean;
-  isSpicy?: boolean;
-  isVegetarian?: boolean;
-  isPlatDuJour?: boolean;
-  isSpécialitéMaison?: boolean;
-  isPromo?: boolean;
-  isLowPrice?: boolean;
-  includes?: string[]; 
-  minPeople?: number;  
+  isPopular?: boolean;
+  isFeatured?: boolean; // Display in Home Page "Incontournables" rectangles
+  badge?: string;
+  preparationTime?: string;
+  spicyLevel?: number; // 0 to 3
+  ingredients?: string[];
+  available: boolean;
+  createdAt?: string;
 }
 
-export interface Review {
-  id: string;
-  name: string;
-  comment: string;
-  rating: number;
-  image: string;
-  date: string;
-  adminReply?: string; 
-}
-
-export interface CartItem extends MenuItem {
+export interface CartItem {
+  item: MenuItem;
   quantity: number;
-  instructions?: string;
+  spice?: 'doux' | 'moyen' | 'pimenté';
+  notes?: string;
 }
+
+export type PaymentMethod = 'cash' | 'airtel' | 'moov' | 'flooz' | 'card';
 
 export interface Order {
   id: string;
   customerName: string;
   phone: string;
-  address: string;
   district: string;
+  address: string;
   items: CartItem[];
-  total: number;
+  subtotal: number;
   deliveryFee: number;
-  status: OrderStatus;
+  totalAmount: number;
   paymentMethod: PaymentMethod;
-  paymentProofImage?: string;
-  paymentTransactionId?: string;
-  timestamp: string;
+  status: 'received' | 'preparing' | 'on_delivery' | 'delivered' | 'cancelled';
+  createdAt: string;
+  estimatedDeliveryMinutes: number;
+  driverName?: string;
+  driverPhone?: string;
+  notes?: string;
 }
 
-export interface UserProfile {
-  name: string;
-  email?: string;
-  phone: string;
-  points: number;
-  rank: 'Silver' | 'Gold' | 'Platinum';
+export interface Review {
+  id: string;
+  author: string;
+  rating: number;
+  comment: string;
+  date: string;
+  dishName?: string;
   avatar?: string;
-  referralCode: string;
+  verified?: boolean;
 }
 
-export interface BlogArticle {
+export interface TraiteurPackage {
   id: string;
   title: string;
-  summary: string;
-  content: string;
-  author: string;
-  date: string;
-  readTime: string;
+  tagline: string;
+  pricePerPerson: number;
+  minGuests: number;
+  features: string[];
+  popular?: boolean;
   image: string;
-  category: 'Recettes' | 'Secrets du Chef' | 'Nutrition Sahel' | 'Événements';
-  likes: number;
 }
 
-export interface FaqItem {
+export interface ToastMessage {
   id: string;
-  question: string;
-  answer: string;
-  category: 'Paiement' | 'Livraison' | 'Commandes' | 'Traiteur' | 'Fidélité' | 'Application';
-}
-
-export enum Page {
-  HOME = 'HOME',
-  MENU = 'MENU',
-  TRAITEUR = 'TRAITEUR',
-  CART = 'CART',
-  COMMANDE = 'COMMANDE',
-  BOX = 'BOX',
-  PACKS = 'PACKS',
-  COMMANDES = 'COMMANDES',
-  COMPTE = 'COMPTE',
-  INFOS = 'INFOS',
-  ADMIN = 'ADMIN',
-  GALLERY = 'GALLERY',
-  VIDEO = 'VIDEO',
-  WHATSAPP = 'WHATSAPP',
-  BLOG = 'BLOG',
-  FAQ = 'FAQ',
-  SETTINGS = 'SETTINGS'
-}
-
-export enum AdminView {
-  DASHBOARD = 'DASHBOARD',
-  PLAT_DU_JOUR = 'PLAT_DU_JOUR',
-  ORDERS = 'ORDERS',
-  MENU_MGMT = 'MENU_MGMT',
-  BLOG_MGMT = 'BLOG_MGMT',
-  FAQ_MGMT = 'FAQ_MGMT',
-  AI_MARKETING = 'AI_MARKETING',
-  CLIENTS = 'CLIENTS',
-  DELIVERY = 'DELIVERY',
-  EVENT = 'EVENT',
-  BUFFET = 'BUFFET',
-  SETTINGS = 'SETTINGS'
-}
-
-export interface District {
-  name: string;
-  zone: 'center' | 'periphery';
+  type: 'success' | 'error' | 'info';
+  title: string;
+  message?: string;
 }

@@ -1,42 +1,16 @@
-
 import React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App';
-import { LanguageProvider } from './context/LanguageContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import ReactDOM from 'react-dom/client';
+import { App } from './App';
+import './index.css';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
-  throw new Error("Erreur critique : Élément racine introuvable.");
+  throw new Error('Failed to find root element');
 }
 
-const root = createRoot(rootElement);
+const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ErrorBoundary>
-      <LanguageProvider>
-        <App />
-      </LanguageProvider>
-    </ErrorBoundary>
+    <App />
   </React.StrictMode>
 );
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then((registration) => {
-      registration.onupdatefound = () => {
-        const installingWorker = registration.installing;
-        if (installingWorker) {
-          installingWorker.onstatechange = () => {
-            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('Nouvelle version prête en arrière-plan.');
-              // Do not forcefully reload while user might be entering dishes
-            }
-          };
-        }
-      };
-    }).catch((err) => {
-      console.warn('Service Worker registration failed:', err);
-    });
-  });
-}
