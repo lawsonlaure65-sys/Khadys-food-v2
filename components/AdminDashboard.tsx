@@ -8,6 +8,7 @@ import {
 import { compressImageFile } from '../utils/imageCompressor';
 import { saveAdminDraft, loadAdminDraft } from '../utils/offlineDB';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { isRestrictedFromDailyOrFeatured } from '../constants';
 
 interface AdminProps {
   items: MenuItem[];
@@ -49,7 +50,10 @@ export const AdminDashboard: React.FC<AdminProps> = ({
     { month: 'Sept', total: 3455 }
   ];
 
-  const platDuJour = items.find(i => i.isFeatured) || items[0];
+  // Sélection du plat du jour : exclure strictement le Doukounou et l'Attiéké
+  const platDuJour = items.find(i => i.isFeatured && !isRestrictedFromDailyOrFeatured(i.name)) ||
+                     items.find(i => !isRestrictedFromDailyOrFeatured(i.name)) ||
+                     items[0];
 
   const handleStartAdd = () => {
     const fresh: Partial<MenuItem> = {
@@ -102,6 +106,8 @@ export const AdminDashboard: React.FC<AdminProps> = ({
       return;
     }
 
+    const isRestricted = isRestrictedFromDailyOrFeatured(editingItem.name);
+
     const itemToSave: MenuItem = {
       id: editingItem.id || `item-${Date.now()}`,
       name: editingItem.name.trim(),
@@ -110,8 +116,8 @@ export const AdminDashboard: React.FC<AdminProps> = ({
       category: editingItem.category || 'plats',
       image: editingItem.image.trim(),
       isPopular: editingItem.isPopular ?? true,
-      isFeatured: editingItem.isFeatured ?? true, // Important: keep true so it displays in Home rectangles
-      badge: editingItem.badge || 'Nouveau',
+      isFeatured: isRestricted ? false : (editingItem.isFeatured ?? true),
+      badge: editingItem.badge || (isRestricted ? 'Spécialité Permanente' : 'Nouveau'),
       preparationTime: editingItem.preparationTime || '20 min',
       spicyLevel: editingItem.spicyLevel || 1,
       ingredients: editingItem.ingredients || ['Spécialité Khady'],
@@ -121,7 +127,11 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
     onSaveItem(itemToSave);
     saveAdminDraft(null);
-    setSuccessMsg(`Plat "${itemToSave.name}" enregistré et visible dans les rectangles de l'accueil !`);
+    setSuccessMsg(
+      isRestricted
+        ? `Plat "${itemToSave.name}" enregistré dans la carte permanente ! (Réservé hors plat vedette/jour selon les règles)`
+        : `Plat "${itemToSave.name}" enregistré et visible dans les rectangles de l'accueil !`
+    );
     setTimeout(() => {
       setEditingItem(null);
       setSuccessMsg(null);
@@ -632,8 +642,102 @@ export const AdminDashboard: React.FC<AdminProps> = ({
             </div>
           )}
 
+          {/* PLAT DU JOUR DEDICATED TAB */}
+          {adminTab === 'platDuJour' && (
+            <div className="space-y-5">
+              <div className="rounded-[28px] bg-gradient-to-r from-[#2A1B14] to-[#1E1410] border-2 border-amber-500/40 p-5 shadow-xl">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-400 block">
+                      ☀️ PLANIFICATEUR DU PLAT DU JOUR
+                    </span>
+                    <h3 className="text-lg sm:text-xl font-black text-white italic uppercase font-display mt-0.5">
+                      Actuellement programmé : {platDuJour.name} ({platDuJour.price.toLocaleString()} FCFA)
+                    </h3>
+                    <p className="text-xs text-stone-300 mt-1 max-w-xl">
+                      Sélectionnez ci-dessous le plat cuisiné qui apparaîtra en vedette aujourd'hui sur l'Accueil et le Menu.
+                      Note : L'Attiéké et le Doukounou sont des spécialités permanentes et ne peuvent pas être programmés comme plat du jour.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleStartEdit(platDuJour)}
+                    className="py-2.5 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-wider shadow flex items-center gap-1.5 flex-shrink-0"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Modifier la fiche</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400">
+                  Choisir le plat du jour parmi les plats éligibles :
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {items.map(dish => {
+                    const isRestricted = isRestrictedFromDailyOrFeatured(dish.name);
+                    const isCurrent = dish.id === platDuJour.id;
+                    return (
+                      <div
+                        key={dish.id}
+                        className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                          isCurrent
+                            ? 'bg-amber-950/40 border-amber-500/80 shadow-lg'
+                            : isRestricted
+                            ? 'bg-stone-900/40 border-stone-800 opacity-60'
+                            : 'bg-stone-900/90 border-stone-800 hover:border-stone-700'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <img
+                            src={dish.image}
+                            alt={dish.name}
+                            className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                          />
+                          <div className="min-w-0">
+                            <h5 className="font-bold text-white text-xs truncate">{dish.name}</h5>
+                            <span className="text-xs font-black text-amber-400">{dish.price.toLocaleString()} FCFA</span>
+                            {isRestricted ? (
+                              <span className="block text-[9px] text-stone-500 font-bold uppercase">Spécialité permanente (non éligible)</span>
+                            ) : isCurrent ? (
+                              <span className="block text-[9px] text-emerald-400 font-bold uppercase">★ Plat du Jour Actif</span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div>
+                          {isRestricted ? (
+                            <span className="text-[10px] px-2 py-1 rounded bg-stone-800 text-stone-500 font-bold">
+                              Verrouillé
+                            </span>
+                          ) : isCurrent ? (
+                            <span className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-600 text-white font-black">
+                              En ligne ✓
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                // Set this item as badge "Menu du Jour" and isFeatured true, update others
+                                const updated = { ...dish, isFeatured: true, badge: 'Menu du Jour' };
+                                onSaveItem(updated);
+                                setSuccessMsg(`${dish.name} est maintenant le Plat du Jour !`);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/40 text-xs font-bold transition-all"
+                            >
+                              Définir du Jour
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* CARTE & PLATS TAB */}
-          {(adminTab === 'carte' || adminTab === 'platDuJour') && (
+          {adminTab === 'carte' && (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -699,13 +803,25 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
-                        onClick={() => onToggleFeatured(dish.id)}
+                        onClick={() => {
+                          if (isRestrictedFromDailyOrFeatured(dish.name)) {
+                            setErrorMsg("L'Attiéké et le Doukounou restent commandables dans la carte normale mais ne peuvent pas être définis comme plat vedette ou plat du jour.");
+                            return;
+                          }
+                          onToggleFeatured(dish.id);
+                        }}
                         className={`p-2 rounded-lg text-xs font-bold transition-colors ${
                           dish.isFeatured
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                            : 'bg-stone-800 text-stone-400'
+                            : isRestrictedFromDailyOrFeatured(dish.name)
+                            ? 'bg-stone-900 text-stone-600 cursor-not-allowed opacity-50'
+                            : 'bg-stone-800 text-stone-400 hover:text-white'
                         }`}
-                        title="Afficher/Retirer des rectangles de l'accueil"
+                        title={
+                          isRestrictedFromDailyOrFeatured(dish.name)
+                            ? "Plat réservé à la carte permanente (interdit comme plat vedette / plat du jour)"
+                            : "Afficher/Retirer des rectangles de l'accueil"
+                        }
                       >
                         ⭐
                       </button>

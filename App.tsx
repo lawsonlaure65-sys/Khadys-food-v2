@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MenuItem, CartItem, Order, ToastMessage } from './types';
-import { INITIAL_MENU_ITEMS, RESTAURANT_INFO } from './constants';
+import { INITIAL_MENU_ITEMS, RESTAURANT_INFO, isRestrictedFromDailyOrFeatured } from './constants';
 import { loadStoredMenuItems, saveStoredMenuItems, loadStoredOrders, saveStoredOrders } from './utils/offlineDB';
 import { Navbar } from './components/Navbar';
 import { MenuView } from './components/MenuView';
@@ -125,6 +125,11 @@ export const App: React.FC = () => {
   };
 
   const handleToggleFeatured = (id: string) => {
+    const dish = items.find(i => i.id === id);
+    if (dish && !dish.isFeatured && isRestrictedFromDailyOrFeatured(dish.name)) {
+      addToast('error', 'Action non autorisée', "L'Attiéké et le Doukounou restent dans la carte permanente mais ne peuvent pas être définis comme plat vedette ou plat du jour.");
+      return;
+    }
     setItems(prev => prev.map(i => i.id === id ? { ...i, isFeatured: !i.isFeatured } : i));
   };
 
@@ -163,10 +168,11 @@ export const App: React.FC = () => {
   };
 
   // The featured items for the Home page rectangles:
-  // Shows featured, popular, or newly added items first!
-  const displayedIncontournables = items.filter(it => it.isFeatured || it.isPopular).concat(
-    items.filter(it => !it.isFeatured && !it.isPopular)
-  );
+  // Attiéké and Doukounou are strictly excluded from plat vedette / incontournables rectangles,
+  // but remain 100% visible and orderable in the regular carte!
+  const displayedIncontournables = items
+    .filter(it => (it.isFeatured || it.isPopular) && !isRestrictedFromDailyOrFeatured(it.name))
+    .concat(items.filter(it => !it.isFeatured && !it.isPopular && !isRestrictedFromDailyOrFeatured(it.name)));
 
   return (
     <ErrorBoundary fallbackTitle="Une erreur inattendue est survenue dans l'application">
@@ -179,7 +185,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-24 md:pb-12">
+      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-36 sm:pb-32 md:pb-16 w-full max-w-full overflow-x-hidden">
         {/* Navigation Bar matching Screenshot 1 & 2 */}
         <Navbar
           currentTab={activeTab}
@@ -216,37 +222,49 @@ export const App: React.FC = () => {
 
                   {/* Headline & CTA */}
                   <div className="space-y-3.5 max-w-xl">
-                    <h1 className="font-black italic uppercase tracking-tight leading-[0.92] drop-shadow-2xl font-display">
-                      <span className="block text-3xl sm:text-5xl md:text-6xl text-white">
-                        LE GOÛT
-                      </span>
-                      <span className="block text-3xl sm:text-5xl md:text-6xl text-[#FFD700]">
-                        DES ROIS
-                      </span>
-                    </h1>
+                    <div>
+                      <h1 className="font-black italic uppercase tracking-tight leading-[0.92] drop-shadow-2xl font-display">
+                        <span className="block text-3xl sm:text-5xl md:text-6xl text-white">
+                          LE GOÛT
+                        </span>
+                        <span className="block text-3xl sm:text-5xl md:text-6xl text-[#FFD700]">
+                          DES ROIS
+                        </span>
+                      </h1>
+                      <p className="text-xs sm:text-sm text-stone-200 font-medium drop-shadow mt-2 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
+                        Cuisine fraîche, livraison et service traiteur à Niamey
+                      </p>
+                    </div>
 
-                    <button
-                      onClick={() => setActiveTab('carte')}
-                      className="inline-flex items-center justify-center gap-2 py-3 px-6 sm:px-8 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
-                    >
-                      <span>COMMANDER MAINTENANT</span>
-                      <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-stone-900 rotate-45" />
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                      <a
+                        href={RESTAURANT_INFO.whatsappDirectUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-2 py-3 px-5 sm:px-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <MessageSquare className="w-4 h-4 text-white" />
+                        <span>COMMANDER SUR WHATSAPP</span>
+                      </a>
+                      <button
+                        onClick={() => setActiveTab('carte')}
+                        className="inline-flex items-center justify-center gap-2 py-3 px-5 sm:px-7 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <span>VOIR LA CARTE</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-stone-900" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
 
-              {/* 2. WHATSAPP PRE-ORDER CARD (Screenshot 1 & 2: "SERVICE TRAITEUR & REPAS", "PRÉCOMMANDE SUR LE NUMÉRO WHATSAPP DU RESTAURANT", "+227 74 44 16 21") */}
-              <section>
-                <a
-                  href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20pr%C3%A9commander%20un%20repas%20ou%20traiteur%20!`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all hover:scale-[1.01] hover:border-emerald-400 group"
-                >
+              {/* 2. WHATSAPP PRE-ORDER & CATALOG CARD */}
+              <section className="rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5 sm:gap-5">
                     {/* Emerald WhatsApp Icon Box */}
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg">
                       <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
 
@@ -255,20 +273,44 @@ export const App: React.FC = () => {
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 border border-emerald-500/40">
                         📞 SERVICE TRAITEUR & REPAS
                       </span>
-                      <h2 className="text-white font-black italic uppercase text-xs sm:text-base tracking-wide mt-1 leading-snug truncate">
+                      <h2 className="text-white font-black italic uppercase text-xs sm:text-base tracking-wide mt-1 leading-snug">
                         PRÉCOMMANDE SUR LE NUMÉRO WHATSAPP DU RESTAURANT
                       </h2>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs sm:text-sm">
-                        <span className="text-emerald-400 font-bold">
+                        <span className="text-emerald-400 font-bold font-mono">
                           WhatsApp : +227 74 44 16 21
                         </span>
                         <span className="text-teal-300 font-medium">
-                          • Cliquez pour discuter
+                          • Commande & Devis direct
                         </span>
                       </div>
                     </div>
                   </div>
-                </a>
+
+                  {/* Dual Action Buttons: Discuter & Catalogue */}
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1 md:pt-0">
+                    <a
+                      href={RESTAURANT_INFO.whatsappDirectUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Discuter avec le restaurant</span>
+                    </a>
+
+                    <a
+                      href={RESTAURANT_INFO.whatsappCatalogUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-black text-xs uppercase tracking-wider shadow transition-transform active:scale-95"
+                    >
+                      <ShoppingBag className="w-4 h-4" />
+                      <span>Catalogue WhatsApp</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
               </section>
 
               {/* 3. TWO FEATURE CARDS (Screenshot 1 & 2: "COMMANDE VOCALE / IA VOCALE" & "NOTIFICATIONS PUSH / SUIVI PWA") */}
@@ -469,16 +511,40 @@ export const App: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <h3 className="text-lg sm:text-xl font-black italic uppercase text-[#FFD700] font-display">
                         TIEP ROUGE ROYAL
                       </h3>
                       <p className="text-xs font-bold italic text-amber-200">
                         "Le grand classique sénégalais au poisson capitaine braisé..."
                       </p>
-                      <p className="text-xs text-stone-300">
-                        Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate.
+                      <p className="text-xs text-stone-300 leading-relaxed">
+                        Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.
                       </p>
+                    </div>
+
+                    {/* Éléments inclus dans le plat */}
+                    <div className="pt-1.5 pb-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block mb-1">
+                        ✨ Ingrédients & Éléments Inclus :
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          "Poisson capitaine braisé",
+                          "Riz rouge subtilement parfumé à la tomate",
+                          "Chou blanc & carottes fondantes",
+                          "Manioc mijoté",
+                          "Épices douces Khady",
+                          "Sauce piment maison"
+                        ].map((ing, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-full bg-stone-900 border border-amber-500/20 text-stone-300 text-[10px] font-medium"
+                          >
+                            • {ing}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
                     <div className="pt-2 flex items-center justify-between gap-2 border-t border-stone-800">
@@ -488,10 +554,11 @@ export const App: React.FC = () => {
 
                       <div className="flex items-center gap-2">
                         <a
-                          href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%2C%20je%20commande%20le%20Tiep%20Rouge%20Royal%20du%20Menu%20du%20Jour%20!`}
+                          href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%2C%20je%20commande%20le%20Tiep%20Rouge%20Royal%20(4%20950%20FCFA)%20du%20Menu%20du%20Jour%20!`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white"
+                          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-colors"
+                          title="Commander par WhatsApp direct"
                         >
                           <MessageSquare className="w-4 h-4" />
                         </a>
@@ -500,7 +567,7 @@ export const App: React.FC = () => {
                             const thieb = items.find(i => i.id === 'item-thieb-rouge') || items[0];
                             handleAddToCart(thieb, 1, 'moyen');
                           }}
-                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md"
+                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-transform"
                         >
                           <span>COMMANDER</span>
                           <ArrowRight className="w-3.5 h-3.5" />

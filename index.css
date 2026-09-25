@@ -3,9 +3,26 @@
 @tailwind utilities;
 
 @layer base {
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
   body {
     background-color: #11100F;
     color: #F7F4EE;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6, p, span, a, button {
+    overflow-wrap: anywhere;
   }
 }
 

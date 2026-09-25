@@ -8,6 +8,8 @@ export const RESTAURANT_INFO = {
   address: "Boulevard Mali Béro, Quartier Plateau, Niamey",
   phone: "+227 74 44 16 21",
   whatsappNumber: "22774441621",
+  whatsappDirectUrl: "https://wa.me/22774441621",
+  whatsappCatalogUrl: "https://wa.me/c/74441621",
   openingHours: "Tous les jours : 11h30 - 23h30",
   currency: "FCFA",
   deliveryDistricts: [
@@ -33,13 +35,29 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
     category: "plats",
     image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
     isPopular: true,
-    isFeatured: true,
-    badge: "Plat Vedette",
+    isFeatured: false, // Strict: Interdit comme plat vedette ou plat du jour, mais toujours commandable dans la carte
+    badge: "Spécialité Permanente",
     preparationTime: "20 min",
     spicyLevel: 2,
     ingredients: ["Doukounou maïs vapeur", "Poisson capitaine braisé", "Sauce tomate épicée Khady", "Oignons émincés"],
     available: true,
     createdAt: "2026-01-09T12:00:00Z"
+  },
+  {
+    id: "item-attieke-royal",
+    name: "Attiéké Garba Royal au Poisson Braisé",
+    description: "Semoule de manioc fine cuite à la vapeur façon Garba royal, darne de poisson croustillante, dés de tomates fraîches, oignons émincés et piment vert pilé maison.",
+    price: 3500,
+    category: "plats",
+    image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80",
+    isPopular: true,
+    isFeatured: false, // Strict: Interdit comme plat vedette ou plat du jour, mais toujours commandable dans la carte
+    badge: "Spécialité Permanente",
+    preparationTime: "20 min",
+    spicyLevel: 2,
+    ingredients: ["Semoule de manioc fine cuite à la vapeur", "Poisson braisé", "Dés de tomates et oignons", "Piment vert Khady"],
+    available: true,
+    createdAt: "2026-01-09T12:30:00Z"
   },
   {
     id: "item-bowl-complet",
@@ -59,17 +77,17 @@ export const INITIAL_MENU_ITEMS: MenuItem[] = [
   },
   {
     id: "item-thieb-rouge",
-    name: "Thiéboudienne Penda Royal (Riz Rouge)",
-    description: "Le chef-d'œuvre sénégalais par Khady : riz rouge parfumé mijoté au bouillon de mérou frais, légumes du jardin (chou, carotte, manioc, aubergine), piment doux et bissap blanc acidulé.",
-    price: 4500,
+    name: "TIEP ROUGE ROYAL",
+    description: "Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.",
+    price: 4950,
     category: "plats",
-    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80",
     isPopular: true,
     isFeatured: true,
-    badge: "Plat Signature",
+    badge: "Menu du Jour",
     preparationTime: "25-35 min",
     spicyLevel: 2,
-    ingredients: ["Mérou frais", "Riz cassé parfumé", "Légumes mijotés", "Bouillon secret Khady", "Bissap blanc"],
+    ingredients: ["Poisson capitaine braisé", "Riz rouge subtilement parfumé à la tomate", "Légumes mijotés (chou blanc, carotte, manioc fondants)", "Épices douces Khady", "Piment maison"],
     available: true,
     createdAt: "2026-01-10T12:00:00Z"
   },
@@ -330,3 +348,15 @@ export const INITIAL_REVIEWS: Review[] = [
     verified: true
   }
 ];
+
+/**
+ * Règle de gestion Khady's Food & Event :
+ * Le Doukounou et l'Attiéké restent visibles et commandables dans la carte permanente.
+ * Ils sont strictement interdits comme plat du jour, plat vedette, ou import daily_menus.
+ */
+export function isRestrictedFromDailyOrFeatured(name?: string): boolean {
+  if (!name) return false;
+  const lower = name.toLowerCase();
+  return lower.includes('attiéké') || lower.includes('attieke') || lower.includes('doukounou');
+}
+

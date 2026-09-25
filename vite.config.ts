@@ -8,7 +8,7 @@ export default defineConfig({
     {
       name: 'gemini-server-proxy',
       configureServer(server) {
-        server.middlewares.use(async (req, res, next) => {
+        server.middlewares.use(async (req: any, res: any, next: any) => {
           if (req.url === '/api/gemini/chat' && req.method === 'POST') {
             let body = '';
             req.on('data', chunk => {
@@ -82,10 +82,5 @@ Donne des réponses courtes, appétissantes et chaleureuses (2-4 phrases max). U
   server: {
     port: 3000,
     host: '0.0.0.0',
-  },
-  build: {
-    rollupOptions: {
-      external: ['/assets/index-agMEzj4q.js']
-    }
   }
 });

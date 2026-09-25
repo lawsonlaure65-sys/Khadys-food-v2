@@ -1,7 +1,7 @@
 import { MenuItem, Order } from '../types';
 import { INITIAL_MENU_ITEMS } from '../constants';
 
-const MENU_STORAGE_KEY = 'khadys_menu_items_v2';
+const MENU_STORAGE_KEY = 'khadys_menu_items_v3';
 const ORDERS_STORAGE_KEY = 'khadys_orders_v2';
 const DRAFT_STORAGE_KEY = 'khadys_admin_item_draft';
 
@@ -11,7 +11,14 @@ export function loadStoredMenuItems(): MenuItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Guarantee Doukounou & Attiéké follow rules: visible, but not featured/daily
+        return parsed.map((it: MenuItem) => {
+          const lower = (it.name || '').toLowerCase();
+          if (lower.includes('doukounou') || lower.includes('attiéké') || lower.includes('attieke')) {
+            return { ...it, isFeatured: false, badge: 'Spécialité Permanente' };
+          }
+          return it;
+        });
       }
     }
   } catch (err) {

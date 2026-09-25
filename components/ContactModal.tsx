@@ -50,21 +50,41 @@ export const ContactModal: React.FC<ContactProps> = ({ isOpen, onClose, onOpenAd
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="w-6 h-6 text-emerald-400" />
-              <div>
-                <div className="text-xs font-bold text-white">WhatsApp Direct Restaurant</div>
-                <div className="text-[11px] text-emerald-300">+227 74 44 16 21</div>
+          {/* 1. Contact direct WhatsApp */}
+          <div className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <MessageSquare className="w-6 h-6 text-emerald-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white truncate">Discuter avec le restaurant</div>
+                <div className="text-[11px] text-emerald-300 font-mono">+227 74 44 16 21</div>
               </div>
             </div>
             <a
-              href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}`}
+              href={RESTAURANT_INFO.whatsappDirectUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md"
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md flex-shrink-0"
             >
               Écrire
+            </a>
+          </div>
+
+          {/* 2. Catalogue WhatsApp Officiel */}
+          <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <MessageSquare className="w-6 h-6 text-amber-400 flex-shrink-0" />
+              <div className="min-w-0">
+                <div className="text-xs font-bold text-white truncate">Catalogue WhatsApp</div>
+                <div className="text-[11px] text-amber-300 truncate">Consulter le catalogue officiel</div>
+              </div>
+            </div>
+            <a
+              href={RESTAURANT_INFO.whatsappCatalogUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md flex-shrink-0"
+            >
+              Voir
             </a>
           </div>
 
