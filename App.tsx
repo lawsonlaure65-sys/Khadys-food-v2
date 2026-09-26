@@ -696,7 +696,7 @@ export const App: React.FC = () => {
                           <div className="flex items-center justify-between">
                             {/* Peach/light orange price pill */}
                             <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm">
-                              {dish.price.toLocaleString()} F
+                              {(dish.price || 0).toLocaleString()} F
                             </span>
 
                             {/* 4 Gold Stars + 1 Empty Star */}

@@ -197,7 +197,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
 
                   <div className="pt-3 mt-3 border-t border-stone-800 flex items-center justify-between">
                     <span className="text-base font-black text-amber-400">
-                      {spe.price.toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                      {(spe.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
                     </span>
                     <button
                       onClick={(e) => {
@@ -292,7 +292,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-stone-500">Tarif Niamey</span>
                     <span className="text-lg font-black text-amber-400">
-                      {dish.price.toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                      {(dish.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
                     </span>
                   </div>
 

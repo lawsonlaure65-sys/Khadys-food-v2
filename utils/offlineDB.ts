@@ -11,14 +11,22 @@ export function loadStoredMenuItems(): MenuItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Guarantee Doukounou & Attiéké follow rules: visible, but not featured/daily
-        return parsed.map((it: MenuItem) => {
-          const lower = (it.name || '').toLowerCase();
-          if (lower.includes('doukounou') || lower.includes('attiéké') || lower.includes('attieke')) {
-            return { ...it, isFeatured: false, badge: 'Spécialité Permanente' };
-          }
-          return it;
-        });
+        // Filter out any corrupted entries (must have valid id and name)
+        const validItems = parsed.filter(it => it && typeof it === 'object' && it.id && it.name);
+        if (validItems.length > 0) {
+          // Guarantee Doukounou & Attiéké follow rules: visible, but not featured/daily
+          return validItems.map((it: MenuItem) => {
+            const lower = (it.name || '').toLowerCase();
+            if (lower.includes('doukounou') || lower.includes('attiéké') || lower.includes('attieke')) {
+              return { ...it, isFeatured: false, badge: 'Spécialité Permanente' };
+            }
+            return {
+              ...it,
+              price: typeof it.price === 'number' && !isNaN(it.price) ? it.price : 3000,
+              available: it.available !== false
+            };
+          });
+        }
       }
     }
   } catch (err) {
