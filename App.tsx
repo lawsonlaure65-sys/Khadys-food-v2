@@ -41,8 +41,7 @@ export const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isBlogOpen, setIsBlogOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [showSplash, setShowSplash] = useState(false);
-  const [isChatDismissed, setIsChatDismissed] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     const list = loadStoredOrders();
@@ -52,6 +51,14 @@ export const App: React.FC = () => {
 
   // Ref for smooth horizontal scrolling of rectangles
   const rectanglesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Splash screen display
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 1100);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Sync items changes to offline storage
   useEffect(() => {
@@ -180,7 +187,7 @@ export const App: React.FC = () => {
       )}
 
       <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-0 w-full max-w-full overflow-x-hidden">
-        {/* Navigation Bar matching Screenshot 1 & 2 */}
+        {/* Navigation Bar with all 8 buttons */}
         <Navbar
           currentTab={activeTab}
           onTabChange={setActiveTab}
@@ -188,7 +195,8 @@ export const App: React.FC = () => {
           onOpenCart={() => setIsCartOpen(true)}
           onOpenVoice={() => setIsVoiceOpen(true)}
           onOpenNotifications={() => setIsPushOpen(true)}
-          onOpenProfile={() => setIsAdminOpen(true)} // Directly opens Admin console or Profile
+          onOpenProfile={() => setIsProfileOpen(true)}
+          onOpenBlog={() => setIsBlogOpen(true)}
         />
 
         {/* Content View Switching */}
@@ -227,7 +235,7 @@ export const App: React.FC = () => {
                         </span>
                       </h1>
                       <p className="text-xs sm:text-sm text-stone-200 font-medium drop-shadow mt-2 flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block animate-ping" />
                         Cuisine fraîche, livraison et service traiteur à Niamey
                       </p>
                     </div>
@@ -503,7 +511,7 @@ export const App: React.FC = () => {
                       <span className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/80 text-white text-xs font-black flex items-center justify-center border border-white/20">
                         #1
                       </span>
-                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/90 text-amber-300 text-xs font-bold border border-amber-500/30">
+                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/80 text-amber-300 text-xs font-bold backdrop-blur-sm border border-amber-500/30">
                         25 restants
                       </span>
                     </div>
@@ -678,7 +686,7 @@ export const App: React.FC = () => {
                             alt={dish.name}
                             loading="lazy"
                             decoding="async"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src =
                                 "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=70";
@@ -747,30 +755,19 @@ export const App: React.FC = () => {
           )}
         </main>
 
-        {/* FLOATING WHATSAPP BUTTON (Dismissable, masked on mobile to prevent covering bottom navigation & cards) */}
-        {!isChatDismissed && (
-          <div className="fixed bottom-24 right-4 z-30 hidden sm:flex items-center group">
-            <button
-              onClick={() => setIsChatDismissed(true)}
-              className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-stone-900 border border-stone-700 text-stone-300 hover:text-white flex items-center justify-center shadow z-40 transition-colors"
-              title="Fermer ce raccourci"
-            >
-              <X className="w-3 h-3" />
-            </button>
-            <a
-              href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
-              title="WhatsApp direct Khady's Food"
-            >
-              <MessageSquare className="w-6 h-6 text-white fill-white" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] flex items-center justify-center shadow-md">
-                1
-              </span>
-            </a>
-          </div>
-        )}
+        {/* FLOATING WHATSAPP BUTTON (Bottom Right with badge 1 from Screenshots) */}
+        <a
+          href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed bottom-20 sm:bottom-24 right-3.5 sm:right-6 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+          title="WhatsApp direct Khady's Food"
+        >
+          <MessageSquare className="w-5 h-5 sm:w-7 sm:h-7 text-white fill-white" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] sm:text-xs flex items-center justify-center shadow-md animate-bounce">
+            1
+          </span>
+        </a>
 
         {/* MODALS & OVERLAYS */}
         {selectedItemForModal && (

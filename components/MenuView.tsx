@@ -280,7 +280,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 {/* Badges */}
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                   {dish.badge && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-orange-600 text-white shadow-md">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-orange-600/90 text-white shadow-md backdrop-blur-sm">
                       {dish.badge}
                     </span>
                   )}
@@ -293,7 +293,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 </div>
 
                 {dish.preparationTime && (
-                  <div className="absolute bottom-2.5 left-3 flex items-center gap-1 text-[11px] text-stone-300 bg-black/80 px-2 py-0.5 rounded-full border border-white/10">
+                  <div className="absolute bottom-2.5 left-3 flex items-center gap-1 text-[11px] text-stone-300 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/10">
                     <Clock className="w-3 h-3 text-orange-400" />
                     <span>{dish.preparationTime}</span>
                   </div>

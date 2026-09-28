@@ -2,7 +2,7 @@ import React from 'react';
 import { KhadyOriginalLogo } from './KhadyOriginalLogo';
 import {
   Mic, Bell, Sun, User, Home, BookOpen, Image as ImageIcon,
-  Video, MessageSquare, ShoppingBag, ArrowRight, Flame
+  Video, MessageSquare, ShoppingBag, ArrowRight, Flame, ClipboardList, Newspaper
 } from 'lucide-react';
 import { RESTAURANT_INFO } from '../constants';
 
@@ -14,6 +14,7 @@ interface NavbarProps {
   onOpenVoice: () => void;
   onOpenNotifications: () => void;
   onOpenProfile: () => void;
+  onOpenBlog?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -23,7 +24,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCart,
   onOpenVoice,
   onOpenNotifications,
-  onOpenProfile
+  onOpenProfile,
+  onOpenBlog
 }) => {
   return (
     <>
@@ -48,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       </div>
 
       {/* 2. MAIN HEADER (As in Screenshot 2) */}
-      <header className="sticky top-0 z-30 bg-[#121110] border-b border-stone-800 px-3 sm:px-6 py-2.5">
+      <header className="sticky top-0 z-30 bg-[#121110]/95 backdrop-blur-md border-b border-stone-800/80 px-3 sm:px-6 py-2.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           {/* Left: Brand Identity */}
           <div
@@ -62,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 withSquircle={true}
                 className="shadow-lg group-hover:scale-105 transition-transform"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#121110] shadow-sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#121110] shadow-sm animate-pulse" />
             </div>
 
             {/* Typography */}
@@ -117,25 +119,26 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* 3. FIXED BOTTOM NAVIGATION BAR - STABLE HEIGHT & NO OVERLAP */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#161413] border-t border-stone-800/90 h-[68px] px-2 sm:px-6 shadow-2xl flex items-center">
-        <div className="w-full max-w-md sm:max-w-xl md:max-w-3xl mx-auto flex items-center justify-between sm:justify-around">
+      {/* 3. FIXED BOTTOM NAVIGATION BAR - 8 BUTTONS */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#161413]/95 backdrop-blur-xl border-t border-stone-800/90 py-1.5 px-1 sm:px-4 shadow-2xl">
+        <div className="w-full max-w-4xl mx-auto flex items-center justify-between sm:justify-around gap-0.5 sm:gap-1">
           {/* 1. ACCUEIL */}
           <button
             onClick={() => onTabChange('accueil')}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Accueil"
           >
             <div
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                 currentTab === 'accueil'
-                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-950/60'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-950/60 scale-105'
                   : 'text-stone-400 hover:text-stone-200'
               }`}
             >
-              <Home className="w-5 h-5" />
+              <Home className="w-4 h-4" />
             </div>
             <span
-              className={`text-[10px] font-black uppercase tracking-wider truncate max-w-full ${
+              className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-center ${
                 currentTab === 'accueil' ? 'text-orange-500' : 'text-stone-400'
               }`}
             >
@@ -146,19 +149,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* 2. MENU */}
           <button
             onClick={() => onTabChange('carte')}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Menu"
           >
             <div
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                 currentTab === 'carte'
-                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-950/60'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-950/60 scale-105'
                   : 'text-stone-400 hover:text-stone-200'
               }`}
             >
-              <BookOpen className="w-5 h-5" />
+              <BookOpen className="w-4 h-4" />
             </div>
             <span
-              className={`text-[10px] font-black uppercase tracking-wider truncate max-w-full ${
+              className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-center ${
                 currentTab === 'carte' ? 'text-orange-500' : 'text-stone-400'
               }`}
             >
@@ -166,22 +170,23 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </button>
 
-          {/* 3. GALERIE (Visible on sm+ screens to preserve mobile space) */}
+          {/* 3. GALERIE */}
           <button
             onClick={() => onTabChange('galerie')}
-            className="hidden sm:flex flex-1 flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Galerie"
           >
             <div
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                 currentTab === 'galerie'
-                  ? 'bg-orange-600 text-white shadow-lg shadow-orange-950/60'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-950/60 scale-105'
                   : 'text-stone-400 hover:text-stone-200'
               }`}
             >
-              <ImageIcon className="w-5 h-5" />
+              <ImageIcon className="w-4 h-4" />
             </div>
             <span
-              className={`text-[10px] font-black uppercase tracking-wider truncate max-w-full ${
+              className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-center ${
                 currentTab === 'galerie' ? 'text-orange-500' : 'text-stone-400'
               }`}
             >
@@ -189,49 +194,90 @@ export const Navbar: React.FC<NavbarProps> = ({
             </span>
           </button>
 
-          {/* 4. WHATSAPP */}
+          {/* 4. COMMANDE */}
+          <button
+            onClick={() => onTabChange('suivi')}
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Commande & Suivi"
+          >
+            <div
+              className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
+                currentTab === 'suivi'
+                  ? 'bg-orange-600 text-white shadow-md shadow-orange-950/60 scale-105'
+                  : 'text-stone-400 hover:text-stone-200'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" />
+            </div>
+            <span
+              className={`text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-center ${
+                currentTab === 'suivi' ? 'text-orange-500' : 'text-stone-400'
+              }`}
+            >
+              Commande
+            </span>
+          </button>
+
+          {/* 5. BLOG */}
+          <button
+            onClick={onOpenBlog}
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Blog Culinaire"
+          >
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-400 hover:text-orange-400 transition-colors">
+              <Newspaper className="w-4 h-4" />
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-stone-400 hover:text-orange-400 text-center">
+              Blog
+            </span>
+          </button>
+
+          {/* 6. WHATSAPP */}
           <a
             href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="WhatsApp direct"
           >
-            <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-stone-400 hover:text-emerald-400 transition-colors">
-              <MessageSquare className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-400 hover:text-emerald-400 transition-colors">
+              <MessageSquare className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 hover:text-emerald-400 truncate max-w-full">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-stone-400 hover:text-emerald-400 text-center">
               WhatsApp
             </span>
           </a>
 
-          {/* 5. PANIER */}
+          {/* 7. PANIER */}
           <button
             onClick={onOpenCart}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none relative min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none relative"
+            title="Panier"
           >
-            <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-stone-400 hover:text-orange-400 transition-colors relative">
-              <ShoppingBag className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-400 hover:text-orange-400 transition-colors relative">
+              <ShoppingBag className="w-4 h-4" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md">
+                <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md animate-bounce">
                   {cartCount}
                 </span>
               )}
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 hover:text-orange-400 truncate max-w-full">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-stone-400 hover:text-orange-400 text-center">
               Panier
             </span>
           </button>
 
-          {/* 6. MOI / ADMIN */}
+          {/* 8. COMPTE */}
           <button
             onClick={onOpenProfile}
-            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none min-w-0"
+            className="flex-1 min-w-[36px] max-w-[54px] sm:max-w-none flex flex-col items-center justify-center gap-0.5 py-1 transition-colors select-none"
+            title="Compte & Gérance"
           >
-            <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-stone-400 hover:text-white transition-colors">
-              <User className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-stone-400 hover:text-white transition-colors">
+              <User className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-stone-400 hover:text-white truncate max-w-full">
-              Moi
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight truncate max-w-full text-stone-400 hover:text-white text-center">
+              Compte
             </span>
           </button>
         </div>
