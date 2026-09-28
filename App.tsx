@@ -20,6 +20,7 @@ import { BlogModal } from './components/BlogModal';
 import { ContactModal } from './components/ContactModal';
 import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
 import { GourmetReviewsSection } from './components/GourmetReviewsSection';
+import { HomeSpecialSections } from './components/HomeSpecialSections';
 import {
   Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
   ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
@@ -34,6 +35,7 @@ export const App: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>(() => loadStoredOrders());
   const [reviews, setReviews] = useState<Review[]>(() => loadStoredReviews());
   const [activeTab, setActiveTab] = useState<string>('accueil');
+  const [menuFilterCategory, setMenuFilterCategory] = useState<string>('tous');
   const [selectedItemForModal, setSelectedItemForModal] = useState<MenuItem | null>(null);
 
   // Modals & Panels state
@@ -220,7 +222,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-0 w-full max-w-full overflow-x-hidden">
+      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-24 sm:pb-28 w-full max-w-full overflow-x-hidden">
         {/* Navigation Bar with all 8 buttons */}
         <Navbar
           currentTab={activeTab}
@@ -522,6 +524,17 @@ export const App: React.FC = () => {
                 </div>
               </section>
 
+              {/* 5.5 SECTIONS SPÉCIALES : PROMOTIONS & MENUS FLASH, PLATS SIGNATURE DE KHADY & DÉJEUNER COMPLET (Screenshot 2) */}
+              <HomeSpecialSections
+                items={items}
+                onAddToCart={(item, qty, spice) => handleAddToCart(item, qty, spice || 'moyen')}
+                onSelectItem={(item) => setSelectedItemForModal(item)}
+                onNavigateToMenu={(cat) => {
+                  setMenuFilterCategory(cat || 'tous');
+                  setActiveTab('carte');
+                }}
+              />
+
               {/* 6. MENU DU JOUR — LE TRIO GOURMAND (Screenshot 4 & 5) */}
               <section className="rounded-[32px] bg-gradient-to-b from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
                 {/* Header tags */}
@@ -719,34 +732,15 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Header with Heart Icon, Full Title & Pause/Play */}
-                <div className="flex items-center justify-between px-1 w-full min-w-0 gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
+                {/* Header with Heart Icon & TOUT VOIR */}
+                <div className="flex items-center justify-between px-1 w-full min-w-0">
+                  <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center flex-shrink-0 animate-pulse-subtle">
                       <Heart className="w-4 h-4 text-orange-500 fill-orange-500" />
                     </div>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h2 className="text-xs sm:text-base font-black italic uppercase tracking-wider text-[#B5A59E] font-display whitespace-nowrap">
-                        INCONTOURNABLES
-                      </h2>
-                      <button
-                        onClick={() => setIsAutoScrollPaused(!isAutoScrollPaused)}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-orange-400 text-[10px] font-extrabold uppercase transition-all select-none"
-                        title={isAutoScrollPaused ? 'Reprendre le défilement fluide' : 'Mettre en pause'}
-                      >
-                        {isAutoScrollPaused ? (
-                          <>
-                            <Play className="w-2.5 h-2.5 fill-orange-400" />
-                            <span>Reprendre</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                            <span>Défilement Fluide</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <h2 className="text-xs sm:text-base font-black italic uppercase tracking-wider text-[#B5A59E] font-display whitespace-nowrap">
+                      INCONTOURNABLES
+                    </h2>
                   </div>
 
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
@@ -863,6 +857,7 @@ export const App: React.FC = () => {
               items={items}
               onSelectItem={setSelectedItemForModal}
               onQuickAdd={(item, e) => handleAddToCart(item, 1, 'moyen')}
+              initialCategory={menuFilterCategory}
             />
           )}
 
@@ -965,6 +960,10 @@ export const App: React.FC = () => {
             setActiveOrder(ord);
             setIsProfileOpen(false);
             setActiveTab('suivi');
+          }}
+          onOpenContact={() => {
+            setIsProfileOpen(false);
+            setIsContactOpen(true);
           }}
         />
 

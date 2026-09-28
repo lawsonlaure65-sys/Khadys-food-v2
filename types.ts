@@ -1,11 +1,12 @@
-export type CategoryType = 'tous' | 'incontournables' | 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
+export type CategoryType = 'tous' | 'incontournables' | 'signature' | 'dejeuner' | 'flash' | 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
 
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
   price: number; // in FCFA (XOF)
-  category: 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
+  oldPrice?: number; // Price before promotion
+  category: 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees' | 'dejeuner' | 'signature';
   image: string;
   isPopular?: boolean;
   isFeatured?: boolean; // Display in Home Page "Incontournables" rectangles

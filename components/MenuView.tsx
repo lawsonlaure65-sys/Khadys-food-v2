@@ -6,14 +6,18 @@ interface MenuProps {
   items: MenuItem[];
   onSelectItem: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem, e: React.MouseEvent<HTMLButtonElement>) => void;
+  initialCategory?: string;
 }
 
-export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd }) => {
-  const [selectedCat, setSelectedCat] = useState<string>('tous');
+export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd, initialCategory }) => {
+  const [selectedCat, setSelectedCat] = useState<string>(initialCategory || 'tous');
   const [search, setSearch] = useState<string>('');
 
   const categories = [
     { id: 'tous', label: 'Toute la Carte' },
+    { id: 'signature', label: '⭐ Plats Signature' },
+    { id: 'flash', label: '⚡ Menus Flash & Promos' },
+    { id: 'dejeuner', label: '🍱 Déjeuner Complet' },
     { id: 'plats', label: 'Plats Chauds' },
     { id: 'sauces', label: 'Box Sauces Khady' },
     { id: 'entrees', label: 'Entrées & Pastels' },
@@ -22,11 +26,47 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
 
   const filtered = items.filter(it => {
     if (!it) return false;
-    const matchesCat = selectedCat === 'tous' || it.category === selectedCat;
     const name = String(it.name || '').toLowerCase();
     const desc = String(it.description || '').toLowerCase();
+    const id = String(it.id || '').toLowerCase();
+    const badge = String(it.badge || '').toLowerCase();
+    const cat = String(it.category || '').toLowerCase();
+
+    let matchesCat = false;
+    if (selectedCat === 'tous') {
+      matchesCat = true;
+    } else if (selectedCat === 'signature') {
+      matchesCat = (
+        id.includes('doukounou') ||
+        id.includes('dibi') ||
+        id.includes('box-sauces') ||
+        id.includes('thieb') ||
+        id.includes('yassa') ||
+        id.includes('attieke') ||
+        name.includes('doukounou') ||
+        badge.includes('signature') ||
+        cat === 'signature'
+      );
+    } else if (selectedCat === 'flash') {
+      matchesCat = (
+        id.includes('flash') ||
+        badge.includes('flash') ||
+        Boolean(it.oldPrice && it.oldPrice > it.price)
+      );
+    } else if (selectedCat === 'dejeuner') {
+      matchesCat = (
+        cat === 'dejeuner' ||
+        id.includes('dejeuner') ||
+        name.includes('déjeuner') ||
+        desc.includes('déjeuner') ||
+        name.includes('formule')
+      );
+    } else {
+      matchesCat = it.category === selectedCat;
+    }
+
     const query = (search || '').toLowerCase().trim();
-    const matchesSearch = !query || name.includes(query) || desc.includes(query);
+    const matchesSearch = !query || name.includes(query) || desc.includes(query) || badge.includes(query);
     return matchesCat && matchesSearch;
   });
 
@@ -317,9 +357,16 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 <div className="pt-3 border-t border-stone-800/80 flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-[10px] uppercase font-bold text-stone-500">Tarif Niamey</span>
-                    <span className="text-lg font-black text-amber-400">
-                      {(dish.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
-                    </span>
+                    <div className="flex items-baseline gap-1.5">
+                      {dish.oldPrice && dish.oldPrice > dish.price && (
+                        <span className="text-xs text-stone-400 line-through font-mono font-bold">
+                          {dish.oldPrice.toLocaleString()} F
+                        </span>
+                      )}
+                      <span className="text-lg font-black text-amber-400">
+                        {(dish.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                      </span>
+                    </div>
                   </div>
 
                   <button

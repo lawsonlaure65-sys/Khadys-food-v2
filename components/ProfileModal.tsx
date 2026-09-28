@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, ShieldCheck, Clock, MapPin, Phone, MessageSquare, ArrowRight, X } from 'lucide-react';
+import { User, ShieldCheck, Clock, MapPin, Phone, MessageSquare, ArrowRight, X, Truck } from 'lucide-react';
 import { Order } from '../types';
 import { RESTAURANT_INFO } from '../constants';
 import { KhadyLogo } from './KhadyLogo';
@@ -10,6 +10,7 @@ interface ProfileProps {
   orders: Order[];
   onOpenAdmin: () => void;
   onOpenOrderTracking: (order: Order) => void;
+  onOpenContact?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileProps> = ({
@@ -17,7 +18,8 @@ export const ProfileModal: React.FC<ProfileProps> = ({
   onClose,
   orders,
   onOpenAdmin,
-  onOpenOrderTracking
+  onOpenOrderTracking,
+  onOpenContact
 }) => {
   if (!isOpen) return null;
 
@@ -110,6 +112,31 @@ export const ProfileModal: React.FC<ProfileProps> = ({
               </div>
             )}
           </div>
+
+          {/* Zones de Livraison Niamey Shortcut */}
+          {onOpenContact && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenContact();
+              }}
+              className="w-full p-3.5 bg-gradient-to-r from-amber-950/30 to-orange-950/20 hover:from-amber-900/40 hover:to-orange-900/30 border border-amber-500/30 rounded-2xl flex items-center justify-between transition-colors group text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-orange-600/20 border border-orange-500/30 flex items-center justify-center text-orange-400 group-hover:scale-105 transition-transform">
+                  <Truck className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-xs block flex items-center gap-1.5">
+                    <span>Zones & Tarifs de Livraison à Niamey</span>
+                    <span className="text-[10px]">🛵</span>
+                  </span>
+                  <span className="text-[10px] text-stone-400">Consulter les quartiers desservis & délais estimés</span>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-amber-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+            </button>
+          )}
 
           {/* Restaurant WhatsApp Direct */}
           <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl flex items-center justify-between">
