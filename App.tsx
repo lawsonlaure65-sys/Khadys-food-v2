@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MenuItem, CartItem, Order, ToastMessage } from './types';
+import { MenuItem, CartItem, Order, ToastMessage, Review } from './types';
 import { INITIAL_MENU_ITEMS, RESTAURANT_INFO, isRestrictedFromDailyOrFeatured } from './constants';
-import { loadStoredMenuItems, saveStoredMenuItems, loadStoredOrders, saveStoredOrders } from './utils/offlineDB';
+import { loadStoredMenuItems, saveStoredMenuItems, loadStoredOrders, saveStoredOrders, loadStoredReviews, saveStoredReviews } from './utils/offlineDB';
 import { Navbar } from './components/Navbar';
 import { MenuView } from './components/MenuView';
 import { TraiteurView } from './components/TraiteurView';
@@ -19,10 +19,12 @@ import { ProfileModal } from './components/ProfileModal';
 import { BlogModal } from './components/BlogModal';
 import { ContactModal } from './components/ContactModal';
 import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
+import { GourmetReviewsSection } from './components/GourmetReviewsSection';
 import {
   Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
   ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
-  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings, X
+  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings, X,
+  Pause, Play
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -30,6 +32,7 @@ export const App: React.FC = () => {
   const [items, setItems] = useState<MenuItem[]>(() => loadStoredMenuItems());
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>(() => loadStoredOrders());
+  const [reviews, setReviews] = useState<Review[]>(() => loadStoredReviews());
   const [activeTab, setActiveTab] = useState<string>('accueil');
   const [selectedItemForModal, setSelectedItemForModal] = useState<MenuItem | null>(null);
 
@@ -69,6 +72,34 @@ export const App: React.FC = () => {
   useEffect(() => {
     saveStoredOrders(orders);
   }, [orders]);
+
+  // Sync reviews to offline storage
+  useEffect(() => {
+    saveStoredReviews(reviews);
+  }, [reviews]);
+
+  const handleSaveReview = (review: Review) => {
+    setReviews(prev => {
+      const idx = prev.findIndex(r => r.id === review.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = review;
+        return next;
+      }
+      return [review, ...prev];
+    });
+    addToast('success', 'Avis gourmet enregistré !', `Merci ${review.author} pour votre retour.`);
+  };
+
+  const handleDeleteReview = (id: string) => {
+    setReviews(prev => prev.filter(r => r.id !== id));
+    addToast('info', 'Avis supprimé', 'La liste des avis a été mise à jour.');
+  };
+
+  const handleToggleVerifiedReview = (id: string) => {
+    setReviews(prev => prev.map(r => r.id === id ? { ...r, verified: !r.verified } : r));
+    addToast('success', 'Statut mis à jour', 'Badge vérifié modifié.');
+  };
 
   const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => {
     const id = `t-${Date.now()}-${Math.random()}`;
@@ -168,6 +199,9 @@ export const App: React.FC = () => {
     }
   };
 
+  // Défilement continu et fluide des plats incontournables (avec mise en pause tactile et interactive)
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+
   // The featured items for the Home page rectangles:
   // Attiéké and Doukounou are strictly excluded from plat vedette / incontournables rectangles,
   // but remain 100% visible and orderable in the regular carte!
@@ -204,6 +238,33 @@ export const App: React.FC = () => {
           {activeTab === 'accueil' && (
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-5 sm:space-y-6">
               
+              {/* 0. WELCOME GREETING BANNER WITH ANIMATED WAVING HANDS 👋🏾 (Bonjour, Barka, Fofo, Salam) */}
+              <section className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#2A1810] via-[#1E1410] to-[#2A1810] border border-amber-500/40 p-3 sm:p-4 shadow-xl">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="animate-wave text-2xl sm:text-3xl select-none inline-block flex-shrink-0 cursor-default" title="Bonjour ! Barka ! Fofo !">
+                      👋🏾
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-300">
+                          Bonjour ! Barka ! Fofo ! Salam !
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-orange-600/30 border border-orange-500/40 text-[10px] font-bold text-orange-200 uppercase">
+                          Bienvenue à Niamey
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-stone-300 font-medium mt-0.5 truncate">
+                        Khady's Food vous souhaite la bienvenue au cœur des saveurs africaines authentiques.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="animate-wave-alt text-2xl sm:text-3xl select-none hidden sm:inline-block flex-shrink-0 cursor-default" title="Barka da zuwa ! Fofo n'goy !">
+                    👋🏾
+                  </span>
+                </div>
+              </section>
+
               {/* 1. HERO CARD (Screenshot 1 & 2: "L'EXCELLENCE À NIAMEY", "LE GOÛT DES ROIS", "COMMANDER MAINTENANT ↗") */}
               <section className="relative rounded-[34px] sm:rounded-[38px] overflow-hidden border-2 border-amber-500/50 shadow-2xl bg-[#19120E] aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[460px]">
                 <img
@@ -623,86 +684,150 @@ export const App: React.FC = () => {
 
               {/* 8. INCONTOURNABLES — THE EXACT LIGHT-GREY RECTANGLES (Screenshot 6 & 7) */}
               <section className="space-y-4 pt-2 w-full max-w-full min-w-0 overflow-hidden">
-                {/* Header with Heart Icon & TOUT VOIR */}
-                <div className="flex items-center justify-between px-1 w-full min-w-0">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+                {/* DÉFILEMENT CONTINU DES PLATS EN VEDETTE (TICKER MARQUEE) */}
+                <div className="relative overflow-hidden py-2 bg-gradient-to-r from-[#18110D] via-[#241711] to-[#18110D] border border-amber-500/30 rounded-2xl shadow-inner">
+                  <div className="animate-marquee flex items-center gap-6 whitespace-nowrap text-xs font-bold text-stone-200">
+                    {[
+                      { icon: "🍲", name: "Tiep Rouge Royal au Poisson Capitaine" },
+                      { icon: "🥩", name: "Dibi d'Agneau Grillé & Épices Kankankan" },
+                      { icon: "🍗", name: "Poulet Braisé Yassa Oignons Confits" },
+                      { icon: "🥟", name: "Pastels Farcis Croustillants Chauds" },
+                      { icon: "🥗", name: "Attiéké Garba Poisson Braisé" },
+                      { icon: "🥘", name: "Sauce Gombo Frais & Fufu Traditionnel" },
+                      { icon: "🍹", name: "Jus de Bissap & Gingembre Frais Pressé" },
+                      { icon: "🍲", name: "Tchep Blanc Capitaine Braisé" },
+                      // Duplicate for infinite continuous smooth scrolling loop:
+                      { icon: "🍲", name: "Tiep Rouge Royal au Poisson Capitaine" },
+                      { icon: "🥩", name: "Dibi d'Agneau Grillé & Épices Kankankan" },
+                      { icon: "🍗", name: "Poulet Braisé Yassa Oignons Confits" },
+                      { icon: "🥟", name: "Pastels Farcis Croustillants Chauds" },
+                      { icon: "🥗", name: "Attiéké Garba Poisson Braisé" },
+                      { icon: "🥘", name: "Sauce Gombo Frais & Fufu Traditionnel" },
+                      { icon: "🍹", name: "Jus de Bissap & Gingembre Frais Pressé" },
+                      { icon: "🍲", name: "Tchep Blanc Capitaine Braisé" }
+                    ].map((dish, i) => (
+                      <span
+                        key={i}
+                        className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-900/80 border border-amber-500/20 hover:border-amber-400 transition-colors cursor-pointer select-none"
+                        onClick={() => setActiveTab('carte')}
+                      >
+                        <span className="text-sm">{dish.icon}</span>
+                        <span className="text-amber-200 font-extrabold uppercase text-[11px] tracking-wide">{dish.name}</span>
+                        <span className="text-orange-400 text-[10px]">★</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Header with Heart Icon, Full Title & Pause/Play */}
+                <div className="flex items-center justify-between px-1 w-full min-w-0 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center flex-shrink-0 animate-pulse-subtle">
                       <Heart className="w-4 h-4 text-orange-500 fill-orange-500" />
                     </div>
-                    <h2 className="text-sm sm:text-lg font-black italic uppercase tracking-widest text-[#B5A59E] font-display truncate">
-                      INCONTOURNABLES
-                    </h2>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h2 className="text-xs sm:text-base font-black italic uppercase tracking-wider text-[#B5A59E] font-display whitespace-nowrap">
+                        INCONTOURNABLES
+                      </h2>
+                      <button
+                        onClick={() => setIsAutoScrollPaused(!isAutoScrollPaused)}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-orange-400 text-[10px] font-extrabold uppercase transition-all select-none"
+                        title={isAutoScrollPaused ? 'Reprendre le défilement fluide' : 'Mettre en pause'}
+                      >
+                        {isAutoScrollPaused ? (
+                          <>
+                            <Play className="w-2.5 h-2.5 fill-orange-400" />
+                            <span>Reprendre</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                            <span>Défilement Fluide</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                     <button
                       onClick={() => setIsAdminOpen(true)}
-                      className="px-2.5 sm:px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-[11px] sm:text-xs hover:bg-orange-600/30 flex items-center gap-1"
+                      className="px-2.5 sm:px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-[10px] sm:text-xs hover:bg-orange-600/30 flex items-center gap-1"
                       title="Ajouter un plat dans ces rectangles"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Ajouter plat</span>
+                      <span>Ajouter</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('carte')}
-                      className="text-xs font-black italic uppercase text-[#E65100] hover:text-orange-400 transition-colors"
+                      className="text-xs font-black italic uppercase text-[#E65100] hover:text-orange-400 transition-colors whitespace-nowrap"
                     >
                       TOUT VOIR
                     </button>
                   </div>
                 </div>
 
-                {/* THE FAMOUS RECTANGLES CAROUSEL / ROW (Exact light-grey rounded rectangles from Screenshot 6 & 7) */}
-                <div className="relative group w-full max-w-full min-w-0">
-                  {/* Navigation arrows for desktop */}
-                  <button
-                    onClick={() => scrollRectangles('left')}
-                    className="absolute -left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-stone-900/90 text-white shadow-xl border border-stone-700 hidden sm:flex items-center justify-center hover:bg-orange-600 transition-colors"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={() => scrollRectangles('right')}
-                    className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-stone-900/90 text-white shadow-xl border border-stone-700 hidden sm:flex items-center justify-center hover:bg-orange-600 transition-colors"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-
+                {/* THE FAMOUS RECTANGLES CAROUSEL / ROW (Continuous & Fluid 60fps GPU Marquee) */}
+                <div
+                  className="relative w-full overflow-hidden select-none py-1 group/scroller"
+                  onMouseEnter={() => setIsAutoScrollPaused(true)}
+                  onMouseLeave={() => setIsAutoScrollPaused(false)}
+                  onTouchStart={() => setIsAutoScrollPaused(true)}
+                  onTouchEnd={() => setIsAutoScrollPaused(false)}
+                >
                   <div
-                    ref={rectanglesContainerRef}
-                    className="flex gap-4 overflow-x-auto pb-4 pt-1 px-1 snap-x snap-mandatory no-scrollbar"
+                    className={`animate-continuous-dishes flex gap-4 ${
+                      isAutoScrollPaused ? '[animation-play-state:paused]' : ''
+                    }`}
+                    style={{ willChange: 'transform' }}
                   >
-                    {displayedIncontournables.map((dish) => (
+                    {/* Infinite seamless loop: render duplicated set */}
+                    {[...displayedIncontournables, ...displayedIncontournables].map((dish, idx) => (
                       <div
-                        key={dish.id}
+                        key={`${dish.id}-${idx}`}
                         onClick={() => setSelectedItemForModal(dish)}
-                        className="flex-shrink-0 w-[240px] sm:w-[260px] snap-start cursor-pointer rounded-[34px] sm:rounded-[38px] bg-[#C8C8CE] hover:bg-[#D5D5DC] p-3.5 shadow-2xl transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between group"
+                        className="flex-shrink-0 w-[240px] sm:w-[260px] cursor-pointer rounded-[34px] sm:rounded-[38px] bg-[#C8C8CE] hover:bg-[#D5D5DC] p-3.5 shadow-2xl transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 flex flex-col justify-between group relative overflow-hidden"
                       >
-                        {/* Food Image (large & rounded) */}
+                        {/* Food Image (large & rounded with zoom animation) */}
                         <div className="relative h-48 sm:h-52 w-full rounded-[26px] sm:rounded-[28px] overflow-hidden bg-stone-300 shadow-inner">
                           <img
                             src={dish.image}
                             alt={dish.name}
                             loading="lazy"
                             decoding="async"
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src =
                                 "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=70";
                             }}
                           />
+                          {dish.isPopular && (
+                            <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-orange-600 text-white font-black text-[10px] uppercase shadow-md animate-pulse-subtle">
+                              Populaire 🔥
+                            </span>
+                          )}
+                          {/* Quick Add Overlay Button on Food Image */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddToCart(dish, 1, 'moyen');
+                            }}
+                            className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 opacity-90 group-hover:opacity-100 group-hover:scale-105"
+                            title="Ajouter au panier"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
                         </div>
 
                         {/* Title & Price Row */}
                         <div className="pt-3 pb-1 space-y-2">
-                          <h4 className="font-black italic uppercase text-stone-950 text-xs sm:text-sm tracking-wide truncate">
+                          <h4 className="font-black italic uppercase text-stone-950 text-xs sm:text-sm tracking-wide truncate group-hover:text-orange-950 transition-colors">
                             {dish.name}
                           </h4>
 
                           <div className="flex items-center justify-between">
                             {/* Peach/light orange price pill */}
-                            <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm">
+                            <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm transition-transform group-hover:scale-105">
                               {(dish.price || 0).toLocaleString()} F
                             </span>
 
@@ -721,6 +846,14 @@ export const App: React.FC = () => {
                   </div>
                 </div>
               </section>
+
+              {/* 9. AVIS DES GOURMETS SECTION (AVIS CLIENTS & INTERACTION ADMIN) */}
+              <GourmetReviewsSection
+                reviews={reviews}
+                onAddReview={handleSaveReview}
+                items={items}
+                onOpenAdmin={() => setIsAdminOpen(true)}
+              />
 
             </div>
           )}
@@ -801,6 +934,10 @@ export const App: React.FC = () => {
             onToggleFeatured={handleToggleFeatured}
             orders={orders}
             onClose={() => setIsAdminOpen(false)}
+            reviews={reviews}
+            onSaveReview={handleSaveReview}
+            onDeleteReview={handleDeleteReview}
+            onToggleVerifiedReview={handleToggleVerifiedReview}
           />
         )}
 

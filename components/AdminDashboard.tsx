@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MenuItem, Order } from '../types';
+import { MenuItem, Order, Review } from '../types';
 import {
   Plus, Edit3, Trash2, CheckCircle, X, Upload, Sparkles, Star, AlertCircle,
   Clock, DollarSign, Image as ImageIcon, Flame, RotateCcw, Save, Eye, TrendingUp,
-  LayoutGrid, Sun, Utensils, BookOpen, Monitor, Power, Check, ArrowRight, Share2
+  LayoutGrid, Sun, Utensils, BookOpen, Monitor, Power, Check, ArrowRight, Share2,
+  MessageSquare, CheckCircle2, ThumbsUp
 } from 'lucide-react';
 import { compressImageFile } from '../utils/imageCompressor';
 import { saveAdminDraft, loadAdminDraft } from '../utils/offlineDB';
@@ -18,6 +19,10 @@ interface AdminProps {
   onToggleFeatured: (id: string) => void;
   orders: Order[];
   onClose: () => void;
+  reviews?: Review[];
+  onSaveReview?: (review: Review) => void;
+  onDeleteReview?: (id: string) => void;
+  onToggleVerifiedReview?: (id: string) => void;
 }
 
 export const AdminDashboard: React.FC<AdminProps> = ({
@@ -27,9 +32,13 @@ export const AdminDashboard: React.FC<AdminProps> = ({
   onToggleAvailability,
   onToggleFeatured,
   orders,
-  onClose
+  onClose,
+  reviews = [],
+  onSaveReview,
+  onDeleteReview,
+  onToggleVerifiedReview
 }) => {
-  const [adminTab, setAdminTab] = useState<'home' | 'platDuJour' | 'carte' | 'blog'>('home');
+  const [adminTab, setAdminTab] = useState<'home' | 'platDuJour' | 'carte' | 'blog' | 'avis'>('home');
   const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('tous');
@@ -39,6 +48,8 @@ export const AdminDashboard: React.FC<AdminProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isPlatDuJourVisible, setIsPlatDuJourVisible] = useState(true);
   const [showPosterStudio, setShowPosterStudio] = useState(false);
+  const [editingReview, setEditingReview] = useState<Partial<Review> | null>(null);
+  const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sales data for monthly chart
@@ -228,6 +239,18 @@ export const AdminDashboard: React.FC<AdminProps> = ({
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>BLOG</span>
+            </button>
+
+            <button
+              onClick={() => setAdminTab('avis')}
+              className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                adminTab === 'avis'
+                  ? 'bg-orange-600 text-white shadow-lg'
+                  : 'bg-stone-900 text-stone-400 hover:text-white'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>AVIS GOURMETS ({reviews.length})</span>
             </button>
           </div>
 
@@ -608,6 +631,28 @@ export const AdminDashboard: React.FC<AdminProps> = ({
                     3
                   </div>
                 </div>
+
+                {/* 5. AVIS GOURMETS METRIC */}
+                <div
+                  onClick={() => setAdminTab('avis')}
+                  className="p-4 sm:p-5 rounded-[24px] bg-[#221B17] border border-stone-800 hover:border-amber-500/50 shadow-lg cursor-pointer transition-all hover:scale-[1.02] col-span-2 sm:col-span-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-sm font-black mb-2">
+                      ⭐
+                    </div>
+                    <span className="text-[10px] text-amber-400 font-bold uppercase">Gérer ↗</span>
+                  </div>
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-stone-400 block">
+                    AVIS GOURMETS
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black italic text-amber-400 mt-0.5 flex items-baseline gap-1.5">
+                    <span>{reviews.length} avis</span>
+                    <span className="text-xs text-stone-300">
+                      • {reviews.length > 0 ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / reviews.length).toFixed(1) : '5.0'} / 5 ★
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* MONTHLY SALES CHART (Screenshot 8) */}
@@ -862,6 +907,311 @@ export const AdminDashboard: React.FC<AdminProps> = ({
               <p className="text-xs text-stone-400 max-w-md mx-auto">
                 3 articles sont actuellement publiés et accessibles aux clients depuis la page d'accueil.
               </p>
+            </div>
+          )}
+
+          {/* AVIS DES GOURMETS TAB (INTERACTION ADMIN COMPLÈTE) */}
+          {adminTab === 'avis' && (
+            <div className="space-y-6">
+              {/* Header & Stats Banner */}
+              <div className="rounded-[28px] bg-gradient-to-r from-[#2A1B14] via-[#221611] to-[#1A120E] border-2 border-amber-500/40 p-5 sm:p-6 shadow-xl space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="px-3 py-1 rounded-full bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow">
+                      ⭐ GESTION DES AVIS CLIENTS
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black italic uppercase text-white font-display">
+                      AVIS DES GOURMETS
+                    </h3>
+                    <p className="text-xs text-stone-300">
+                      Gérez les retours d'expérience, validez les statuts « Vérifié » ou ajoutez les avis reçus par WhatsApp.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setEditingReview({
+                        id: `rev-${Date.now()}`,
+                        author: '',
+                        rating: 5,
+                        comment: '',
+                        dishName: platDuJour.name,
+                        date: "Aujourd'hui",
+                        verified: true
+                      });
+                      setIsReviewFormOpen(true);
+                    }}
+                    className="px-4 py-2.5 rounded-full bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg active:scale-95 transition-all flex-shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Ajouter un avis</span>
+                  </button>
+                </div>
+
+                {/* 3 Metric Cards */}
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="p-3.5 rounded-2xl bg-stone-900/90 border border-stone-800 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                      Total Avis
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-white mt-0.5 block">
+                      {reviews.length}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-stone-900/90 border border-stone-800 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                      Note Moyenne
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-amber-400 mt-0.5 block">
+                      {reviews.length > 0
+                        ? (reviews.reduce((acc, r) => acc + (Number(r.rating) || 5), 0) / reviews.length).toFixed(1)
+                        : '5.0'} ★
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl bg-stone-900/90 border border-stone-800 text-center">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400 block">
+                      Avis Vérifiés
+                    </span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-400 mt-0.5 block">
+                      {reviews.filter(r => r.verified).length}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formulaire Ajout / Édition Avis Admin */}
+              {isReviewFormOpen && editingReview && (
+                <div className="p-5 rounded-3xl bg-[#1C1512] border-2 border-orange-500/50 space-y-4 shadow-2xl animate-fade-in">
+                  <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                    <h4 className="text-sm font-black uppercase text-amber-400 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-orange-400" />
+                      {editingReview.author ? `Modifier l'avis de ${editingReview.author}` : "Ajouter un avis gourmet"}
+                    </h4>
+                    <button
+                      onClick={() => {
+                        setIsReviewFormOpen(false);
+                        setEditingReview(null);
+                      }}
+                      className="p-1 rounded-lg text-stone-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300 block mb-1">
+                        Nom de l'auteur *
+                      </label>
+                      <input
+                        type="text"
+                        value={editingReview.author || ''}
+                        onChange={e => setEditingReview({ ...editingReview, author: e.target.value })}
+                        placeholder="Ex: Hadiza S., Dr. Ousmane..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300 block mb-1">
+                        Plat dégusté
+                      </label>
+                      <input
+                        type="text"
+                        value={editingReview.dishName || ''}
+                        onChange={e => setEditingReview({ ...editingReview, dishName: e.target.value })}
+                        placeholder="Ex: Tiep Rouge Royal, Dibi d'Agneau..."
+                        className="w-full px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300 block mb-1">
+                        Note (1 à 5 étoiles)
+                      </label>
+                      <select
+                        value={editingReview.rating || 5}
+                        onChange={e => setEditingReview({ ...editingReview, rating: Number(e.target.value) })}
+                        className="w-full px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500"
+                      >
+                        <option value={5}>⭐⭐⭐⭐⭐ (5/5)</option>
+                        <option value={4}>⭐⭐⭐⭐ (4/5)</option>
+                        <option value={3}>⭐⭐⭐ (3/5)</option>
+                        <option value={2}>⭐⭐ (2/5)</option>
+                        <option value={1}>⭐ (1/5)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300 block mb-1">
+                        Date affichée
+                      </label>
+                      <input
+                        type="text"
+                        value={editingReview.date || "Aujourd'hui"}
+                        onChange={e => setEditingReview({ ...editingReview, date: e.target.value })}
+                        className="w-full px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center pt-6">
+                      <label className="flex items-center gap-2 cursor-pointer select-none text-xs text-stone-300">
+                        <input
+                          type="checkbox"
+                          checked={editingReview.verified !== false}
+                          onChange={e => setEditingReview({ ...editingReview, verified: e.target.checked })}
+                          className="w-4 h-4 rounded text-orange-600 bg-stone-900 border-stone-700 focus:ring-0"
+                        />
+                        <span className="font-bold">Badge « Client Vérifié »</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-stone-300 block mb-1">
+                      Commentaire client *
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editingReview.comment || ''}
+                      onChange={e => setEditingReview({ ...editingReview, comment: e.target.value })}
+                      placeholder="Commentaire ou retour client reçu..."
+                      className="w-full px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsReviewFormOpen(false);
+                        setEditingReview(null);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-stone-850 hover:bg-stone-800 text-stone-300 text-xs font-bold"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!editingReview.author || !editingReview.comment) {
+                          setErrorMsg("Veuillez renseigner le nom et le commentaire.");
+                          return;
+                        }
+                        if (onSaveReview) {
+                          onSaveReview({
+                            id: editingReview.id || `rev-${Date.now()}`,
+                            author: editingReview.author,
+                            rating: editingReview.rating || 5,
+                            comment: editingReview.comment,
+                            dishName: editingReview.dishName,
+                            date: editingReview.date || "Aujourd'hui",
+                            verified: editingReview.verified !== false,
+                            avatar: editingReview.avatar
+                          });
+                        }
+                        setIsReviewFormOpen(false);
+                        setEditingReview(null);
+                        setSuccessMsg("Avis enregistré avec succès !");
+                        setTimeout(() => setSuccessMsg(null), 3000);
+                      }}
+                      className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Enregistrer l'avis</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Liste des Avis */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-stone-400">
+                  Avis enregistrés ({reviews.length})
+                </h4>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {reviews.map((rev) => (
+                    <div
+                      key={rev.id}
+                      className="p-4 rounded-2xl bg-[#1C1512] border border-stone-800 hover:border-amber-500/40 transition-all flex flex-col justify-between space-y-3 shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-orange-600 to-amber-500 text-white font-black text-xs flex items-center justify-center flex-shrink-0">
+                            {rev.author.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h5 className="font-black text-white text-xs sm:text-sm truncate">
+                              {rev.author}
+                            </h5>
+                            <span className="text-[10px] text-stone-400 block truncate">
+                              {rev.date} • {rev.dishName || 'Menu Khady'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {rev.verified && (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold">
+                              ✓ Vérifié
+                            </span>
+                          )}
+                          <div className="text-amber-400 text-xs font-bold ml-1">
+                            {'★'.repeat(rev.rating || 5)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-stone-300 italic line-clamp-3 bg-stone-900/60 p-2.5 rounded-xl border border-stone-800/80">
+                        « {rev.comment} »
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-stone-800">
+                        <button
+                          onClick={() => onToggleVerifiedReview && onToggleVerifiedReview(rev.id)}
+                          className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors flex items-center gap-1 ${
+                            rev.verified
+                              ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+                              : 'bg-stone-900 border-stone-700 text-stone-400'
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{rev.verified ? 'Vérifié' : 'Marquer Vérifié'}</span>
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              setEditingReview({ ...rev });
+                              setIsReviewFormOpen(true);
+                            }}
+                            className="p-1.5 rounded-lg bg-stone-850 hover:bg-stone-800 text-stone-300 hover:text-white"
+                            title="Modifier"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Supprimer l'avis de ${rev.author} ?`)) {
+                                onDeleteReview && onDeleteReview(rev.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg bg-stone-850 hover:bg-red-950/50 text-stone-400 hover:text-red-400"
+                            title="Supprimer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

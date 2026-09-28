@@ -82,3 +82,85 @@
 .animate-pulse-subtle {
   animation: pulse-subtle 3s infinite ease-in-out;
 }
+
+/* Waving Hand 👋🏾 Animations */
+@keyframes wave {
+  0% { transform: rotate(0deg); }
+  12% { transform: rotate(18deg); }
+  24% { transform: rotate(-14deg); }
+  36% { transform: rotate(18deg); }
+  48% { transform: rotate(-8deg); }
+  60% { transform: rotate(14deg); }
+  72% { transform: rotate(0deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.animate-wave {
+  display: inline-block;
+  transform-origin: 70% 70%;
+  animation: wave 1.8s ease-in-out infinite;
+}
+
+.animate-wave-alt {
+  display: inline-block;
+  transform-origin: 30% 70%;
+  animation: wave 1.8s ease-in-out infinite 0.25s;
+}
+
+/* Dish Smooth Marquee & Float Animations */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+.animate-float {
+  animation: float-gentle 3.5s ease-in-out infinite;
+}
+
+@keyframes dish-glow {
+  0%, 100% { box-shadow: 0 10px 25px -5px rgba(234, 88, 12, 0.2); }
+  50% { box-shadow: 0 15px 35px 0px rgba(245, 158, 11, 0.35); }
+}
+
+.animate-dish-glow {
+  animation: dish-glow 3s ease-in-out infinite;
+}
+
+/* True Continuous, Butter-Smooth 60fps Dishes Scroller */
+@keyframes continuous-dishes {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-continuous-dishes {
+  display: flex;
+  width: max-content;
+  animation: continuous-dishes 32s linear infinite;
+  will-change: transform;
+}
+
+.animate-continuous-dishes:hover,
+.animate-continuous-dishes:active {
+  animation-play-state: paused;
+}
+
+

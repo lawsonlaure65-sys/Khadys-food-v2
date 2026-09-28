@@ -1,8 +1,9 @@
-import { MenuItem, Order } from '../types';
-import { INITIAL_MENU_ITEMS, isRestrictedFromDailyOrFeatured } from '../constants';
+import { MenuItem, Order, Review } from '../types';
+import { INITIAL_MENU_ITEMS, INITIAL_REVIEWS, isRestrictedFromDailyOrFeatured } from '../constants';
 
 const MENU_STORAGE_KEY = 'khadys_menu_items_v3';
 const ORDERS_STORAGE_KEY = 'khadys_orders_v2';
+const REVIEWS_STORAGE_KEY = 'khadys_reviews_v2';
 const DRAFT_STORAGE_KEY = 'khadys_admin_item_draft';
 
 // Safe wrapper to prevent DOMException in restricted/private browser modes
@@ -168,4 +169,37 @@ export function loadAdminDraft(): Partial<MenuItem> | null {
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
+}
+
+export function loadStoredReviews(): Review[] {
+  try {
+    const raw = safeGetItem(REVIEWS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((r: any) => ({
+          id: String(r.id || `rev-${Date.now()}`),
+          author: String(r.author || 'Gourmet Anonyme'),
+          rating: typeof r.rating === 'number' ? Math.min(5, Math.max(1, r.rating)) : 5,
+          comment: String(r.comment || ''),
+          date: String(r.date || 'Récemment'),
+          dishName: r.dishName ? String(r.dishName) : undefined,
+          avatar: r.avatar ? String(r.avatar) : undefined,
+          verified: r.verified !== false
+        }));
+      }
+    }
+  } catch (err) {
+    console.error("Erreur lecture avis:", err);
+  }
+  return INITIAL_REVIEWS;
+}
+
+export function saveStoredReviews(reviews: Review[]): void {
+  try {
+    if (!Array.isArray(reviews)) return;
+    safeSetItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
+  } catch (err) {
+    console.warn("Impossible d'enregistrer les avis:", err);
+  }
 }
