@@ -150,11 +150,11 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
         </h3>
 
         <div className="divide-y divide-stone-800/80">
-          {order.items.map((ci, idx) => (
+          {(order.items || []).map((ci, idx) => (
             <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-orange-400">{ci.quantity}x</span>
-                <span className="text-white">{ci.item.name}</span>
+                <span className="font-bold text-orange-400">{ci.quantity || 1}x</span>
+                <span className="text-white">{ci.item?.name || "Article Khady"}</span>
                 {ci.spice && (
                   <span className="text-[10px] text-stone-400 bg-stone-800 px-1.5 py-0.5 rounded">
                     {ci.spice}
@@ -162,7 +162,7 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
                 )}
               </div>
               <span className="font-semibold text-amber-400">
-                {(ci.item.price * ci.quantity).toLocaleString()} FCFA
+                {(((ci.item?.price || 0) * (ci.quantity || 1))).toLocaleString()} FCFA
               </span>
             </div>
           ))}
@@ -170,18 +170,18 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
 
         <div className="pt-3 border-t border-stone-800 space-y-1.5 text-xs text-stone-400">
           <div className="flex justify-between">
-            <span>Frais de livraison ({order.district})</span>
-            <span className="text-stone-200">{order.deliveryFee.toLocaleString()} FCFA</span>
+            <span>Frais de livraison ({order.district || "Niamey"})</span>
+            <span className="text-stone-200">{(order.deliveryFee || 0).toLocaleString()} FCFA</span>
           </div>
           <div className="flex justify-between text-base font-bold text-white pt-1">
             <span>Total réglé / à régler</span>
-            <span className="text-amber-400 text-lg">{order.totalAmount.toLocaleString()} FCFA</span>
+            <span className="text-amber-400 text-lg">{(order.totalAmount || 0).toLocaleString()} FCFA</span>
           </div>
         </div>
 
         <div className="pt-2 flex items-start gap-2 text-xs text-stone-400">
           <MapPin className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
-          <span>{order.address} ({order.district}, Niamey)</span>
+          <span>{order.address || "Livraison Niamey"} ({order.district || "Plateau"}, Niamey)</span>
         </div>
       </div>
     </div>

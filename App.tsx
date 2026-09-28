@@ -85,8 +85,9 @@ export const App: React.FC = () => {
     spice?: 'doux' | 'moyen' | 'pimenté',
     notes?: string
   ) => {
+    if (!item || !item.id) return;
     setCart(prev => {
-      const existingIdx = prev.findIndex(ci => ci.item.id === item.id && ci.spice === spice && ci.notes === notes);
+      const existingIdx = prev.findIndex(ci => ci.item?.id === item.id && ci.spice === spice && ci.notes === notes);
       if (existingIdx >= 0) {
         const next = [...prev];
         next[existingIdx].quantity += quantity;
@@ -95,7 +96,7 @@ export const App: React.FC = () => {
       return [...prev, { item, quantity, spice, notes }];
     });
 
-    addToast('success', `${quantity}x ${item.name} ajouté(s)`, 'Visible dans votre panier');
+    addToast('success', `${quantity}x ${item.name || 'Plat'} ajouté(s)`, 'Visible dans votre panier');
   };
 
   // Admin dish handlers
@@ -170,9 +171,9 @@ export const App: React.FC = () => {
   // The featured items for the Home page rectangles:
   // Attiéké and Doukounou are strictly excluded from plat vedette / incontournables rectangles,
   // but remain 100% visible and orderable in the regular carte!
-  const displayedIncontournables = items
-    .filter(it => (it.isFeatured || it.isPopular) && !isRestrictedFromDailyOrFeatured(it.name))
-    .concat(items.filter(it => !it.isFeatured && !it.isPopular && !isRestrictedFromDailyOrFeatured(it.name)));
+  const displayedIncontournables = (items || [])
+    .filter(it => it && (it.isFeatured || it.isPopular) && !isRestrictedFromDailyOrFeatured(it.name))
+    .concat((items || []).filter(it => it && !it.isFeatured && !it.isPopular && !isRestrictedFromDailyOrFeatured(it.name)));
 
   return (
     <ErrorBoundary fallbackTitle="Une erreur inattendue est survenue dans l'application">
@@ -190,7 +191,7 @@ export const App: React.FC = () => {
         <Navbar
           currentTab={activeTab}
           onTabChange={setActiveTab}
-          cartCount={cart.reduce((sum, ci) => sum + ci.quantity, 0)}
+          cartCount={cart.reduce((sum, ci) => sum + (Number(ci?.quantity) || 1), 0)}
           onOpenCart={() => setIsCartOpen(true)}
           onOpenVoice={() => setIsVoiceOpen(true)}
           onOpenNotifications={() => setIsPushOpen(true)}
@@ -564,8 +565,8 @@ export const App: React.FC = () => {
                         </a>
                         <button
                           onClick={() => {
-                            const thieb = items.find(i => i.id === 'item-thieb-rouge') || items[0];
-                            handleAddToCart(thieb, 1, 'moyen');
+                            const thieb = (items || []).find(i => i && i.id === 'item-thieb-rouge') || items[0] || INITIAL_MENU_ITEMS[0];
+                            if (thieb) handleAddToCart(thieb, 1, 'moyen');
                           }}
                           className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-transform"
                         >
@@ -595,8 +596,8 @@ export const App: React.FC = () => {
                     </button>
                     <button
                       onClick={() => {
-                        const sauce = items.find(i => i.category === 'sauces') || items[0];
-                        setSelectedItemForModal(sauce);
+                        const sauce = (items || []).find(i => i && i.category === 'sauces') || items[0] || INITIAL_MENU_ITEMS[0];
+                        if (sauce) setSelectedItemForModal(sauce);
                       }}
                       className="py-3 px-4 rounded-full bg-orange-600 hover:bg-orange-500 text-white font-black italic uppercase text-xs sm:text-sm tracking-wide shadow-lg hover:scale-105 active:scale-95 transition-all"
                     >

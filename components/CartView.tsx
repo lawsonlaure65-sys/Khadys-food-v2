@@ -30,13 +30,13 @@ export const CartView: React.FC<CartProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const subtotal = items.reduce((sum, ci) => sum + ci.item.price * ci.quantity, 0);
+  const subtotal = (items || []).reduce((sum, ci) => sum + ((ci?.item?.price || 0) * (ci?.quantity || 1)), 0);
   const currentDistrictObj = RESTAURANT_INFO.deliveryDistricts.find(d => d.name === district) || RESTAURANT_INFO.deliveryDistricts[0];
-  const deliveryFee = items.length > 0 ? currentDistrictObj.fee : 0;
+  const deliveryFee = (items && items.length > 0 && currentDistrictObj) ? currentDistrictObj.fee : 0;
   const totalAmount = subtotal + deliveryFee;
 
   const handleCheckout = (viaWhatsApp = false) => {
-    if (items.length === 0) return;
+    if (!items || items.length === 0) return;
     setValidationError(null);
 
     if (!customerName.trim()) {
@@ -73,7 +73,14 @@ export const CartView: React.FC<CartProps> = ({
 
     if (viaWhatsApp) {
       const waLink = generateWhatsAppOrderLink(newOrder);
-      window.open(waLink, '_blank');
+      try {
+        const win = window.open(waLink, '_blank');
+        if (!win || win.closed || typeof win.closed === 'undefined') {
+          window.location.href = waLink;
+        }
+      } catch {
+        window.location.href = waLink;
+      }
     }
   };
 

@@ -8,7 +8,7 @@ import {
 import { compressImageFile } from '../utils/imageCompressor';
 import { saveAdminDraft, loadAdminDraft } from '../utils/offlineDB';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { isRestrictedFromDailyOrFeatured } from '../constants';
+import { isRestrictedFromDailyOrFeatured, INITIAL_MENU_ITEMS } from '../constants';
 
 interface AdminProps {
   items: MenuItem[];
@@ -51,9 +51,12 @@ export const AdminDashboard: React.FC<AdminProps> = ({
   ];
 
   // Sélection du plat du jour : exclure strictement le Doukounou et l'Attiéké
-  const platDuJour = items.find(i => i.isFeatured && !isRestrictedFromDailyOrFeatured(i.name)) ||
-                     items.find(i => !isRestrictedFromDailyOrFeatured(i.name)) ||
-                     items[0];
+  const platDuJour = (items && items.length > 0)
+    ? (items.find(i => i && i.isFeatured && !isRestrictedFromDailyOrFeatured(i.name)) ||
+       items.find(i => i && !isRestrictedFromDailyOrFeatured(i.name)) ||
+       items[0] ||
+       INITIAL_MENU_ITEMS[0])
+    : INITIAL_MENU_ITEMS[0];
 
   const handleStartAdd = () => {
     const fresh: Partial<MenuItem> = {
@@ -161,9 +164,12 @@ export const AdminDashboard: React.FC<AdminProps> = ({
     }
   };
 
-  const filteredItems = items.filter(it => {
+  const filteredItems = (items || []).filter(it => {
+    if (!it) return false;
     const matchCat = filterCategory === 'tous' || it.category === filterCategory;
-    const matchQuery = !searchQuery || it.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const name = String(it.name || '').toLowerCase();
+    const query = (searchQuery || '').toLowerCase().trim();
+    const matchQuery = !query || name.includes(query);
     return matchCat && matchQuery;
   });
 

@@ -21,9 +21,12 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
   ];
 
   const filtered = items.filter(it => {
+    if (!it) return false;
     const matchesCat = selectedCat === 'tous' || it.category === selectedCat;
-    const matchesSearch = it.name.toLowerCase().includes(search.toLowerCase()) ||
-                          it.description.toLowerCase().includes(search.toLowerCase());
+    const name = String(it.name || '').toLowerCase();
+    const desc = String(it.description || '').toLowerCase();
+    const query = (search || '').toLowerCase().trim();
+    const matchesSearch = !query || name.includes(query) || desc.includes(query);
     return matchesCat && matchesSearch;
   });
 
@@ -89,7 +92,12 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
       {/* Section 1: Plat du Jour (si disponible et non filtré) */}
       {selectedCat === 'tous' && !search && (
         <div className="space-y-6">
-          {items.filter(it => it.badge?.toLowerCase().includes('jour') && !it.name.toLowerCase().includes('doukounou') && !it.name.toLowerCase().includes('attieke') && !it.name.toLowerCase().includes('attiéké')).slice(0, 1).map(platJour => (
+          {items.filter(it => {
+            if (!it) return false;
+            const badge = String(it.badge || '').toLowerCase();
+            const name = String(it.name || '').toLowerCase();
+            return badge.includes('jour') && !name.includes('doukounou') && !name.includes('attieke') && !name.includes('attiéké');
+          }).slice(0, 1).map(platJour => (
             <div
               key={platJour.id}
               onClick={() => onSelectItem(platJour)}
@@ -129,7 +137,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                     <div>
                       <span className="text-[10px] text-stone-400 uppercase font-bold block">Prix Spécial</span>
                       <span className="text-2xl font-black text-amber-400">
-                        {platJour.price.toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                        {(platJour.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
                       </span>
                     </div>
 
@@ -168,7 +176,11 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {items.filter(it => it.id === 'item-doukounou-khady' || it.id === 'item-attieke-royal' || it.id === 'item-dibi-agneau' || it.badge?.toLowerCase().includes('permanente')).map(spe => (
+              {items.filter(it => {
+                if (!it) return false;
+                const badge = String(it.badge || '').toLowerCase();
+                return it.id === 'item-doukounou-khady' || it.id === 'item-attieke-royal' || it.id === 'item-dibi-agneau' || badge.includes('permanente');
+              }).map(spe => (
                 <div
                   key={spe.id}
                   onClick={() => onSelectItem(spe)}

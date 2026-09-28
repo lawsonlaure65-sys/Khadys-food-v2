@@ -99,7 +99,7 @@ export const ProfileModal: React.FC<ProfileProps> = ({
                     <div>
                       <div className="text-xs font-bold text-white">Commande #{order.id}</div>
                       <div className="text-[11px] text-stone-400">
-                        {order.items.length} article(s) • {order.totalAmount.toLocaleString()} FCFA
+                        {(order.items || []).length} article(s) • {(order.totalAmount || 0).toLocaleString()} FCFA
                       </div>
                     </div>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">

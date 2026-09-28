@@ -18,6 +18,10 @@ root.render(
         try {
           localStorage.removeItem('khadys_menu_items_v3');
           localStorage.removeItem('khadys_orders_v2');
+          localStorage.removeItem('khadys_menu_items_v2');
+          localStorage.removeItem('khadys_menu_items');
+          localStorage.removeItem('khadys_orders');
+          localStorage.removeItem('khadys_admin_item_draft');
           sessionStorage.clear();
         } catch {}
         window.location.reload();

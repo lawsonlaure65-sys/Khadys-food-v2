@@ -35,10 +35,13 @@ export const VoiceOrderModal: React.FC<VoiceProps> = ({
 
     setTimeout(() => {
       setIsListening(false);
-      const found = items.find(i => 
-        i.name.toLowerCase().includes(phrase.toLowerCase().split(' ')[0]) ||
-        phrase.toLowerCase().includes(i.name.toLowerCase().split(' ')[0])
-      ) || items[0];
+      const phraseLower = (phrase || '').toLowerCase();
+      const firstWord = phraseLower.split(' ')[0] || '';
+      const found = (items || []).find(i => {
+        if (!i || !i.name) return false;
+        const itemName = String(i.name).toLowerCase();
+        return (firstWord && itemName.includes(firstWord)) || (firstWord && phraseLower.includes(itemName.split(' ')[0]));
+      }) || (items && items.length > 0 ? items[0] : null);
 
       setMatchedItem(found);
     }, 1200);
