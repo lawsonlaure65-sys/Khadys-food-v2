@@ -31,29 +31,45 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;0,800;0,900;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
     <style>
-      html, body, #root {
+      * {
+        box-sizing: border-box;
+      }
+      html, body {
         max-width: 100%;
-        overflow-x: hidden;
+        overflow-x: clip;
         width: 100%;
+      }
+      img, video {
+        display: block;
+        max-width: 100%;
+      }
+      main {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        padding-bottom: 140px;
+      }
+      section, article, .card {
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+      }
+      h1, h2, h3, p, span, button {
+        max-width: 100%;
+        overflow-wrap: anywhere;
       }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       body {
         background-color: #11100F;
-        overscroll-behavior-y: none;
         -webkit-tap-highlight-color: transparent;
-        -webkit-touch-callout: none;
       }
       .glass-card {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
+        background: rgba(255, 255, 255, 0.95);
         border: 1px solid rgba(255, 255, 255, 0.2);
       }
       .dark-glass {
-        background: rgba(26, 15, 13, 0.85);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        background: #1A0F0D;
       }
     </style>
     <script type="module" src="/index.tsx"></script>

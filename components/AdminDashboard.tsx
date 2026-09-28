@@ -174,7 +174,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/95">
       <div 
         className="relative w-full max-w-4xl bg-[#17120F] border-2 border-amber-500/40 rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[95vh] text-[#F7F4EE]"
         onClick={e => e.stopPropagation()}

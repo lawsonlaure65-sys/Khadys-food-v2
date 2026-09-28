@@ -104,11 +104,17 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
               className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/50 p-5 sm:p-6 shadow-2xl cursor-pointer group hover:border-amber-400 transition-all"
             >
               <div className="flex flex-col lg:flex-row items-center gap-6">
-                <div className="relative w-full lg:w-72 h-52 rounded-2xl overflow-hidden flex-shrink-0">
+                <div className="relative w-full lg:w-72 h-52 rounded-2xl overflow-hidden flex-shrink-0 bg-stone-900">
                   <img
                     src={platJour.image}
                     alt={platJour.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=75";
+                    }}
                   />
                   <div className="absolute top-3 left-3 flex gap-2">
                     <span className="px-3 py-1 rounded-full bg-orange-600 text-white text-xs font-black uppercase tracking-wider shadow">
@@ -187,11 +193,17 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                   className="group cursor-pointer bg-[#1D1714] rounded-2xl border-2 border-amber-500/30 hover:border-amber-400 transition-all p-3.5 sm:p-4 flex flex-col justify-between hover:scale-[1.01] shadow-lg w-full max-w-full min-w-0"
                 >
                   <div className="space-y-3">
-                    <div className="relative h-44 rounded-xl overflow-hidden">
+                    <div className="relative h-44 rounded-xl overflow-hidden bg-stone-900">
                       <img
                         src={spe.image}
                         alt={spe.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src =
+                            "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=75";
+                        }}
                       />
                       <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-stone-950 shadow">
                         Spécialité Permanente
@@ -255,10 +267,12 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 <img
                   src={dish.image}
                   alt={dish.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {
                     (e.currentTarget as HTMLImageElement).src =
-                      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
+                      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=75";
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#181615] via-transparent to-black/30" />
@@ -266,7 +280,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 {/* Badges */}
                 <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                   {dish.badge && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-orange-600/90 text-white shadow-md backdrop-blur-sm">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-orange-600 text-white shadow-md">
                       {dish.badge}
                     </span>
                   )}
@@ -279,7 +293,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 </div>
 
                 {dish.preparationTime && (
-                  <div className="absolute bottom-2.5 left-3 flex items-center gap-1 text-[11px] text-stone-300 bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/10">
+                  <div className="absolute bottom-2.5 left-3 flex items-center gap-1 text-[11px] text-stone-300 bg-black/80 px-2 py-0.5 rounded-full border border-white/10">
                     <Clock className="w-3 h-3 text-orange-400" />
                     <span>{dish.preparationTime}</span>
                   </div>

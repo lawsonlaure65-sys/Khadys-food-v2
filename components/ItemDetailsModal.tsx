@@ -34,7 +34,7 @@ export const ItemDetailsModal: React.FC<ModalProps> = ({ item, onClose, onAddToC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90">
       <div
         className="relative w-full max-w-lg bg-[#181615] border border-orange-500/25 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
         onClick={(e) => e.stopPropagation()}
@@ -52,11 +52,13 @@ export const ItemDetailsModal: React.FC<ModalProps> = ({ item, onClose, onAddToC
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover"
             onError={(e) => {
               // Graceful fallback to avoid broken image squares
               (e.currentTarget as HTMLImageElement).src =
-                "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
+                "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=75";
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#181615] via-[#181615]/30 to-transparent" />
@@ -64,12 +66,12 @@ export const ItemDetailsModal: React.FC<ModalProps> = ({ item, onClose, onAddToC
           {/* Badges */}
           <div className="absolute top-4 left-4 flex flex-wrap gap-2">
             {item.badge && (
-              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-600/90 text-white shadow-lg backdrop-blur-sm border border-orange-400/30">
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-orange-600 text-white shadow-lg border border-orange-400/30">
                 {item.badge}
               </span>
             )}
             {item.isFeatured && (
-              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500/90 text-stone-950 shadow-lg">
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-500 text-stone-950 shadow-lg">
                 Incontournable
               </span>
             )}
@@ -78,13 +80,13 @@ export const ItemDetailsModal: React.FC<ModalProps> = ({ item, onClose, onAddToC
           <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
             <div className="flex items-center gap-3 text-xs text-stone-300">
               {item.preparationTime && (
-                <span className="flex items-center gap-1 bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-sm border border-white/10">
+                <span className="flex items-center gap-1 bg-black/80 px-2.5 py-1 rounded-full border border-white/10">
                   <Clock className="w-3.5 h-3.5 text-orange-400" />
                   {item.preparationTime}
                 </span>
               )}
               {item.spicyLevel !== undefined && item.spicyLevel > 0 && (
-                <span className="flex items-center gap-1 bg-black/60 px-2.5 py-1 rounded-full backdrop-blur-sm border border-white/10 text-orange-400">
+                <span className="flex items-center gap-1 bg-black/80 px-2.5 py-1 rounded-full border border-white/10 text-orange-400">
                   <Flame className="w-3.5 h-3.5" />
                   Niveau {item.spicyLevel}/3
                 </span>

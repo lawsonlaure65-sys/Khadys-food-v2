@@ -4,11 +4,10 @@
 
 @layer base {
   html,
-  body,
-  #root {
+  body {
     width: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   * {
@@ -54,8 +53,7 @@
   body {
     background-color: #11100F;
     color: #F7F4EE;
-    overflow-x: hidden;
-    overscroll-behavior-y: none;
+    overflow-x: clip;
     -webkit-tap-highlight-color: transparent;
   }
 }

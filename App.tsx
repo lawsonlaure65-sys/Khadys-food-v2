@@ -22,7 +22,7 @@ import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
 import {
   Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
   ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
-  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings
+  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings, X
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -41,7 +41,8 @@ export const App: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isBlogOpen, setIsBlogOpen] = useState(false);
   const [isContactOpen, setIsContactOpen] = useState(false);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
+  const [isChatDismissed, setIsChatDismissed] = useState(false);
 
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     const list = loadStoredOrders();
@@ -51,14 +52,6 @@ export const App: React.FC = () => {
 
   // Ref for smooth horizontal scrolling of rectangles
   const rectanglesContainerRef = useRef<HTMLDivElement>(null);
-
-  // Brief initial splash display matching Screenshot 3
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 1100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Sync items changes to offline storage
   useEffect(() => {
@@ -186,7 +179,7 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-36 sm:pb-32 md:pb-16 w-full max-w-full overflow-x-hidden">
+      <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-0 w-full max-w-full overflow-x-hidden">
         {/* Navigation Bar matching Screenshot 1 & 2 */}
         <Navbar
           currentTab={activeTab}
@@ -199,16 +192,17 @@ export const App: React.FC = () => {
         />
 
         {/* Content View Switching */}
-        <main className="flex-1">
+        <main className="flex-1 pb-[150px] w-full max-w-full min-w-0">
           {activeTab === 'accueil' && (
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-5 sm:space-y-6">
               
               {/* 1. HERO CARD (Screenshot 1 & 2: "L'EXCELLENCE À NIAMEY", "LE GOÛT DES ROIS", "COMMANDER MAINTENANT ↗") */}
               <section className="relative rounded-[34px] sm:rounded-[38px] overflow-hidden border-2 border-amber-500/50 shadow-2xl bg-[#19120E] aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[460px]">
                 <img
-                  src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1400&q=85"
+                  src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=75"
                   alt="Le Goût des Rois - Grillades Khady"
                   className="w-full h-full object-cover"
+                  fetchPriority="high"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/25" />
 
@@ -233,7 +227,7 @@ export const App: React.FC = () => {
                         </span>
                       </h1>
                       <p className="text-xs sm:text-sm text-stone-200 font-medium drop-shadow mt-2 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
                         Cuisine fraîche, livraison et service traiteur à Niamey
                       </p>
                     </div>
@@ -322,7 +316,7 @@ export const App: React.FC = () => {
                   className="rounded-[28px] bg-gradient-to-br from-amber-600 via-orange-600 to-orange-700 p-4 sm:p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[155px] cursor-pointer hover:scale-[1.02] active:scale-95 transition-all group"
                 >
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+                    <div className="w-8 h-8 rounded-full bg-white/25 flex items-center justify-center text-white">
                       <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-black uppercase tracking-wider">
@@ -495,10 +489,12 @@ export const App: React.FC = () => {
                 <div className="pt-2">
                   <div className="w-full h-1 bg-orange-600 rounded-full mb-3" />
                   <div className="rounded-[26px] bg-[#1F1714] border border-amber-500/30 p-3.5 sm:p-4 space-y-3">
-                    <div className="relative rounded-2xl overflow-hidden h-52 sm:h-64 w-full">
+                    <div className="relative rounded-2xl overflow-hidden h-52 sm:h-64 w-full bg-stone-900">
                       <img
-                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80"
+                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=75"
                         alt="Tiep Rouge Royal"
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-cover"
                       />
                       <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#E65100] text-white text-xs font-black uppercase tracking-wider shadow-lg">
@@ -507,7 +503,7 @@ export const App: React.FC = () => {
                       <span className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/80 text-white text-xs font-black flex items-center justify-center border border-white/20">
                         #1
                       </span>
-                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/80 text-amber-300 text-xs font-bold backdrop-blur-sm border border-amber-500/30">
+                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/90 text-amber-300 text-xs font-bold border border-amber-500/30">
                         25 restants
                       </span>
                     </div>
@@ -680,10 +676,12 @@ export const App: React.FC = () => {
                           <img
                             src={dish.image}
                             alt={dish.name}
-                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.currentTarget as HTMLImageElement).src =
-                                "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80";
+                                "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=70";
                             }}
                           />
                         </div>
@@ -749,19 +747,30 @@ export const App: React.FC = () => {
           )}
         </main>
 
-        {/* FLOATING WHATSAPP BUTTON (Bottom Right with badge 1 from Screenshots) */}
-        <a
-          href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-24 right-3.5 sm:right-6 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
-          title="WhatsApp direct Khady's Food"
-        >
-          <MessageSquare className="w-5 h-5 sm:w-7 sm:h-7 text-white fill-white" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] sm:text-xs flex items-center justify-center shadow-md">
-            1
-          </span>
-        </a>
+        {/* FLOATING WHATSAPP BUTTON (Dismissable, masked on mobile to prevent covering bottom navigation & cards) */}
+        {!isChatDismissed && (
+          <div className="fixed bottom-24 right-4 z-30 hidden sm:flex items-center group">
+            <button
+              onClick={() => setIsChatDismissed(true)}
+              className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-stone-900 border border-stone-700 text-stone-300 hover:text-white flex items-center justify-center shadow z-40 transition-colors"
+              title="Fermer ce raccourci"
+            >
+              <X className="w-3 h-3" />
+            </button>
+            <a
+              href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-13 h-13 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+              title="WhatsApp direct Khady's Food"
+            >
+              <MessageSquare className="w-6 h-6 text-white fill-white" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] flex items-center justify-center shadow-md">
+                1
+              </span>
+            </a>
+          </div>
+        )}
 
         {/* MODALS & OVERLAYS */}
         {selectedItemForModal && (

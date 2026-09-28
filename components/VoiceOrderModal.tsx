@@ -55,7 +55,7 @@ export const VoiceOrderModal: React.FC<VoiceProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90">
       <div 
         className="relative w-full max-w-md bg-[#1B1512] border border-orange-500/40 rounded-3xl p-6 text-center shadow-2xl space-y-6"
         onClick={e => e.stopPropagation()}
