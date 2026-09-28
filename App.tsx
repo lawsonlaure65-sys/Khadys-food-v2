@@ -238,22 +238,22 @@ export const App: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1 w-full max-w-full">
                       <a
                         href={RESTAURANT_INFO.whatsappDirectUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center gap-2 py-3 px-5 sm:px-7 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                        className="inline-flex items-center justify-center gap-2 py-3 px-4 sm:px-6 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all text-center"
                       >
-                        <MessageSquare className="w-4 h-4 text-white" />
-                        <span>COMMANDER SUR WHATSAPP</span>
+                        <MessageSquare className="w-4 h-4 text-white flex-shrink-0" />
+                        <span className="truncate">COMMANDER SUR WHATSAPP</span>
                       </a>
                       <button
                         onClick={() => setActiveTab('carte')}
-                        className="inline-flex items-center justify-center gap-2 py-3 px-5 sm:px-7 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                        className="inline-flex items-center justify-center gap-2 py-3 px-4 sm:px-6 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all text-center"
                       >
                         <span>VOIR LA CARTE</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-stone-900" />
+                        <ArrowRight className="w-3.5 h-3.5 text-stone-900 flex-shrink-0" />
                       </button>
                     </div>
                   </div>
@@ -261,9 +261,9 @@ export const App: React.FC = () => {
               </section>
 
               {/* 2. WHATSAPP PRE-ORDER & CATALOG CARD */}
-              <section className="rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3.5 sm:gap-5">
+              <section className="rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all w-full max-w-full min-w-0">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
+                  <div className="flex items-center gap-3.5 sm:gap-5 min-w-0">
                     {/* Emerald WhatsApp Icon Box */}
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg">
                       <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -274,7 +274,7 @@ export const App: React.FC = () => {
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 border border-emerald-500/40">
                         📞 SERVICE TRAITEUR & REPAS
                       </span>
-                      <h2 className="text-white font-black italic uppercase text-xs sm:text-base tracking-wide mt-1 leading-snug">
+                      <h2 className="text-white font-black italic uppercase text-xs sm:text-base tracking-wide mt-1 leading-snug break-words">
                         PRÉCOMMANDE SUR LE NUMÉRO WHATSAPP DU RESTAURANT
                       </h2>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs sm:text-sm">
@@ -289,26 +289,26 @@ export const App: React.FC = () => {
                   </div>
 
                   {/* Dual Action Buttons: Discuter & Catalogue */}
-                  <div className="flex flex-wrap items-center gap-2.5 pt-1 md:pt-0">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1 md:pt-0 w-full md:w-auto">
                     <a
                       href={RESTAURANT_INFO.whatsappDirectUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider shadow-lg transition-transform active:scale-95 text-center"
                     >
-                      <MessageSquare className="w-4 h-4" />
-                      <span>Discuter avec le restaurant</span>
+                      <MessageSquare className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">Discuter avec le restaurant</span>
                     </a>
 
                     <a
                       href={RESTAURANT_INFO.whatsappCatalogUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-black text-xs uppercase tracking-wider shadow transition-transform active:scale-95"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-black text-xs uppercase tracking-wider shadow transition-transform active:scale-95 text-center"
                     >
-                      <ShoppingBag className="w-4 h-4" />
-                      <span>Catalogue WhatsApp</span>
-                      <ArrowUpRight className="w-3.5 h-3.5" />
+                      <ShoppingBag className="w-4 h-4 flex-shrink-0" />
+                      <span className="truncate">Catalogue WhatsApp</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 flex-shrink-0" />
                     </a>
                   </div>
                 </div>
@@ -618,22 +618,22 @@ export const App: React.FC = () => {
               </section>
 
               {/* 8. INCONTOURNABLES — THE EXACT LIGHT-GREY RECTANGLES (Screenshot 6 & 7) */}
-              <section className="space-y-4 pt-2">
+              <section className="space-y-4 pt-2 w-full max-w-full min-w-0 overflow-hidden">
                 {/* Header with Heart Icon & TOUT VOIR */}
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center">
+                <div className="flex items-center justify-between px-1 w-full min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#2A1D17] border border-orange-500/30 flex items-center justify-center flex-shrink-0">
                       <Heart className="w-4 h-4 text-orange-500 fill-orange-500" />
                     </div>
-                    <h2 className="text-base sm:text-lg font-black italic uppercase tracking-widest text-[#B5A59E] font-display">
+                    <h2 className="text-sm sm:text-lg font-black italic uppercase tracking-widest text-[#B5A59E] font-display truncate">
                       INCONTOURNABLES
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <button
                       onClick={() => setIsAdminOpen(true)}
-                      className="px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-xs hover:bg-orange-600/30 flex items-center gap-1"
+                      className="px-2.5 sm:px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-[11px] sm:text-xs hover:bg-orange-600/30 flex items-center gap-1"
                       title="Ajouter un plat dans ces rectangles"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -649,7 +649,7 @@ export const App: React.FC = () => {
                 </div>
 
                 {/* THE FAMOUS RECTANGLES CAROUSEL / ROW (Exact light-grey rounded rectangles from Screenshot 6 & 7) */}
-                <div className="relative group">
+                <div className="relative group w-full max-w-full min-w-0">
                   {/* Navigation arrows for desktop */}
                   <button
                     onClick={() => scrollRectangles('left')}
@@ -754,11 +754,11 @@ export const App: React.FC = () => {
           href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+          className="fixed bottom-24 right-3.5 sm:right-6 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-[#EA580C] to-[#F97316] text-white shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
           title="WhatsApp direct Khady's Food"
         >
-          <MessageSquare className="w-7 h-7 text-white fill-white" />
-          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-xs flex items-center justify-center shadow-md">
+          <MessageSquare className="w-5 h-5 sm:w-7 sm:h-7 text-white fill-white" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] sm:text-xs flex items-center justify-center shadow-md">
             1
           </span>
         </a>

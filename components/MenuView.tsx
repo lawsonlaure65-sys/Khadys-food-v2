@@ -31,25 +31,25 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
   });
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="max-w-7xl mx-auto py-6 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-6 sm:space-y-8 w-full max-w-full min-w-0 overflow-x-hidden">
       {/* Header and filters */}
-      <div className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
+      <div className="space-y-4 w-full min-w-0">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full min-w-0">
+          <div className="min-w-0 max-w-full">
             <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
               Cuisiné le jour même à Niamey
             </span>
-            <h1 className="text-3xl sm:text-4xl font-black font-display text-white mt-1">
+            <h1 className="text-2xl sm:text-4xl font-black font-display text-white mt-1 break-words">
               La Carte & Les Box Sauces Khady
             </h1>
-            <p className="text-sm text-stone-400 mt-1 max-w-xl">
+            <p className="text-xs sm:text-sm text-stone-400 mt-1 max-w-xl break-words">
               Chaque recette est préparée avec des produits nobles frais, sans arôme artificiel, selon les véritables secrets des marmites de grand-mère.
             </p>
           </div>
 
           {/* Search box & WhatsApp catalog */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto min-w-0">
+            <div className="relative flex-1 md:w-64 min-w-0">
               <Search className="w-4 h-4 text-stone-500 absolute left-3.5 top-3" />
               <input
                 type="text"
@@ -72,12 +72,12 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar w-full max-w-full min-w-0">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCat(cat.id)}
-              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0 ${
                 selectedCat === cat.id
                   ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-950/40'
                   : 'bg-stone-900/80 hover:bg-stone-800 text-stone-400 hover:text-white border border-stone-800'
@@ -160,22 +160,22 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
           ))}
 
           {/* Section 2: Incontournables / Spécialités Permanentes (Doukounou, Attiéké, Dibi, etc.) */}
-          <div className="space-y-3 pt-4">
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="space-y-3 pt-4 w-full max-w-full min-w-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 w-full min-w-0">
+              <div className="min-w-0 max-w-full">
                 <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
                   Coup de Cœur & Tradition
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-white font-display uppercase italic">
+                <h2 className="text-lg sm:text-2xl font-black text-white font-display uppercase italic break-words leading-tight">
                   Nos Incontournables & Spécialités Permanentes
                 </h2>
               </div>
-              <span className="text-xs text-stone-400 hidden sm:block">
+              <span className="text-xs text-stone-400 hidden sm:block flex-shrink-0">
                 Toujours disponibles à la commande
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full min-w-0">
               {items.filter(it => {
                 if (!it) return false;
                 const badge = String(it.badge || '').toLowerCase();
@@ -184,7 +184,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd 
                 <div
                   key={spe.id}
                   onClick={() => onSelectItem(spe)}
-                  className="group cursor-pointer bg-[#1D1714] rounded-2xl border-2 border-amber-500/30 hover:border-amber-400 transition-all p-4 flex flex-col justify-between hover:scale-[1.01] shadow-lg"
+                  className="group cursor-pointer bg-[#1D1714] rounded-2xl border-2 border-amber-500/30 hover:border-amber-400 transition-all p-3.5 sm:p-4 flex flex-col justify-between hover:scale-[1.01] shadow-lg w-full max-w-full min-w-0"
                 >
                   <div className="space-y-3">
                     <div className="relative h-44 rounded-xl overflow-hidden">

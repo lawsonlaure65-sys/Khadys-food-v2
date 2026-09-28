@@ -127,69 +127,84 @@ export const CartView: React.FC<CartProps> = ({
             <>
               {/* Item list */}
               <div className="space-y-3">
-                {items.map((cartItem, idx) => (
-                  <div
-                    key={`${cartItem.item.id}-${idx}`}
-                    className="p-3.5 rounded-2xl bg-stone-900/70 border border-stone-800/80 flex items-center gap-3"
-                  >
-                    <img
-                      src={cartItem.item.image}
-                      alt={cartItem.item.name}
-                      className="w-16 h-16 rounded-xl object-cover bg-stone-950 flex-shrink-0"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src =
-                          "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-bold text-white truncate">
-                        {cartItem.item.name}
-                      </h4>
-                      <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
-                        <span className="text-amber-400 font-semibold">
-                          {(cartItem.item.price * cartItem.quantity).toLocaleString()} FCFA
-                        </span>
-                        {cartItem.spice && (
-                          <span className="px-1.5 py-0.2 rounded bg-stone-800 text-[10px] text-orange-300">
-                            Piment: {cartItem.spice}
+                {(items || []).map((cartItem, idx) => {
+                  const item = cartItem?.item || {
+                    id: `item-${idx}`,
+                    name: "Plat Khady's",
+                    price: 3000,
+                    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+                  };
+                  const qty = typeof cartItem?.quantity === 'number' && cartItem.quantity > 0 ? cartItem.quantity : 1;
+                  const itemPrice = typeof item.price === 'number' && !isNaN(item.price) ? item.price : 0;
+                  const lineTotal = itemPrice * qty;
+
+                  return (
+                    <div
+                      key={`${item.id}-${idx}`}
+                      className="p-3.5 rounded-2xl bg-stone-900/70 border border-stone-800/80 flex items-center gap-3 min-w-0"
+                    >
+                      <img
+                        src={item.image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"}
+                        alt={item.name || "Plat"}
+                        className="w-16 h-16 rounded-xl object-cover bg-stone-950 flex-shrink-0"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src =
+                            "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-bold text-white truncate">
+                          {item.name || "Plat Khady's"}
+                        </h4>
+                        <div className="flex items-center gap-2 text-xs text-stone-400 mt-0.5">
+                          <span className="text-amber-400 font-semibold">
+                            {lineTotal.toLocaleString()} FCFA
                           </span>
+                          {cartItem?.spice && (
+                            <span className="px-1.5 py-0.2 rounded bg-stone-800 text-[10px] text-orange-300">
+                              Piment: {cartItem.spice}
+                            </span>
+                          )}
+                        </div>
+                        {cartItem?.notes && (
+                          <p className="text-[11px] text-stone-500 truncate mt-0.5 italic">
+                            "{cartItem.notes}"
+                          </p>
                         )}
                       </div>
-                      {cartItem.notes && (
-                        <p className="text-[11px] text-stone-500 truncate mt-0.5 italic">
-                          "{cartItem.notes}"
-                        </p>
-                      )}
-                    </div>
 
-                    {/* Quantity controls */}
-                    <div className="flex items-center gap-1.5 bg-stone-800 rounded-lg p-1">
+                      {/* Quantity controls */}
+                      <div className="flex items-center gap-1.5 bg-stone-800 rounded-lg p-1 flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onUpdateQuantity(idx, qty - 1)}
+                          className="w-6 h-6 rounded flex items-center justify-center text-stone-300 hover:text-white hover:bg-stone-700"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-5 text-center text-xs font-bold text-white">
+                          {qty}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onUpdateQuantity(idx, qty + 1)}
+                          className="w-6 h-6 rounded flex items-center justify-center text-stone-300 hover:text-white hover:bg-stone-700"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+
                       <button
-                        onClick={() => onUpdateQuantity(idx, cartItem.quantity - 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-stone-300 hover:text-white hover:bg-stone-700"
+                        type="button"
+                        onClick={() => onRemoveItem(idx)}
+                        className="p-1.5 text-stone-500 hover:text-red-400 transition-colors flex-shrink-0"
+                        title="Retirer"
                       >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="w-5 text-center text-xs font-bold text-white">
-                        {cartItem.quantity}
-                      </span>
-                      <button
-                        onClick={() => onUpdateQuantity(idx, cartItem.quantity + 1)}
-                        className="w-6 h-6 rounded flex items-center justify-center text-stone-300 hover:text-white hover:bg-stone-700"
-                      >
-                        <Plus className="w-3 h-3" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-
-                    <button
-                      onClick={() => onRemoveItem(idx)}
-                      className="p-1.5 text-stone-500 hover:text-red-400 transition-colors"
-                      title="Retirer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Delivery Details Form */}
