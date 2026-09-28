@@ -142,9 +142,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </header>
 
-      {/* 3. FIXED BOTTOM NAVIGATION BAR - EXACT ANCIEN MODÈLE (Floating Bronze Capsule & Glowing Orange Disc) */}
+      {/* 3. FIXED BOTTOM NAVIGATION BAR - EXACT MARRON AUTHENTIQUE (Capsule Marron & Contour Doré) */}
       <nav className="fixed bottom-2.5 sm:bottom-4 left-0 right-0 z-40 px-2 sm:px-4 pointer-events-auto flex justify-center">
-        <div className="w-full max-w-2xl bg-[#16120F]/96 backdrop-blur-xl rounded-[32px] sm:rounded-[36px] border-2 border-[#A87428] shadow-[0_12px_40px_rgba(0,0,0,0.85),0_0_15px_rgba(168,116,40,0.25)] py-2 sm:py-2.5 px-1.5 sm:px-3">
+        <div className="w-full max-w-2xl bg-gradient-to-b from-[#42261A] via-[#382015] to-[#2D1911] backdrop-blur-xl rounded-[32px] sm:rounded-[36px] border-2 border-[#D4953B] shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_20px_rgba(212,149,59,0.3)] py-2 sm:py-2.5 px-1.5 sm:px-3">
           <div className="flex items-center justify-between gap-0.5 sm:gap-1">
             {/* 1. ACCUEIL */}
             <button
@@ -155,8 +155,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div
                 className={`transition-all duration-300 flex items-center justify-center ${
                   currentTab === 'accueil'
-                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_16px_rgba(255,92,0,0.65)] -translate-y-1'
-                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#8E8680] group-hover:text-stone-200'
+                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_18px_rgba(255,92,0,0.7)] -translate-y-1'
+                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#C4B5A5] group-hover:text-white'
                 }`}
               >
                 <Home className={currentTab === 'accueil' ? 'w-5 h-5 sm:w-6 sm:h-6 text-white stroke-[2.2]' : 'w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]'} />
@@ -164,8 +164,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span
                 className={`whitespace-nowrap overflow-visible text-center mt-0.5 ${
                   currentTab === 'accueil'
-                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFA000] tracking-wider'
-                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight'
+                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFD066] tracking-wider'
+                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight'
                 }`}
               >
                 Accueil
@@ -181,8 +181,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div
                 className={`transition-all duration-300 flex items-center justify-center ${
                   currentTab === 'carte'
-                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_16px_rgba(255,92,0,0.65)] -translate-y-1'
-                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#8E8680] group-hover:text-stone-200'
+                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_18px_rgba(255,92,0,0.7)] -translate-y-1'
+                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#C4B5A5] group-hover:text-white'
                 }`}
               >
                 <BookOpen className={currentTab === 'carte' ? 'w-5 h-5 sm:w-6 sm:h-6 text-white stroke-[2.2]' : 'w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]'} />
@@ -190,8 +190,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span
                 className={`whitespace-nowrap overflow-visible text-center mt-0.5 ${
                   currentTab === 'carte'
-                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFA000] tracking-wider'
-                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight'
+                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFD066] tracking-wider'
+                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight'
                 }`}
               >
                 Menu
@@ -207,8 +207,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div
                 className={`transition-all duration-300 flex items-center justify-center ${
                   currentTab === 'galerie'
-                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_16px_rgba(255,92,0,0.65)] -translate-y-1'
-                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#8E8680] group-hover:text-stone-200'
+                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_18px_rgba(255,92,0,0.7)] -translate-y-1'
+                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#C4B5A5] group-hover:text-white'
                 }`}
               >
                 <ImageIcon className={currentTab === 'galerie' ? 'w-5 h-5 sm:w-6 sm:h-6 text-white stroke-[2.2]' : 'w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]'} />
@@ -216,8 +216,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span
                 className={`whitespace-nowrap overflow-visible text-center mt-0.5 ${
                   currentTab === 'galerie'
-                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFA000] tracking-wider'
-                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight'
+                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFD066] tracking-wider'
+                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight'
                 }`}
               >
                 Galerie
@@ -233,8 +233,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div
                 className={`transition-all duration-300 flex items-center justify-center ${
                   currentTab === 'suivi'
-                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_16px_rgba(255,92,0,0.65)] -translate-y-1'
-                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#8E8680] group-hover:text-stone-200'
+                    ? 'w-11 h-11 min-[380px]:w-12 min-[380px]:h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-b from-[#FF5C00] via-[#FF5500] to-[#E64A00] text-white shadow-[0_4px_18px_rgba(255,92,0,0.7)] -translate-y-1'
+                    : 'w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full text-[#C4B5A5] group-hover:text-white'
                 }`}
               >
                 <ClipboardList className={currentTab === 'suivi' ? 'w-5 h-5 sm:w-6 sm:h-6 text-white stroke-[2.2]' : 'w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]'} />
@@ -242,8 +242,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span
                 className={`whitespace-nowrap overflow-visible text-center mt-0.5 ${
                   currentTab === 'suivi'
-                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFA000] tracking-wider'
-                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight'
+                    ? 'text-[7.5px] min-[360px]:text-[8px] min-[390px]:text-[8.5px] sm:text-[9.5px] font-black uppercase text-[#FFD066] tracking-wider'
+                    : 'text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight'
                 }`}
               >
                 <span className="min-[400px]:hidden">Suivi</span>
@@ -257,10 +257,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex-1 min-w-0 flex flex-col items-center justify-center select-none group"
               title="Blog Culinaire"
             >
-              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#8E8680] group-hover:text-stone-200 transition-colors">
+              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#C4B5A5] group-hover:text-white transition-colors">
                 <Newspaper className="w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]" />
               </div>
-              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
+              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
                 Blog
               </span>
             </button>
@@ -273,10 +273,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex-1 min-w-0 flex flex-col items-center justify-center select-none group"
               title="WhatsApp direct"
             >
-              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#8E8680] group-hover:text-emerald-400 transition-colors">
+              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#C4B5A5] group-hover:text-emerald-400 transition-colors">
                 <MessageSquare className="w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]" />
               </div>
-              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-emerald-400 tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
+              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-emerald-400 tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
                 WhatsApp
               </span>
             </a>
@@ -287,7 +287,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex-1 min-w-0 flex flex-col items-center justify-center select-none group relative"
               title="Mon Panier"
             >
-              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#8E8680] group-hover:text-stone-200 transition-colors relative">
+              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#C4B5A5] group-hover:text-white transition-colors relative">
                 <ShoppingBag className="w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]" />
                 {cartCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-[8px] min-[380px]:text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-md animate-bounce">
@@ -295,7 +295,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-stone-300 tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
+              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
                 Panier
               </span>
             </button>
@@ -306,10 +306,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex-1 min-w-0 flex flex-col items-center justify-center select-none group"
               title="Mon Profil & Espace Gérance"
             >
-              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#8E8680] group-hover:text-white transition-colors">
+              <div className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-[#C4B5A5] group-hover:text-white transition-colors">
                 <User className="w-4 h-4 min-[380px]:w-4.5 min-[380px]:h-4.5 sm:w-5 sm:h-5 stroke-[1.8]" />
               </div>
-              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#888078] group-hover:text-white tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
+              <span className="text-[7px] min-[360px]:text-[7.5px] min-[390px]:text-[8px] sm:text-[9px] font-bold uppercase text-[#C4B5A5] group-hover:text-white tracking-tight text-center mt-0.5 whitespace-nowrap overflow-visible">
                 Moi
               </span>
             </button>
