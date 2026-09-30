@@ -4,10 +4,12 @@ import {
   Plus, Edit3, Trash2, CheckCircle, X, Upload, Sparkles, Star, AlertCircle,
   Clock, DollarSign, Image as ImageIcon, Flame, RotateCcw, Save, Eye, TrendingUp,
   LayoutGrid, Sun, Utensils, BookOpen, Monitor, Power, Check, ArrowRight, Share2,
-  MessageSquare, CheckCircle2, ThumbsUp
+  MessageSquare, CheckCircle2, ThumbsUp, Database
 } from 'lucide-react';
 import { compressImageFile } from '../utils/imageCompressor';
 import { saveAdminDraft, loadAdminDraft } from '../utils/offlineDB';
+import { saveSingleMenuItemToSupabase, deleteMenuItemFromSupabase } from '../utils/supabaseClient';
+import { AdminSupabaseModal } from './AdminSupabaseModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { isRestrictedFromDailyOrFeatured, INITIAL_MENU_ITEMS } from '../constants';
 
@@ -50,6 +52,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
   const [showPosterStudio, setShowPosterStudio] = useState(false);
   const [editingReview, setEditingReview] = useState<Partial<Review> | null>(null);
   const [isReviewFormOpen, setIsReviewFormOpen] = useState(false);
+  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sales data for monthly chart
@@ -141,10 +144,16 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
     onSaveItem(itemToSave);
     saveAdminDraft(null);
+
+    // Auto-sync with Supabase Cloud
+    saveSingleMenuItemToSupabase(itemToSave).catch(e => {
+      console.warn('Auto-sync Supabase failed (offline fallback active):', e);
+    });
+
     setSuccessMsg(
       isRestricted
         ? `Plat "${itemToSave.name}" enregistré dans la carte permanente ! (Réservé hors plat vedette/jour selon les règles)`
-        : `Plat "${itemToSave.name}" enregistré et visible dans les rectangles de l'accueil !`
+        : `Plat "${itemToSave.name}" enregistré et synchronisé dans les rectangles de l'accueil & Supabase !`
     );
     setTimeout(() => {
       setEditingItem(null);
@@ -190,12 +199,12 @@ export const AdminDashboard: React.FC<AdminProps> = ({
         className="relative w-full max-w-4xl bg-[#17120F] border-2 border-amber-500/40 rounded-[32px] overflow-hidden shadow-2xl flex flex-col max-h-[95vh] text-[#F7F4EE]"
         onClick={e => e.stopPropagation()}
       >
-        {/* 1. TOP TABS (As in Screenshot 8: HOME, PLAT DU JOUR, CARTE, BLOG) */}
-        <div className="px-4 py-3 bg-[#110D0B] border-b border-stone-800 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-2">
+        {/* 1. TOP TABS (Responsive horizontal bar with no character wrapping) */}
+        <div className="px-3 sm:px-5 py-2.5 bg-[#110D0B] border-b border-stone-800 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto no-scrollbar py-0.5">
             <button
               onClick={() => setAdminTab('home')}
-              className={`px-4 py-1.5 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all select-none ${
                 adminTab === 'home'
                   ? 'bg-orange-600 text-white shadow-lg shadow-orange-950/60'
                   : 'bg-stone-900 text-stone-400 hover:text-white'
@@ -207,7 +216,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
             <button
               onClick={() => setAdminTab('platDuJour')}
-              className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all select-none ${
                 adminTab === 'platDuJour'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-stone-900 text-stone-400 hover:text-white'
@@ -219,7 +228,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
             <button
               onClick={() => setAdminTab('carte')}
-              className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all select-none ${
                 adminTab === 'carte'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-stone-900 text-stone-400 hover:text-white'
@@ -231,7 +240,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
             <button
               onClick={() => setAdminTab('blog')}
-              className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all select-none ${
                 adminTab === 'blog'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-stone-900 text-stone-400 hover:text-white'
@@ -243,7 +252,7 @@ export const AdminDashboard: React.FC<AdminProps> = ({
 
             <button
               onClick={() => setAdminTab('avis')}
-              className={`px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+              className={`px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 transition-all select-none ${
                 adminTab === 'avis'
                   ? 'bg-orange-600 text-white shadow-lg'
                   : 'bg-stone-900 text-stone-400 hover:text-white'
@@ -252,11 +261,20 @@ export const AdminDashboard: React.FC<AdminProps> = ({
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
               <span>AVIS GOURMETS ({reviews.length})</span>
             </button>
+
+            <button
+              onClick={() => setIsSupabaseModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 bg-stone-900 hover:bg-stone-850 text-emerald-400 border border-emerald-500/40 hover:text-white transition-all select-none"
+              title="Paramètres Supabase & Schéma SQL"
+            >
+              <Database className="w-3.5 h-3.5" />
+              <span>SQL / SUPABASE</span>
+            </button>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full bg-stone-850 hover:bg-stone-800 text-stone-300 hover:text-white"
+            className="p-1.5 rounded-full bg-stone-850 hover:bg-stone-800 text-stone-300 hover:text-white flex-shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
@@ -282,10 +300,14 @@ export const AdminDashboard: React.FC<AdminProps> = ({
               <Plus className="w-4 h-4 text-orange-400" />
             </button>
 
-            <div className="px-3 py-1.5 rounded-xl bg-stone-900 border border-emerald-500/40 text-emerald-400 text-xs font-black flex items-center gap-1.5">
+            <button
+              onClick={() => setIsSupabaseModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 hover:text-white text-xs font-black flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+              title="Paramètres Supabase & Schéma SQL"
+            >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>CLOUD ●</span>
-            </div>
+            </button>
 
             <button
               onClick={onClose}
@@ -1237,6 +1259,17 @@ export const AdminDashboard: React.FC<AdminProps> = ({
             </div>
           </div>
         )}
+
+        {/* SUPABASE SETTINGS & SQL MODAL */}
+        <AdminSupabaseModal
+          isOpen={isSupabaseModalOpen}
+          onClose={() => setIsSupabaseModalOpen(false)}
+          currentItems={items}
+          onImportItemsFromSupabase={(cloudItems) => {
+            cloudItems.forEach(it => onSaveItem(it));
+            setSuccessMsg(`✅ ${cloudItems.length} plats synchronisés et chargés depuis Supabase !`);
+          }}
+        />
       </div>
     </div>
   );

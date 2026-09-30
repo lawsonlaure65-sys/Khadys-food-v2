@@ -1,4 +1,4 @@
-export type CategoryType = 'tous' | 'incontournables' | 'signature' | 'dejeuner' | 'flash' | 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees';
+export type CategoryType = 'tous' | 'incontournables' | 'signature' | 'dejeuner' | 'flash' | 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees' | string;
 
 export interface MenuItem {
   id: string;
@@ -6,10 +6,18 @@ export interface MenuItem {
   description: string;
   price: number; // in FCFA (XOF)
   oldPrice?: number; // Price before promotion
-  category: 'plats' | 'sauces' | 'traiteur' | 'boissons' | 'entrees' | 'dejeuner' | 'signature';
+  category: string;
   image: string;
   isPopular?: boolean;
   isFeatured?: boolean; // Display in Home Page "Incontournables" rectangles
+  isSpecialiteMaison?: boolean;
+  isSpécialitéMaison?: boolean;
+  isPlatDuJour?: boolean;
+  isPromo?: boolean;
+  isSpicy?: boolean;
+  isLowPrice?: boolean;
+  isVegetarian?: boolean;
+  rating?: number;
   badge?: string;
   preparationTime?: string;
   spicyLevel?: number; // 0 to 3

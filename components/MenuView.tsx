@@ -100,7 +100,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
               />
             </div>
             <a
-              href="https://wa.me/c/74441621"
+              href="https://wa.me/c/22774441621"
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"

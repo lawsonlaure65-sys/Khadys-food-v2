@@ -21,6 +21,7 @@ import { ContactModal } from './components/ContactModal';
 import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
 import { GourmetReviewsSection } from './components/GourmetReviewsSection';
 import { HomeSpecialSections } from './components/HomeSpecialSections';
+import { saveOrderToSupabase, fetchSupabaseMenuItems } from './utils/supabaseClient';
 import {
   Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
   ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
@@ -79,6 +80,24 @@ export const App: React.FC = () => {
   useEffect(() => {
     saveStoredReviews(reviews);
   }, [reviews]);
+
+  // Optional background fetch from Supabase if reachable
+  useEffect(() => {
+    fetchSupabaseMenuItems().then(cloudItems => {
+      if (cloudItems && cloudItems.length > 0) {
+        setItems(prev => {
+          const map = new Map<string, MenuItem>();
+          cloudItems.forEach(it => map.set(it.id, it));
+          prev.forEach(it => {
+            if (!map.has(it.id)) map.set(it.id, it);
+          });
+          return Array.from(map.values());
+        });
+      }
+    }).catch(err => {
+      console.warn('Supabase initial fetch silent fallback:', err);
+    });
+  }, []);
 
   const handleSaveReview = (review: Review) => {
     setReviews(prev => {
@@ -186,6 +205,7 @@ export const App: React.FC = () => {
 
   const handleOrderPlaced = (order: Order) => {
     setOrders(prev => [order, ...prev]);
+    saveOrderToSupabase(order).catch(e => console.warn('Supabase save order fallback:', e));
     setActiveOrder(order);
     setCart([]);
     setIsCartOpen(false);

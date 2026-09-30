@@ -9,7 +9,7 @@ export const RESTAURANT_INFO = {
   phone: "+227 74 44 16 21",
   whatsappNumber: "22774441621",
   whatsappDirectUrl: "https://wa.me/22774441621",
-  whatsappCatalogUrl: "https://wa.me/c/74441621",
+  whatsappCatalogUrl: "https://wa.me/c/22774441621",
   openingHours: "Tous les jours : 11h30 - 23h30",
   currency: "FCFA",
   deliveryDistricts: [
