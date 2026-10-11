@@ -293,7 +293,7 @@ export const App: React.FC = () => {
                   src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=75"
                   alt="Le Goût des Rois - Grillades Khady"
                   className="w-full h-full object-cover"
-                  fetchPriority="high"
+                  loading="eager"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/25" />
 
