@@ -64,8 +64,8 @@ export const CartView: React.FC<CartProps> = ({
       status: 'received',
       createdAt: new Date().toISOString(),
       estimatedDeliveryMinutes: 35,
-      driverName: "Moussa (Livreur Khady)",
-      driverPhone: "+227 90 12 34 56",
+      driverName: "Service Livraison Khady's Food",
+      driverPhone: RESTAURANT_INFO.phoneClean,
       notes: notes.trim() || undefined
     };
 

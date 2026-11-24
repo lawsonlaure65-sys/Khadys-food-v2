@@ -5,6 +5,16 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Analytics } from '@vercel/analytics/react';
 import './index.css';
 
+if (
+  'serviceWorker' in navigator &&
+  window.location.protocol === 'https:' &&
+  !window.location.hostname.includes('localhost')
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Failed to find root element');

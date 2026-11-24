@@ -1,5 +1,5 @@
-import React from 'react';
-import { BookOpen, X, Clock, Calendar, ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { BookOpen, X, Clock, Calendar, ArrowRight, ChevronUp } from 'lucide-react';
 
 interface BlogProps {
   isOpen: boolean;
@@ -7,6 +7,8 @@ interface BlogProps {
 }
 
 export const BlogModal: React.FC<BlogProps> = ({ isOpen, onClose }) => {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+
   if (!isOpen) return null;
 
   const articles = [
@@ -15,27 +17,30 @@ export const BlogModal: React.FC<BlogProps> = ({ isOpen, onClose }) => {
       date: "22 Septembre 2026",
       readTime: "4 min",
       image: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
-      excerpt: "Découvrez comment nos maîtres grilladins sélectionnent les morceaux d'agneau sahélien et préparent le mélange d'épices Kankankan selon la tradition."
+      excerpt: "Découvrez comment nos maîtres grilladins sélectionnent les morceaux d'agneau sahélien et préparent le mélange d'épices Kankankan selon la tradition.",
+      fullText: "Tout commence par une sélection rigoureuse de l'épaule et des côtes d'agneau tendre. La viande est saisie à vive flamme sur braise de bois sec afin de préserver tout son jus, puis délicatement tranchée et enrobée de notre kankankan maison aux arachides grillées, gingembre sec, poivre noir et oignons émincés croquants."
     },
     {
       title: "Comment Réussir un Thiéboudienne Rouge Royal Parfait",
       date: "18 Septembre 2026",
       readTime: "6 min",
       image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      excerpt: "Le secret réside dans le rissolage des oignons, le choix du mérou frais et la cuisson lente du riz cassé parfumé."
+      excerpt: "Le secret réside dans le rissolage des oignons, le choix du mérou frais et la cuisson lente du riz cassé parfumé.",
+      fullText: "Un grand Tiep demande de la patience : la farce verte (persil, ail, poivron, piment doux) glissée dans les incisions du poisson capitaine libère ses arômes dès les premières minutes dans la marmite. Les légumes — chou, carotte, manioc, patate douce et aubergine — mijotent ensuite dans la sauce tomate concentrée avant que le riz brisé deux fois ne vienne absorber chaque goutte de bouillon."
     },
     {
       title: "Les Box Sauces Khady : Cuisiner en 10 minutes à la Maison",
       date: "10 Septembre 2026",
       readTime: "3 min",
       image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
-      excerpt: "Nos 3 sauces artisanales pasteurisées vous permettent de préparer Mafé, Yassa et marinades sans aucun conservateur chimique."
+      excerpt: "Nos 3 sauces artisanales pasteurisées vous permettent de préparer Mafé, Yassa et marinades sans aucun conservateur chimique.",
+      fullText: "Conçues pour les familles actives de Niamey, nos Box Sauces Khady sont cuisinées lentement en marmite avec des ingrédients frais du terroir (pâte d'arachide grillée, citrons verts pressés, oignons confits, gombo frais) puis conditionnées en bocaux hermétiques. Il suffit de réchauffer 5 minutes avec votre viande ou poisson et de servir avec du riz ou de l'attiéké."
     }
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fade-in">
-      <div 
+      <div
         className="relative w-full max-w-2xl bg-[#181615] border border-orange-500/30 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
@@ -53,43 +58,60 @@ export const BlogModal: React.FC<BlogProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto">
-          {articles.map((art, idx) => (
-            <div
-              key={idx}
-              className="p-4 rounded-2xl bg-stone-900 border border-stone-800 hover:border-amber-500/40 transition-all flex flex-col sm:flex-row gap-4 group"
-            >
-              <img
-                src={art.image}
-                alt={art.title}
-                className="w-full sm:w-36 h-32 object-cover rounded-xl"
-              />
-              <div className="flex-1 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-3 text-[11px] text-stone-400 mb-1">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-orange-400" />
-                      {art.date}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-amber-400" />
-                      {art.readTime}
-                    </span>
+          {articles.map((art, idx) => {
+            const isExpanded = expandedIdx === idx;
+            return (
+              <div
+                key={idx}
+                className="p-4 rounded-2xl bg-stone-900 border border-stone-800 hover:border-amber-500/40 transition-all flex flex-col sm:flex-row gap-4 group"
+              >
+                <img
+                  src={art.image}
+                  alt={art.title}
+                  className="w-full sm:w-36 h-32 object-cover rounded-xl flex-shrink-0"
+                />
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-3 text-[11px] text-stone-400 mb-1">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-orange-400" />
+                        {art.date}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        {art.readTime}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-white text-sm group-hover:text-amber-400 transition-colors">
+                      {art.title}
+                    </h3>
+                    <p className={`text-xs text-stone-300 mt-1 leading-relaxed ${isExpanded ? '' : 'line-clamp-2'}`}>
+                      {isExpanded ? `${art.excerpt} ${art.fullText}` : art.excerpt}
+                    </p>
                   </div>
-                  <h3 className="font-bold text-white text-sm group-hover:text-amber-400 transition-colors">
-                    {art.title}
-                  </h3>
-                  <p className="text-xs text-stone-300 mt-1 line-clamp-2">
-                    {art.excerpt}
-                  </p>
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <span className="text-xs font-bold text-orange-400 flex items-center gap-1">
-                    Lire la suite <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedIdx(isExpanded ? null : idx)}
+                      className="text-xs font-bold text-orange-400 hover:text-amber-300 flex items-center gap-1"
+                    >
+                      {isExpanded ? (
+                        <>
+                          <span>Réduire</span>
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        </>
+                      ) : (
+                        <>
+                          <span>Lire la suite</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

@@ -1,12 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { MenuItem, CartItem, Order, ToastMessage, Review } from './types';
 import { INITIAL_MENU_ITEMS, RESTAURANT_INFO, isRestrictedFromDailyOrFeatured } from './constants';
-import { loadStoredMenuItems, saveStoredMenuItems, loadStoredOrders, saveStoredOrders, loadStoredReviews, saveStoredReviews } from './utils/offlineDB';
+import {
+  loadStoredMenuItems,
+  saveStoredMenuItems,
+  loadStoredOrders,
+  saveStoredOrders,
+  loadStoredReviews,
+  saveStoredReviews,
+  loadPlatDuJourVisible,
+  savePlatDuJourVisible,
+  getAdminPin
+} from './utils/offlineDB';
 import { Navbar } from './components/Navbar';
 import { MenuView } from './components/MenuView';
 import { TraiteurView } from './components/TraiteurView';
 import { OrderTracking } from './components/OrderTracking';
-import { AdminDashboard } from './components/AdminDashboard';
 import { ItemDetailsModal } from './components/ItemDetailsModal';
 import { CartView } from './components/CartView';
 import { ToastContainer } from './components/Toast';
@@ -14,27 +23,30 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { VoiceOrderModal } from './components/VoiceOrderModal';
 import { PushNotificationsModal } from './components/PushNotificationsModal';
 import { GalleryView } from './components/GalleryView';
-import { Demo4kView } from './components/Demo4kView';
 import { ProfileModal } from './components/ProfileModal';
 import { BlogModal } from './components/BlogModal';
 import { ContactModal } from './components/ContactModal';
 import { KhadyOriginalLogo } from './components/KhadyOriginalLogo';
 import { GourmetReviewsSection } from './components/GourmetReviewsSection';
 import { HomeSpecialSections } from './components/HomeSpecialSections';
-import { saveOrderToSupabase, fetchSupabaseMenuItems } from './utils/supabaseClient';
+import { saveOrderToSupabase, fetchSupabaseMenuItems, saveSingleMenuItemToSupabase } from './utils/supabaseClient';
 import {
-  Sparkles, Star, Plus, Clock, ArrowRight, ShieldCheck, Heart,
-  ShoppingBag, PhoneCall, MessageSquare, Mic, Bell, Send, ArrowUpRight,
-  Zap, ChevronRight, ChevronLeft, Image as ImageIcon, BookOpen, Settings, X,
-  Pause, Play
+  Sparkles, Plus, ArrowRight, ShieldCheck, Heart,
+  ShoppingBag, MessageSquare, Mic, Bell, ArrowUpRight,
+  Zap, Image as ImageIcon, BookOpen, Settings, Lock, X
 } from 'lucide-react';
 
+const AdminDashboard = lazy(() =>
+  import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard }))
+);
+
 export const App: React.FC = () => {
-  // Master reactive state for menu items (synced with offline storage)
   const [items, setItems] = useState<MenuItem[]>(() => loadStoredMenuItems());
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>(() => loadStoredOrders());
   const [reviews, setReviews] = useState<Review[]>(() => loadStoredReviews());
+  const [isPlatDuJourVisible, setIsPlatDuJourVisible] = useState<boolean>(() => loadPlatDuJourVisible());
+
   const [activeTab, setActiveTab] = useState<string>('accueil');
   const [menuFilterCategory, setMenuFilterCategory] = useState<string>('tous');
   const [selectedItemForModal, setSelectedItemForModal] = useState<MenuItem | null>(null);
@@ -42,6 +54,11 @@ export const App: React.FC = () => {
   // Modals & Panels state
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
+  const [isPinPromptOpen, setIsPinPromptOpen] = useState(false);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [isPushOpen, setIsPushOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -51,18 +68,16 @@ export const App: React.FC = () => {
 
   const [activeOrder, setActiveOrder] = useState<Order | null>(() => {
     const list = loadStoredOrders();
-    return list.length > 0 ? list[list.length - 1] : null;
+    return list.length > 0 ? list[0] : null;
   });
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  // Ref for smooth horizontal scrolling of rectangles
-  const rectanglesContainerRef = useRef<HTMLDivElement>(null);
+  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
 
   // Splash screen display
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 1100);
+    }, 950);
     return () => clearTimeout(timer);
   }, []);
 
@@ -81,23 +96,56 @@ export const App: React.FC = () => {
     saveStoredReviews(reviews);
   }, [reviews]);
 
-  // Optional background fetch from Supabase if reachable
+  // Background fetch from Supabase if reachable
   useEffect(() => {
-    fetchSupabaseMenuItems().then(cloudItems => {
-      if (cloudItems && cloudItems.length > 0) {
-        setItems(prev => {
-          const map = new Map<string, MenuItem>();
-          cloudItems.forEach(it => map.set(it.id, it));
-          prev.forEach(it => {
-            if (!map.has(it.id)) map.set(it.id, it);
+    fetchSupabaseMenuItems()
+      .then(cloudItems => {
+        if (cloudItems && cloudItems.length > 0) {
+          setItems(prev => {
+            const map = new Map<string, MenuItem>();
+            cloudItems.forEach(it => map.set(it.id, it));
+            prev.forEach(it => {
+              if (!map.has(it.id)) map.set(it.id, it);
+            });
+            return Array.from(map.values());
           });
-          return Array.from(map.values());
-        });
-      }
-    }).catch(err => {
-      console.warn('Supabase initial fetch silent fallback:', err);
-    });
+        }
+      })
+      .catch(err => {
+        console.warn('Supabase initial fetch silent fallback:', err);
+      });
   }, []);
+
+  const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => {
+    const id = `t-${Date.now()}-${Math.random()}`;
+    setToasts(prev => [...prev, { id, type, title, message }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
+
+  const requestAdminAccess = () => {
+    if (isAdminUnlocked) {
+      setIsAdminOpen(true);
+    } else {
+      setPinInput('');
+      setPinError(null);
+      setIsPinPromptOpen(true);
+    }
+  };
+
+  const handleVerifyPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput.trim() === getAdminPin()) {
+      setIsAdminUnlocked(true);
+      setIsPinPromptOpen(false);
+      setPinInput('');
+      setPinError(null);
+      setIsAdminOpen(true);
+    } else {
+      setPinError('Code PIN incorrect.');
+    }
+  };
 
   const handleSaveReview = (review: Review) => {
     setReviews(prev => {
@@ -109,7 +157,7 @@ export const App: React.FC = () => {
       }
       return [review, ...prev];
     });
-    addToast('success', 'Avis gourmet enregistré !', `Merci ${review.author} pour votre retour.`);
+    addToast('success', 'Avis enregistré !', `Merci ${review.author} pour votre retour.`);
   };
 
   const handleDeleteReview = (id: string) => {
@@ -122,15 +170,6 @@ export const App: React.FC = () => {
     addToast('success', 'Statut mis à jour', 'Badge vérifié modifié.');
   };
 
-  const addToast = (type: 'success' | 'error' | 'info', title: string, message?: string) => {
-    const id = `t-${Date.now()}-${Math.random()}`;
-    setToasts(prev => [...prev, { id, type, title, message }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
-  };
-
-  // Add to cart handler
   const handleAddToCart = (
     item: MenuItem,
     quantity = 1,
@@ -151,7 +190,6 @@ export const App: React.FC = () => {
     addToast('success', `${quantity}x ${item.name || 'Plat'} ajouté(s)`, 'Visible dans votre panier');
   };
 
-  // Admin dish handlers
   const handleSaveItem = (savedItem: MenuItem) => {
     setItems(prev => {
       const idx = prev.findIndex(i => i.id === savedItem.id);
@@ -159,13 +197,10 @@ export const App: React.FC = () => {
         const updated = [...prev];
         updated[idx] = savedItem;
         return updated;
-      } else {
-        // Prepend so newly added dishes immediately appear first in the home rectangles!
-        return [savedItem, ...prev];
       }
+      return [savedItem, ...prev];
     });
-
-    addToast('success', 'Plat enregistré !', `"${savedItem.name}" apparaît maintenant dans les rectangles de l'accueil.`);
+    addToast('success', 'Plat enregistré !', `"${savedItem.name}" mis à jour dans la carte.`);
   };
 
   const handleDeleteItem = (id: string) => {
@@ -174,19 +209,46 @@ export const App: React.FC = () => {
   };
 
   const handleToggleAvailability = (id: string) => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, available: !i.available } : i));
+    setItems(prev => prev.map(i => i.id === id ? { ...i, available: i.available === false } : i));
   };
 
   const handleToggleFeatured = (id: string) => {
     const dish = items.find(i => i.id === id);
     if (dish && !dish.isFeatured && isRestrictedFromDailyOrFeatured(dish.name)) {
-      addToast('error', 'Action non autorisée', "L'Attiéké et le Doukounou restent dans la carte permanente mais ne peuvent pas être définis comme plat vedette ou plat du jour.");
+      addToast('error', 'Action non autorisée', "L'Attiéké et le Doukounou restent dans la carte permanente.");
       return;
     }
     setItems(prev => prev.map(i => i.id === id ? { ...i, isFeatured: !i.isFeatured } : i));
   };
 
-  // Cart operations
+  const handleSetPlatDuJour = (id: string) => {
+    const target = items.find(i => i.id === id);
+    if (!target || isRestrictedFromDailyOrFeatured(target.name)) return;
+
+    setItems(prev =>
+      prev.map(i => {
+        if (i.id === id) {
+          const updated = { ...i, isPlatDuJour: true, isFeatured: true, badge: 'Plat du Jour' };
+          saveSingleMenuItemToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        if (i.isPlatDuJour) {
+          return { ...i, isPlatDuJour: false, badge: i.isSpecialiteMaison ? 'Spécialité Maison' : '' };
+        }
+        return i;
+      })
+    );
+    addToast('success', 'Plat du Jour mis à jour', `${target.name} est maintenant en une.`);
+  };
+
+  const handleTogglePlatDuJourVisible = () => {
+    setIsPlatDuJourVisible(prev => {
+      const next = !prev;
+      savePlatDuJourVisible(next);
+      return next;
+    });
+  };
+
   const handleUpdateCartQty = (idx: number, newQty: number) => {
     if (newQty <= 0) {
       setCart(prev => prev.filter((_, i) => i !== idx));
@@ -210,30 +272,42 @@ export const App: React.FC = () => {
     setCart([]);
     setIsCartOpen(false);
     setActiveTab('suivi');
-    addToast('success', 'Commande validée avec succès !', `Réf #${order.id} - En cours de préparation`);
+    addToast('success', 'Commande validée avec succès !', `Réf #${order.id}`);
   };
 
-  // Horizontal scroll buttons for Incontournables
-  const scrollRectangles = (direction: 'left' | 'right') => {
-    if (rectanglesContainerRef.current) {
-      const offset = direction === 'left' ? -320 : 320;
-      rectanglesContainerRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+  const handleUpdateOrderStatus = (orderId: string, status: Order['status']) => {
+    setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, status } : o)));
+    if (activeOrder && activeOrder.id === orderId) {
+      setActiveOrder(prev => (prev ? { ...prev, status } : prev));
     }
+    addToast('info', `Commande #${orderId}`, `Statut mis à jour : ${status}`);
   };
 
-  // Défilement continu et fluide des plats incontournables (avec mise en pause tactile et interactive)
-  const [isAutoScrollPaused, setIsAutoScrollPaused] = useState(false);
+  // Active Plat du Jour from real items state (excluding Doukounou / Attiéké)
+  const activePlatDuJour =
+    (items || []).find(i => i && i.available !== false && i.isPlatDuJour && !isRestrictedFromDailyOrFeatured(i.name)) ||
+    (items || []).find(i => i && i.available !== false && i.isFeatured && !isRestrictedFromDailyOrFeatured(i.name)) ||
+    (items || []).find(i => i && i.available !== false && !isRestrictedFromDailyOrFeatured(i.name)) ||
+    INITIAL_MENU_ITEMS[2];
 
-  // The featured items for the Home page rectangles:
-  // Attiéké and Doukounou are strictly excluded from plat vedette / incontournables rectangles,
-  // but remain 100% visible and orderable in the regular carte!
+  // Featured available dishes for Home Incontournables carousel
   const displayedIncontournables = (items || [])
-    .filter(it => it && (it.isFeatured || it.isPopular) && !isRestrictedFromDailyOrFeatured(it.name))
-    .concat((items || []).filter(it => it && !it.isFeatured && !it.isPopular && !isRestrictedFromDailyOrFeatured(it.name)));
+    .filter(it => it && it.available !== false && (it.isFeatured || it.isPopular) && !isRestrictedFromDailyOrFeatured(it.name))
+    .concat(
+      (items || []).filter(
+        it => it && it.available !== false && !it.isFeatured && !it.isPopular && !isRestrictedFromDailyOrFeatured(it.name)
+      )
+    );
+
+  const navigateToMenuCategory = (cat: string) => {
+    setMenuFilterCategory(cat);
+    setActiveTab('carte');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <ErrorBoundary fallbackTitle="Une erreur inattendue est survenue dans l'application">
-      {/* 1. Splash Screen matching Screenshot 3 */}
+      {/* Splash Screen */}
       {showSplash && (
         <div className="fixed inset-0 z-50 bg-[#35201A] flex items-center justify-center animate-fade-out pointer-events-none">
           <div className="text-center space-y-4 animate-scale-up">
@@ -243,10 +317,12 @@ export const App: React.FC = () => {
       )}
 
       <div className="min-h-screen bg-[#110E0C] text-[#F7F4EE] flex flex-col font-sans selection:bg-orange-600 selection:text-white pb-24 sm:pb-28 w-full max-w-full overflow-x-hidden">
-        {/* Navigation Bar with all 8 buttons */}
         <Navbar
           currentTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={(tab) => {
+            if (tab === 'carte') setMenuFilterCategory('tous');
+            setActiveTab(tab);
+          }}
           cartCount={cart.reduce((sum, ci) => sum + (Number(ci?.quantity) || 1), 0)}
           onOpenCart={() => setIsCartOpen(true)}
           onOpenVoice={() => setIsVoiceOpen(true)}
@@ -255,12 +331,11 @@ export const App: React.FC = () => {
           onOpenBlog={() => setIsBlogOpen(true)}
         />
 
-        {/* Content View Switching */}
         <main className="flex-1 pb-[150px] w-full max-w-full min-w-0">
           {activeTab === 'accueil' && (
             <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-5 space-y-5 sm:space-y-6">
-              
-              {/* 0. WELCOME GREETING BANNER WITH ANIMATED WAVING HANDS 👋🏾 (Bonjour, Barka, Fofo, Salam) */}
+
+              {/* 0. WELCOME GREETING BANNER */}
               <section className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-[#2A1810] via-[#1E1410] to-[#2A1810] border border-amber-500/40 p-3 sm:p-4 shadow-xl">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -287,7 +362,7 @@ export const App: React.FC = () => {
                 </div>
               </section>
 
-              {/* 1. HERO CARD (Screenshot 1 & 2: "L'EXCELLENCE À NIAMEY", "LE GOÛT DES ROIS", "COMMANDER MAINTENANT ↗") */}
+              {/* 1. HERO CARD */}
               <section className="relative rounded-[34px] sm:rounded-[38px] overflow-hidden border-2 border-amber-500/50 shadow-2xl bg-[#19120E] aspect-[4/3] sm:aspect-[16/9] lg:aspect-[21/9] max-h-[460px]">
                 <img
                   src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=75"
@@ -298,7 +373,6 @@ export const App: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/25" />
 
                 <div className="absolute inset-0 p-5 sm:p-8 md:p-12 flex flex-col justify-between z-10">
-                  {/* Top Badge */}
                   <div>
                     <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#E65100] text-white text-[11px] sm:text-xs font-black uppercase tracking-wider shadow-lg">
                       <Sparkles className="w-3.5 h-3.5 text-amber-200" />
@@ -306,7 +380,6 @@ export const App: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Headline & CTA */}
                   <div className="space-y-3.5 max-w-xl">
                     <div>
                       <h1 className="font-black italic uppercase tracking-tight leading-[0.92] drop-shadow-2xl font-display">
@@ -334,7 +407,7 @@ export const App: React.FC = () => {
                         <span className="truncate">COMMANDER SUR WHATSAPP</span>
                       </a>
                       <button
-                        onClick={() => setActiveTab('carte')}
+                        onClick={() => navigateToMenuCategory('tous')}
                         className="inline-flex items-center justify-center gap-2 py-3 px-4 sm:px-6 rounded-full bg-white hover:bg-stone-100 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-2xl hover:scale-105 active:scale-95 transition-all text-center"
                       >
                         <span>VOIR LA CARTE</span>
@@ -349,12 +422,10 @@ export const App: React.FC = () => {
               <section className="rounded-[28px] bg-gradient-to-r from-[#062419] via-[#092F20] to-[#051C13] border border-emerald-500/40 p-4 sm:p-5 shadow-xl transition-all w-full max-w-full min-w-0">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full min-w-0">
                   <div className="flex items-center gap-3.5 sm:gap-5 min-w-0">
-                    {/* Emerald WhatsApp Icon Box */}
                     <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg">
                       <MessageSquare className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-950/80 border border-emerald-500/40">
                         📞 SERVICE TRAITEUR & REPAS
@@ -364,7 +435,7 @@ export const App: React.FC = () => {
                       </h2>
                       <div className="flex flex-wrap items-center gap-1.5 mt-0.5 text-xs sm:text-sm">
                         <span className="text-emerald-400 font-bold font-mono">
-                          WhatsApp : +227 74 44 16 21
+                          WhatsApp : {RESTAURANT_INFO.phone}
                         </span>
                         <span className="text-teal-300 font-medium">
                           • Commande & Devis direct
@@ -373,7 +444,6 @@ export const App: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Dual Action Buttons: Discuter & Catalogue */}
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1 md:pt-0 w-full md:w-auto">
                     <a
                       href={RESTAURANT_INFO.whatsappDirectUrl}
@@ -399,9 +469,8 @@ export const App: React.FC = () => {
                 </div>
               </section>
 
-              {/* 3. TWO FEATURE CARDS (Screenshot 1 & 2: "COMMANDE VOCALE / IA VOCALE" & "NOTIFICATIONS PUSH / SUIVI PWA") */}
+              {/* 3. VOICE ORDER & PUSH TRACKING CARDS */}
               <section className="grid grid-cols-2 gap-3 sm:gap-4">
-                {/* Left Card: IA VOCALE */}
                 <div
                   onClick={() => setIsVoiceOpen(true)}
                   className="rounded-[28px] bg-gradient-to-br from-amber-600 via-orange-600 to-orange-700 p-4 sm:p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[155px] cursor-pointer hover:scale-[1.02] active:scale-95 transition-all group"
@@ -411,7 +480,7 @@ export const App: React.FC = () => {
                       <Mic className="w-4 h-4 group-hover:scale-110 transition-transform" />
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-white/15 text-[10px] font-black uppercase tracking-wider">
-                      IA VOCALE
+                      RECHERCHE VOCALE
                     </span>
                   </div>
 
@@ -425,7 +494,6 @@ export const App: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Right Card: SUIVI PWA */}
                 <div
                   onClick={() => setIsPushOpen(true)}
                   className="rounded-[28px] bg-[#231712] border border-amber-500/40 p-4 sm:p-5 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[140px] sm:min-h-[155px] cursor-pointer hover:scale-[1.02] active:scale-95 transition-all group"
@@ -444,15 +512,14 @@ export const App: React.FC = () => {
                       NOTIFICATIONS PUSH 🔔
                     </h3>
                     <p className="text-[10px] sm:text-xs text-stone-300 font-medium mt-1 leading-tight">
-                      ALERTES LIVRAISON TEMPS RÉEL
+                      ALERTES LIVRAISON EN DIRECT
                     </p>
                   </div>
                 </div>
               </section>
 
-              {/* 4. FOUR WHITE SQUIRCLE PILLS (Screenshot 5: WHATSAPP, GALERIE, BLOG, CONTACT) */}
+              {/* 4. FOUR WHITE SQUIRCLE SHORTCUTS */}
               <section className="grid grid-cols-4 gap-2 sm:gap-3">
-                {/* 1. WHATSAPP */}
                 <a
                   href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}`}
                   target="_blank"
@@ -470,7 +537,6 @@ export const App: React.FC = () => {
                   </span>
                 </a>
 
-                {/* 2. GALERIE */}
                 <button
                   onClick={() => setActiveTab('galerie')}
                   className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
@@ -486,7 +552,6 @@ export const App: React.FC = () => {
                   </span>
                 </button>
 
-                {/* 3. BLOG */}
                 <button
                   onClick={() => setIsBlogOpen(true)}
                   className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
@@ -502,7 +567,6 @@ export const App: React.FC = () => {
                   </span>
                 </button>
 
-                {/* 4. CONTACT */}
                 <button
                   onClick={() => setIsContactOpen(true)}
                   className="bg-white rounded-[24px] p-2.5 sm:p-4 shadow-lg text-center flex flex-col items-center justify-center hover:scale-105 active:scale-95 transition-all group"
@@ -519,7 +583,7 @@ export const App: React.FC = () => {
                 </button>
               </section>
 
-              {/* 5. MOBILE MONEY BANNER (Screenshot 5: PAIEMENT SÉCURISÉ MOBILE MONEY) */}
+              {/* 5. MOBILE MONEY BANNER */}
               <section className="rounded-[28px] bg-[#221B17] border-2 border-amber-500/40 p-4 sm:p-5 shadow-xl relative overflow-hidden">
                 <div className="flex items-center gap-3.5 sm:gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
@@ -534,7 +598,7 @@ export const App: React.FC = () => {
                       ZAMANY MONEY (ORANGE), MYNITA, AMANATA, ALL-IZA, ZEYNAB, AIRTEL, MOOV
                     </h3>
                     <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider block mt-0.5">
-                      DOUBLE NOTIFICATION WHATSAPP & IN-APP
+                      CONFIRMATION WHATSAPP & SUIVI EN LIGNE
                     </span>
                   </div>
 
@@ -544,147 +608,137 @@ export const App: React.FC = () => {
                 </div>
               </section>
 
-              {/* 5.5 SECTIONS SPÉCIALES : PROMOTIONS & MENUS FLASH, PLATS SIGNATURE DE KHADY & DÉJEUNER COMPLET (Screenshot 2) */}
+              {/* 5.5 SPECIAL SECTIONS: FLASH OFFERS, SIGNATURE DISHES & DÉJEUNER COMPLET */}
               <HomeSpecialSections
                 items={items}
                 onAddToCart={(item, qty, spice) => handleAddToCart(item, qty, spice || 'moyen')}
                 onSelectItem={(item) => setSelectedItemForModal(item)}
-                onNavigateToMenu={(cat) => {
-                  setMenuFilterCategory(cat || 'tous');
-                  setActiveTab('carte');
-                }}
+                onNavigateToMenu={(cat) => navigateToMenuCategory(cat || 'tous')}
               />
 
-              {/* 6. MENU DU JOUR — LE TRIO GOURMAND (Screenshot 4 & 5) */}
-              <section className="rounded-[32px] bg-gradient-to-b from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
-                {/* Header tags */}
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="px-3 py-1 rounded-full bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow">
-                      ☀️ MENU DU JOUR
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-[#E2B124] text-stone-950 text-[11px] font-black uppercase tracking-wider shadow">
-                      👑 LE TRIO GOURMAND QUOTIDIEN
-                    </span>
-                    <span className="px-3 py-1 rounded-full bg-stone-900 border border-stone-700 text-stone-300 text-[11px] font-bold">
-                      Demain Jeudi Midi
-                    </span>
-                  </div>
-
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-black italic uppercase text-white font-display">
-                      MENU DU JOUR — LE TRIO GOURMAND
-                    </h2>
-                    <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-relaxed">
-                      Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.
-                    </p>
-                  </div>
-
-                  <div>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 text-xs font-bold">
-                      🎁 3 Emplacements Cuisinés Frais
-                    </span>
-                  </div>
-                </div>
-
-                {/* Dish Card Inside (Screenshot 4) */}
-                <div className="pt-2">
-                  <div className="w-full h-1 bg-orange-600 rounded-full mb-3" />
-                  <div className="rounded-[26px] bg-[#1F1714] border border-amber-500/30 p-3.5 sm:p-4 space-y-3">
-                    <div className="relative rounded-2xl overflow-hidden h-52 sm:h-64 w-full bg-stone-900">
-                      <img
-                        src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=75"
-                        alt="Tiep Rouge Royal"
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover"
-                      />
-                      <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#E65100] text-white text-xs font-black uppercase tracking-wider shadow-lg">
-                        🍲 PLAT CUISINÉ DU JOUR
+              {/* 6. MENU DU JOUR (Dynamic from activePlatDuJour, controlled by isPlatDuJourVisible) */}
+              {isPlatDuJourVisible && activePlatDuJour && (
+                <section className="rounded-[32px] bg-gradient-to-b from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-3 py-1 rounded-full bg-orange-600 text-white text-[11px] font-black uppercase tracking-wider shadow">
+                        ☀️ MENU DU JOUR
                       </span>
-                      <span className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/80 text-white text-xs font-black flex items-center justify-center border border-white/20">
-                        #1
+                      <span className="px-3 py-1 rounded-full bg-[#E2B124] text-stone-950 text-[11px] font-black uppercase tracking-wider shadow">
+                        👑 SUGGESTION DU CHEF
                       </span>
-                      <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/80 text-amber-300 text-xs font-bold backdrop-blur-sm border border-amber-500/30">
-                        25 restants
+                      <span className="px-3 py-1 rounded-full bg-stone-900 border border-stone-700 text-stone-300 text-[11px] font-bold">
+                        Cuisiné Frais à Niamey
                       </span>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <h3 className="text-lg sm:text-xl font-black italic uppercase text-[#FFD700] font-display">
-                        TIEP ROUGE ROYAL
-                      </h3>
-                      <p className="text-xs font-bold italic text-amber-200">
-                        "Le grand classique sénégalais au poisson capitaine braisé..."
-                      </p>
-                      <p className="text-xs text-stone-300 leading-relaxed">
-                        Le grand classique sénégalais au poisson capitaine braisé, riz rouge subtilement parfumé à la tomate et épices douces, chou blanc, carottes et manioc fondants.
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black italic uppercase text-white font-display">
+                        PLAT DU JOUR — {activePlatDuJour.name}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-stone-300 mt-1 leading-relaxed">
+                        {activePlatDuJour.description}
                       </p>
                     </div>
+                  </div>
 
-                    {/* Éléments inclus dans le plat */}
-                    <div className="pt-1.5 pb-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block mb-1">
-                        ✨ Ingrédients & Éléments Inclus :
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          "Poisson capitaine braisé",
-                          "Riz rouge subtilement parfumé à la tomate",
-                          "Chou blanc & carottes fondantes",
-                          "Manioc mijoté",
-                          "Épices douces Khady",
-                          "Sauce piment maison"
-                        ].map((ing, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded-full bg-stone-900 border border-amber-500/20 text-stone-300 text-[10px] font-medium"
-                          >
-                            • {ing}
+                  <div className="pt-2">
+                    <div className="w-full h-1 bg-orange-600 rounded-full mb-3" />
+                    <div
+                      onClick={() => setSelectedItemForModal(activePlatDuJour)}
+                      className="rounded-[26px] bg-[#1F1714] border border-amber-500/30 p-3.5 sm:p-4 space-y-3 cursor-pointer hover:border-amber-400/50 transition-colors"
+                    >
+                      <div className="relative rounded-2xl overflow-hidden h-52 sm:h-64 w-full bg-stone-900">
+                        <img
+                          src={activePlatDuJour.image}
+                          alt={activePlatDuJour.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute top-3 left-3 px-3 py-1 rounded-full bg-[#E65100] text-white text-xs font-black uppercase tracking-wider shadow-lg">
+                          🍲 PLAT CUISINÉ DU JOUR
+                        </span>
+                        <span className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/80 text-amber-300 text-xs font-bold backdrop-blur-sm border border-amber-500/30">
+                          {activePlatDuJour.preparationTime || '20-30 min'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <h3 className="text-lg sm:text-xl font-black italic uppercase text-[#FFD700] font-display">
+                          {activePlatDuJour.name}
+                        </h3>
+                        <p className="text-xs text-stone-300 leading-relaxed">
+                          {activePlatDuJour.description}
+                        </p>
+                      </div>
+
+                      {activePlatDuJour.ingredients && activePlatDuJour.ingredients.length > 0 && (
+                        <div className="pt-1.5 pb-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-orange-400 block mb-1">
+                            ✨ Ingrédients & Accompagnements :
                           </span>
-                        ))}
-                      </div>
-                    </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {activePlatDuJour.ingredients.map((ing, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded-full bg-stone-900 border border-amber-500/20 text-stone-300 text-[10px] font-medium"
+                              >
+                                • {ing}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="pt-2 flex items-center justify-between gap-2 border-t border-stone-800">
-                      <div className="text-base sm:text-lg font-black text-amber-400">
-                        4 950 F CFA
-                      </div>
+                      <div
+                        className="pt-2 flex items-center justify-between gap-2 border-t border-stone-800"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="flex items-baseline gap-2">
+                          <div className="text-base sm:text-lg font-black text-amber-400">
+                            {activePlatDuJour.price.toLocaleString()} F CFA
+                          </div>
+                          {activePlatDuJour.oldPrice && (
+                            <span className="text-xs text-stone-500 line-through">
+                              {activePlatDuJour.oldPrice.toLocaleString()} F
+                            </span>
+                          )}
+                        </div>
 
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={`https://wa.me/22774441621?text=Bonjour%20Khady%27s%20Food%2C%20je%20commande%20le%20Tiep%20Rouge%20Royal%20(4%20950%20FCFA)%20du%20Menu%20du%20Jour%20!`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-colors"
-                          title="Commander par WhatsApp direct"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </a>
-                        <button
-                          onClick={() => {
-                            const thieb = (items || []).find(i => i && i.id === 'item-thieb-rouge') || items[0] || INITIAL_MENU_ITEMS[0];
-                            if (thieb) handleAddToCart(thieb, 1, 'moyen');
-                          }}
-                          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-transform"
-                        >
-                          <span>COMMANDER</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=${encodeURIComponent(
+                              `Bonjour Khady's Food, je commande le Plat du Jour : ${activePlatDuJour.name} (${activePlatDuJour.price.toLocaleString()} FCFA) !`
+                            )}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-colors"
+                            title="Commander par WhatsApp direct"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </a>
+                          <button
+                            onClick={() => handleAddToCart(activePlatDuJour, 1, 'moyen')}
+                            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md active:scale-95 transition-transform"
+                          >
+                            <span>COMMANDER</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              )}
 
-              {/* 7. LA CARTE DU RESTAURANT SECTION (Screenshot 6 & 7) */}
+              {/* 7. LA CARTE DU RESTAURANT SECTION */}
               <section className="rounded-[32px] bg-[#1E1714] border-2 border-amber-500/40 p-5 sm:p-6 shadow-2xl space-y-4">
                 <div className="text-center space-y-3">
                   <h3 className="text-base sm:text-lg font-black italic uppercase tracking-wider text-[#FFD700] font-display">
                     LA CARTE DU RESTAURANT
                   </h3>
 
-                  {/* 2 Big Buttons: BUFFET PRO & BOX SAUCES (Screenshot 6) */}
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setActiveTab('traiteur')}
@@ -693,17 +747,13 @@ export const App: React.FC = () => {
                       BUFFET PRO
                     </button>
                     <button
-                      onClick={() => {
-                        const sauce = (items || []).find(i => i && i.category === 'sauces') || items[0] || INITIAL_MENU_ITEMS[0];
-                        if (sauce) setSelectedItemForModal(sauce);
-                      }}
+                      onClick={() => navigateToMenuCategory('sauces')}
                       className="py-3 px-4 rounded-full bg-orange-600 hover:bg-orange-500 text-white font-black italic uppercase text-xs sm:text-sm tracking-wide shadow-lg hover:scale-105 active:scale-95 transition-all"
                     >
                       BOX SAUCES
                     </button>
                   </div>
 
-                  {/* Wide White Button: EVENT & DEVIS TRAITEUR (Screenshot 6) */}
                   <div>
                     <button
                       onClick={() => setActiveTab('traiteur')}
@@ -715,9 +765,8 @@ export const App: React.FC = () => {
                 </div>
               </section>
 
-              {/* 8. INCONTOURNABLES — THE EXACT LIGHT-GREY RECTANGLES (Screenshot 6 & 7) */}
+              {/* 8. INCONTOURNABLES */}
               <section className="space-y-4 pt-2 w-full max-w-full min-w-0 overflow-hidden">
-                {/* DÉFILEMENT CONTINU DES PLATS EN VEDETTE (TICKER MARQUEE) */}
                 <div className="relative overflow-hidden py-2 bg-gradient-to-r from-[#18110D] via-[#241711] to-[#18110D] border border-amber-500/30 rounded-2xl shadow-inner">
                   <div className="animate-marquee flex items-center gap-6 whitespace-nowrap text-xs font-bold text-stone-200">
                     {[
@@ -728,8 +777,7 @@ export const App: React.FC = () => {
                       { icon: "🥗", name: "Attiéké Garba Poisson Braisé" },
                       { icon: "🥘", name: "Sauce Gombo Frais & Fufu Traditionnel" },
                       { icon: "🍹", name: "Jus de Bissap & Gingembre Frais Pressé" },
-                      { icon: "🍲", name: "Tchep Blanc Capitaine Braisé" },
-                      // Duplicate for infinite continuous smooth scrolling loop:
+                      { icon: "🍲", name: "Tiep Blanc Capitaine Braisé" },
                       { icon: "🍲", name: "Tiep Rouge Royal au Poisson Capitaine" },
                       { icon: "🥩", name: "Dibi d'Agneau Grillé & Épices Kankankan" },
                       { icon: "🍗", name: "Poulet Braisé Yassa Oignons Confits" },
@@ -737,12 +785,12 @@ export const App: React.FC = () => {
                       { icon: "🥗", name: "Attiéké Garba Poisson Braisé" },
                       { icon: "🥘", name: "Sauce Gombo Frais & Fufu Traditionnel" },
                       { icon: "🍹", name: "Jus de Bissap & Gingembre Frais Pressé" },
-                      { icon: "🍲", name: "Tchep Blanc Capitaine Braisé" }
+                      { icon: "🍲", name: "Tiep Blanc Capitaine Braisé" }
                     ].map((dish, i) => (
                       <span
                         key={i}
                         className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-stone-900/80 border border-amber-500/20 hover:border-amber-400 transition-colors cursor-pointer select-none"
-                        onClick={() => setActiveTab('carte')}
+                        onClick={() => navigateToMenuCategory('tous')}
                       >
                         <span className="text-sm">{dish.icon}</span>
                         <span className="text-amber-200 font-extrabold uppercase text-[11px] tracking-wide">{dish.name}</span>
@@ -763,25 +811,15 @@ export const App: React.FC = () => {
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setIsAdminOpen(true)}
-                      className="px-2.5 sm:px-3 py-1 rounded-full bg-orange-600/20 border border-orange-500/40 text-orange-400 font-bold text-[10px] sm:text-xs hover:bg-orange-600/30 flex items-center gap-1"
-                      title="Ajouter un plat dans ces rectangles"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Ajouter</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('carte')}
-                      className="text-xs font-black italic uppercase text-[#E65100] hover:text-orange-400 transition-colors whitespace-nowrap"
-                    >
-                      TOUT VOIR
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => navigateToMenuCategory('tous')}
+                    className="text-xs font-black italic uppercase text-[#E65100] hover:text-orange-400 transition-colors whitespace-nowrap"
+                  >
+                    TOUT VOIR
+                  </button>
                 </div>
 
-                {/* THE FAMOUS RECTANGLES CAROUSEL / ROW (Continuous & Fluid 60fps GPU Marquee) */}
+                {/* Continuous Carousel */}
                 <div
                   className="relative w-full overflow-hidden select-none py-1 group/scroller"
                   onMouseEnter={() => setIsAutoScrollPaused(true)}
@@ -795,78 +833,74 @@ export const App: React.FC = () => {
                     }`}
                     style={{ willChange: 'transform' }}
                   >
-                    {/* Infinite seamless loop: render duplicated set */}
-                    {[...displayedIncontournables, ...displayedIncontournables].map((dish, idx) => (
-                      <div
-                        key={`${dish.id}-${idx}`}
-                        onClick={() => setSelectedItemForModal(dish)}
-                        className="flex-shrink-0 w-[240px] sm:w-[260px] cursor-pointer rounded-[34px] sm:rounded-[38px] bg-[#C8C8CE] hover:bg-[#D5D5DC] p-3.5 shadow-2xl transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 flex flex-col justify-between group relative overflow-hidden"
-                      >
-                        {/* Food Image (large & rounded with zoom animation) */}
-                        <div className="relative h-48 sm:h-52 w-full rounded-[26px] sm:rounded-[28px] overflow-hidden bg-stone-300 shadow-inner">
-                          <img
-                            src={dish.image}
-                            alt={dish.name}
-                            loading="lazy"
-                            decoding="async"
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src =
-                                "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=70";
-                            }}
-                          />
-                          {dish.isPopular && (
-                            <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-orange-600 text-white font-black text-[10px] uppercase shadow-md animate-pulse-subtle">
-                              Populaire 🔥
-                            </span>
-                          )}
-                          {/* Quick Add Overlay Button on Food Image */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddToCart(dish, 1, 'moyen');
-                            }}
-                            className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 opacity-90 group-hover:opacity-100 group-hover:scale-105"
-                            title="Ajouter au panier"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
+                    {[...displayedIncontournables, ...displayedIncontournables].map((dish, idx) => {
+                      const starsCount = Math.min(5, Math.max(1, Math.round(dish.rating ?? 5)));
+                      return (
+                        <div
+                          key={`${dish.id}-${idx}`}
+                          onClick={() => setSelectedItemForModal(dish)}
+                          className="flex-shrink-0 w-[240px] sm:w-[260px] cursor-pointer rounded-[34px] sm:rounded-[38px] bg-[#C8C8CE] hover:bg-[#D5D5DC] p-3.5 shadow-2xl transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 flex flex-col justify-between group relative overflow-hidden"
+                        >
+                          <div className="relative h-48 sm:h-52 w-full rounded-[26px] sm:rounded-[28px] overflow-hidden bg-stone-300 shadow-inner">
+                            <img
+                              src={dish.image}
+                              alt={dish.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src =
+                                  "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=70";
+                              }}
+                            />
+                            {dish.isPopular && (
+                              <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full bg-orange-600 text-white font-black text-[10px] uppercase shadow-md animate-pulse-subtle">
+                                Populaire 🔥
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddToCart(dish, 1, 'moyen');
+                              }}
+                              className="absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 opacity-90 group-hover:opacity-100 group-hover:scale-105"
+                              title="Ajouter au panier"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
 
-                        {/* Title & Price Row */}
-                        <div className="pt-3 pb-1 space-y-2">
-                          <h4 className="font-black italic uppercase text-stone-950 text-xs sm:text-sm tracking-wide truncate group-hover:text-orange-950 transition-colors">
-                            {dish.name}
-                          </h4>
+                          <div className="pt-3 pb-1 space-y-2">
+                            <h4 className="font-black italic uppercase text-stone-950 text-xs sm:text-sm tracking-wide truncate group-hover:text-orange-950 transition-colors">
+                              {dish.name}
+                            </h4>
 
-                          <div className="flex items-center justify-between">
-                            {/* Peach/light orange price pill */}
-                            <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm transition-transform group-hover:scale-105">
-                              {(dish.price || 0).toLocaleString()} F
-                            </span>
+                            <div className="flex items-center justify-between">
+                              <span className="px-3.5 py-1 rounded-full bg-[#EAA688] text-[#802506] font-black text-xs shadow-sm transition-transform group-hover:scale-105">
+                                {(dish.price || 0).toLocaleString()} F
+                              </span>
 
-                            {/* 4 Gold Stars + 1 Empty Star */}
-                            <div className="flex items-center gap-0.5 text-amber-500 text-xs">
-                              <span>★</span>
-                              <span>★</span>
-                              <span>★</span>
-                              <span>★</span>
-                              <span className="text-stone-400">☆</span>
+                              <div className="flex items-center gap-0.5 text-amber-500 text-xs">
+                                {[...Array(5)].map((_, sIdx) => (
+                                  <span key={sIdx} className={sIdx < starsCount ? 'text-amber-500' : 'text-stone-400'}>
+                                    {sIdx < starsCount ? '★' : '☆'}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </section>
 
-              {/* 9. AVIS DES GOURMETS SECTION (AVIS CLIENTS & INTERACTION ADMIN) */}
+              {/* 9. AVIS DES GOURMETS */}
               <GourmetReviewsSection
                 reviews={reviews}
                 onAddReview={handleSaveReview}
                 items={items}
-                onOpenAdmin={() => setIsAdminOpen(true)}
               />
 
             </div>
@@ -876,34 +910,26 @@ export const App: React.FC = () => {
             <MenuView
               items={items}
               onSelectItem={setSelectedItemForModal}
-              onQuickAdd={(item, e) => handleAddToCart(item, 1, 'moyen')}
+              onQuickAdd={(item) => handleAddToCart(item, 1, 'moyen')}
               initialCategory={menuFilterCategory}
             />
           )}
 
-          {activeTab === 'traiteur' && (
-            <TraiteurView />
-          )}
+          {activeTab === 'traiteur' && <TraiteurView />}
 
-          {activeTab === 'galerie' && (
-            <GalleryView />
-          )}
-
-          {activeTab === 'demo4k' && (
-            <Demo4kView />
-          )}
+          {activeTab === 'galerie' && <GalleryView />}
 
           {activeTab === 'suivi' && (
             <div className="max-w-4xl mx-auto px-4 py-8">
               <OrderTracking
                 order={activeOrder}
-                onNewOrder={() => setActiveTab('carte')}
+                onNewOrder={() => navigateToMenuCategory('tous')}
               />
             </div>
           )}
         </main>
 
-        {/* FLOATING WHATSAPP BUTTON (Bottom Right with badge 1 from Screenshots) */}
+        {/* FLOATING WHATSAPP BUTTON */}
         <a
           href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=Bonjour%20Khady%27s%20Food%20%26%20Event%2C%20je%20souhaite%20commander%20!`}
           target="_blank"
@@ -912,9 +938,6 @@ export const App: React.FC = () => {
           title="WhatsApp direct Khady's Food"
         >
           <MessageSquare className="w-5 h-5 sm:w-7 sm:h-7 text-white fill-white" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#FFD700] text-stone-950 font-black text-[10px] sm:text-xs flex items-center justify-center shadow-md animate-bounce">
-            1
-          </span>
         </a>
 
         {/* MODALS & OVERLAYS */}
@@ -940,20 +963,86 @@ export const App: React.FC = () => {
           />
         )}
 
+        {/* LIGHTWEIGHT MANAGER PIN GATE */}
+        {isPinPromptOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in">
+            <form
+              onSubmit={handleVerifyPin}
+              onClick={e => e.stopPropagation()}
+              className="relative w-full max-w-sm bg-[#1B1512] border-2 border-amber-500/40 rounded-3xl p-6 space-y-4 shadow-2xl text-center"
+            >
+              <button
+                type="button"
+                onClick={() => setIsPinPromptOpen(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-stone-800 text-stone-300 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                <Lock className="w-6 h-6" />
+              </div>
+
+              <div>
+                <h3 className="text-base font-black uppercase text-white">Accès Espace Gérant</h3>
+                <p className="text-xs text-stone-400 mt-1">
+                  Saisissez votre code PIN gérant pour accéder à l'administration.
+                </p>
+              </div>
+
+              <input
+                type="password"
+                inputMode="numeric"
+                autoFocus
+                value={pinInput}
+                onChange={e => {
+                  setPinInput(e.target.value);
+                  setPinError(null);
+                }}
+                placeholder="Code PIN"
+                className="w-full px-4 py-3 rounded-xl bg-stone-900 border border-stone-700 text-center text-lg tracking-widest font-mono text-white focus:outline-none focus:border-amber-500"
+              />
+
+              {pinError && (
+                <p className="text-xs font-bold text-red-400">{pinError}</p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 text-white font-black text-xs uppercase tracking-wider shadow-lg"
+              >
+                Déverrouiller la Console
+              </button>
+            </form>
+          </div>
+        )}
+
         {isAdminOpen && (
-          <AdminDashboard
-            items={items}
-            onSaveItem={handleSaveItem}
-            onDeleteItem={handleDeleteItem}
-            onToggleAvailability={handleToggleAvailability}
-            onToggleFeatured={handleToggleFeatured}
-            orders={orders}
-            onClose={() => setIsAdminOpen(false)}
-            reviews={reviews}
-            onSaveReview={handleSaveReview}
-            onDeleteReview={handleDeleteReview}
-            onToggleVerifiedReview={handleToggleVerifiedReview}
-          />
+          <Suspense
+            fallback={
+              <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center text-amber-400 font-bold text-sm">
+                Chargement de la Console Admin...
+              </div>
+            }
+          >
+            <AdminDashboard
+              items={items}
+              onSaveItem={handleSaveItem}
+              onDeleteItem={handleDeleteItem}
+              onToggleAvailability={handleToggleAvailability}
+              onToggleFeatured={handleToggleFeatured}
+              onSetPlatDuJour={handleSetPlatDuJour}
+              isPlatDuJourVisible={isPlatDuJourVisible}
+              onTogglePlatDuJourVisible={handleTogglePlatDuJourVisible}
+              orders={orders}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onClose={() => setIsAdminOpen(false)}
+              reviews={reviews}
+              onSaveReview={handleSaveReview}
+              onDeleteReview={handleDeleteReview}
+              onToggleVerifiedReview={handleToggleVerifiedReview}
+            />
+          </Suspense>
         )}
 
         <VoiceOrderModal
@@ -974,7 +1063,7 @@ export const App: React.FC = () => {
           orders={orders}
           onOpenAdmin={() => {
             setIsProfileOpen(false);
-            setIsAdminOpen(true);
+            requestAdminAccess();
           }}
           onOpenOrderTracking={(ord) => {
             setActiveOrder(ord);
@@ -997,7 +1086,7 @@ export const App: React.FC = () => {
           onClose={() => setIsContactOpen(false)}
           onOpenAdmin={() => {
             setIsContactOpen(false);
-            setIsAdminOpen(true);
+            requestAdminAccess();
           }}
         />
 

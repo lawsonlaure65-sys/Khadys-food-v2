@@ -140,7 +140,7 @@ export const ItemDetailsModal: React.FC<ModalProps> = ({ item, onClose, onAddToC
           )}
 
           {/* Spice Preference */}
-          {item.category !== 'boissons' && (
+          {!['boissons', 'Boisson Naturelle', 'Dessert'].includes(item.category) && (
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-stone-400 mb-2 block">
                 Niveau de piment souhaité

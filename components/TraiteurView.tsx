@@ -39,7 +39,14 @@ export const TraiteurView: React.FC = () => {
       notes
     });
 
-    window.open(waLink, '_blank');
+    try {
+      const win = window.open(waLink, '_blank', 'noopener,noreferrer');
+      if (!win || win.closed || typeof win.closed === 'undefined') {
+        window.location.href = waLink;
+      }
+    } catch {
+      window.location.href = waLink;
+    }
     setShowModal(false);
   };
 

@@ -1,10 +1,13 @@
 import { MenuItem, Order, Review } from '../types';
-import { INITIAL_MENU_ITEMS, INITIAL_REVIEWS, isRestrictedFromDailyOrFeatured } from '../constants';
+import { INITIAL_MENU_ITEMS, INITIAL_REVIEWS, RESTAURANT_INFO, isRestrictedFromDailyOrFeatured } from '../constants';
 
 const MENU_STORAGE_KEY = 'khadys_menu_items_v3';
 const ORDERS_STORAGE_KEY = 'khadys_orders_v2';
 const REVIEWS_STORAGE_KEY = 'khadys_reviews_v2';
 const DRAFT_STORAGE_KEY = 'khadys_admin_item_draft';
+const PLAT_JOUR_VISIBLE_KEY = 'khadys_plat_du_jour_visible_v1';
+const PUSH_ENABLED_KEY = 'khadys_push_enabled_v1';
+const ADMIN_PIN_KEY = 'khadys_admin_pin_v1';
 
 // Safe wrapper to prevent DOMException in restricted/private browser modes
 function safeGetItem(key: string): string | null {
@@ -32,29 +35,38 @@ export function loadStoredMenuItems(): MenuItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Deep sanitization of every entry to guarantee no missing property crashes the UI
+        // Deep sanitization of every entry while preserving all legitimate categories & metadata
         const validItems = parsed
           .filter(it => it && typeof it === 'object' && it.id && it.name)
           .map((it: any) => {
             const name = String(it.name || '').trim();
             const isRestricted = isRestrictedFromDailyOrFeatured(name);
             const price = typeof it.price === 'number' && !isNaN(it.price) && it.price > 0 ? it.price : 3000;
+            const oldPrice = typeof it.oldPrice === 'number' && !isNaN(it.oldPrice) && it.oldPrice > 0 ? it.oldPrice : undefined;
+            const isSpecialite = Boolean(it.isSpecialiteMaison || it.isSpécialitéMaison);
 
             const sanitized: MenuItem = {
               id: String(it.id),
               name: name || "Plat Khady's",
               description: String(it.description || ''),
               price,
-              category: ['plats', 'sauces', 'entrees', 'boissons', 'traiteur'].includes(it.category)
-                ? it.category
-                : 'plats',
+              oldPrice,
+              category: typeof it.category === 'string' && it.category.trim() ? it.category.trim() : 'Plat Africain',
               image: typeof it.image === 'string' && it.image.length > 5
                 ? it.image
                 : INITIAL_MENU_ITEMS[0].image,
+              rating: typeof it.rating === 'number' && !isNaN(it.rating) ? it.rating : 5,
               isPopular: Boolean(it.isPopular),
               isFeatured: isRestricted ? false : Boolean(it.isFeatured),
-              badge: isRestricted ? 'Spécialité Permanente' : String(it.badge || ''),
-              preparationTime: String(it.preparationTime || '20 min'),
+              isSpecialiteMaison: isSpecialite,
+              isSpécialitéMaison: isSpecialite,
+              isPlatDuJour: isRestricted ? false : Boolean(it.isPlatDuJour),
+              isPromo: Boolean(it.isPromo || (oldPrice && oldPrice > price)),
+              isSpicy: Boolean(it.isSpicy),
+              isLowPrice: Boolean(it.isLowPrice),
+              isVegetarian: Boolean(it.isVegetarian),
+              badge: isRestricted ? (it.badge || 'Spécialité Permanente') : (it.badge ? String(it.badge) : ''),
+              preparationTime: String(it.preparationTime || '20-30 min'),
               spicyLevel: typeof it.spicyLevel === 'number' ? it.spicyLevel : 1,
               ingredients: Array.isArray(it.ingredients) ? it.ingredients.map(String) : [],
               available: it.available !== false,
@@ -104,7 +116,7 @@ export function loadStoredOrders(): Order[] {
           .map((o: any) => ({
             id: String(o.id),
             customerName: String(o.customerName || 'Client Khady'),
-            phone: String(o.phone || '+227 74 44 16 21'),
+            phone: String(o.phone || RESTAURANT_INFO.phone),
             district: String(o.district || 'Plateau'),
             address: String(o.address || 'Niamey'),
             items: Array.isArray(o.items)
@@ -114,7 +126,7 @@ export function loadStoredOrders(): Order[] {
                     name: String(ci.item.name || 'Plat'),
                     description: String(ci.item.description || ''),
                     price: typeof ci.item.price === 'number' && !isNaN(ci.item.price) ? ci.item.price : 0,
-                    category: ci.item.category || 'plats',
+                    category: ci.item.category || 'Plat Africain',
                     image: ci.item.image || INITIAL_MENU_ITEMS[0].image,
                     available: ci.item.available !== false
                   } : INITIAL_MENU_ITEMS[0],
@@ -130,8 +142,8 @@ export function loadStoredOrders(): Order[] {
             status: o.status || 'received',
             createdAt: String(o.createdAt || new Date().toISOString()),
             estimatedDeliveryMinutes: typeof o.estimatedDeliveryMinutes === 'number' ? o.estimatedDeliveryMinutes : 35,
-            driverName: String(o.driverName || 'Moussa (Livreur Khady)'),
-            driverPhone: String(o.driverPhone || '+227 90 12 34 56'),
+            driverName: String(o.driverName || "Service Livraison Khady's Food"),
+            driverPhone: String(o.driverPhone || RESTAURANT_INFO.phoneClean),
             notes: o.notes ? String(o.notes) : undefined
           } as Order));
       }
@@ -185,7 +197,7 @@ export function loadStoredReviews(): Review[] {
           date: String(r.date || 'Récemment'),
           dishName: r.dishName ? String(r.dishName) : undefined,
           avatar: r.avatar ? String(r.avatar) : undefined,
-          verified: r.verified !== false
+          verified: Boolean(r.verified)
         }));
       }
     }
@@ -201,5 +213,35 @@ export function saveStoredReviews(reviews: Review[]): void {
     safeSetItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
   } catch (err) {
     console.warn("Impossible d'enregistrer les avis:", err);
+  }
+}
+
+export function loadPlatDuJourVisible(): boolean {
+  const raw = safeGetItem(PLAT_JOUR_VISIBLE_KEY);
+  return raw === null ? true : raw === 'true';
+}
+
+export function savePlatDuJourVisible(visible: boolean): void {
+  safeSetItem(PLAT_JOUR_VISIBLE_KEY, String(visible));
+}
+
+export function loadPushPreference(): boolean {
+  const raw = safeGetItem(PUSH_ENABLED_KEY);
+  return raw === null ? false : raw === 'true';
+}
+
+export function savePushPreference(enabled: boolean): void {
+  safeSetItem(PUSH_ENABLED_KEY, String(enabled));
+}
+
+export function getAdminPin(): string {
+  const stored = safeGetItem(ADMIN_PIN_KEY);
+  if (stored && stored.trim().length >= 4) return stored.trim();
+  return '2270';
+}
+
+export function saveAdminPin(pin: string): void {
+  if (pin && pin.trim().length >= 4) {
+    safeSetItem(ADMIN_PIN_KEY, pin.trim());
   }
 }

@@ -116,7 +116,7 @@
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 25s linear infinite;
+  animation: marquee 50s linear infinite;
 }
 
 .animate-marquee:hover {
@@ -154,7 +154,7 @@
 .animate-continuous-dishes {
   display: flex;
   width: max-content;
-  animation: continuous-dishes 32s linear infinite;
+  animation: continuous-dishes 65s linear infinite;
   will-change: transform;
 }
 

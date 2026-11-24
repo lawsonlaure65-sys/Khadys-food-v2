@@ -123,7 +123,7 @@ export const ContactModal: React.FC<ContactProps> = ({ isOpen, onClose, onOpenAd
               </div>
 
               <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 uppercase whitespace-nowrap">
-                4 livreurs actifs
+                Livraison 10h - 23h
               </span>
             </div>
 

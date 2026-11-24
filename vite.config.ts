@@ -79,6 +79,17 @@ Donne des réponses courtes, appétissantes et chaleureuses (2-4 phrases max). U
       }
     }
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-icons': ['lucide-react']
+        }
+      }
+    }
+  },
   server: {
     port: 3000,
     host: '0.0.0.0',

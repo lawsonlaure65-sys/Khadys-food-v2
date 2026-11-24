@@ -504,6 +504,17 @@ CREATE TABLE IF NOT EXISTS orders (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+    id TEXT PRIMARY KEY,
+    author TEXT NOT NULL,
+    rating INTEGER NOT NULL DEFAULT 5,
+    comment TEXT NOT NULL,
+    dish_name TEXT,
+    date_label TEXT,
+    verified BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS app_settings (
     key TEXT PRIMARY KEY,
     value JSONB NOT NULL,
@@ -512,6 +523,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_settings ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public Full Access menu_items" ON menu_items;
@@ -520,11 +532,14 @@ CREATE POLICY "Public Full Access menu_items" ON menu_items FOR ALL USING (true)
 DROP POLICY IF EXISTS "Public Full Access orders" ON orders;
 CREATE POLICY "Public Full Access orders" ON orders FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Public Full Access reviews" ON reviews;
+CREATE POLICY "Public Full Access reviews" ON reviews FOR ALL USING (true) WITH CHECK (true);
+
 DROP POLICY IF EXISTS "Public Full Access app_settings" ON app_settings;
 CREATE POLICY "Public Full Access app_settings" ON app_settings FOR ALL USING (true) WITH CHECK (true);
 
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR TABLE menu_items, orders, app_settings;
+  CREATE PUBLICATION supabase_realtime FOR TABLE menu_items, orders, reviews, app_settings;
 COMMIT;
 `;

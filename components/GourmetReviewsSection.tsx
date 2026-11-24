@@ -38,7 +38,7 @@ export const GourmetReviewsSection: React.FC<GourmetReviewsProps> = ({
       comment: comment.trim(),
       date: "Aujourd'hui",
       dishName: dishName || undefined,
-      verified: true
+      verified: false
     };
 
     onAddReview(newRev);
@@ -157,16 +157,9 @@ export const GourmetReviewsSection: React.FC<GourmetReviewsProps> = ({
                 onChange={e => setDishName(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-stone-900 border border-stone-700 text-sm text-white focus:outline-none focus:border-orange-500"
               >
-                <option value="Tiep Rouge Royal">Tiep Rouge Royal</option>
-                <option value="Dibi d'Agneau Grillé">Dibi d'Agneau Grillé</option>
-                <option value="Thiéboudienne Penda Royal">Thiéboudienne Penda Royal</option>
-                <option value="Poulet Braisé Yassa">Poulet Braisé Yassa</option>
-                <option value="Box 3 Sauces Khady">Box 3 Sauces Khady</option>
-                <option value="Pastels Farcis Chauds">Pastels Farcis Chauds</option>
-                <option value="Attiéké Garba Poisson">Attiéké Garba Poisson</option>
                 <option value="Service Traiteur & Buffet">Service Traiteur & Buffet</option>
-                {items && items.filter(it => it && it.name).map(it => (
-                  <option key={it.id} value={it.name}>{it.name}</option>
+                {Array.from(new Set((items || []).filter(it => it && it.name).map(it => it.name))).map(name => (
+                  <option key={name} value={name}>{name}</option>
                 ))}
               </select>
             </div>

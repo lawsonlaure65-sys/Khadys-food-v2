@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MenuItem } from '../types';
-import { Search, Flame, Clock, Plus, Star } from 'lucide-react';
+import { Search, Clock, Plus, Star } from 'lucide-react';
+import { RESTAURANT_INFO, isRestrictedFromDailyOrFeatured } from '../constants';
 
 interface MenuProps {
   items: MenuItem[];
@@ -13,19 +14,26 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
   const [selectedCat, setSelectedCat] = useState<string>(initialCategory || 'tous');
   const [search, setSearch] = useState<string>('');
 
+  useEffect(() => {
+    if (initialCategory) {
+      setSelectedCat(initialCategory);
+    }
+  }, [initialCategory]);
+
   const categories = [
     { id: 'tous', label: 'Toute la Carte' },
     { id: 'signature', label: '⭐ Plats Signature' },
-    { id: 'flash', label: '⚡ Menus Flash & Promos' },
+    { id: 'flash', label: '⚡ Promos & Flash' },
     { id: 'dejeuner', label: '🍱 Déjeuner Complet' },
-    { id: 'plats', label: 'Plats Chauds' },
-    { id: 'sauces', label: 'Box Sauces Khady' },
-    { id: 'entrees', label: 'Entrées & Pastels' },
-    { id: 'boissons', label: 'Jus Frais & Boissons' },
+    { id: 'plats', label: '🍛 Plats Chauds' },
+    { id: 'sauces', label: '🥣 Box Sauces Khady' },
+    { id: 'entrees', label: '🥟 Entrées & Matin' },
+    { id: 'boissons', label: '🍹 Jus & Desserts' },
+    { id: 'traiteur', label: '🎉 Packs Buffet' },
   ];
 
   const filtered = items.filter(it => {
-    if (!it) return false;
+    if (!it || it.available === false) return false;
     const name = String(it.name || '').toLowerCase();
     const desc = String(it.description || '').toLowerCase();
     const id = String(it.id || '').toLowerCase();
@@ -36,38 +44,71 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
     if (selectedCat === 'tous') {
       matchesCat = true;
     } else if (selectedCat === 'signature') {
-      matchesCat = (
-        id.includes('doukounou') ||
-        id.includes('dibi') ||
-        id.includes('box-sauces') ||
-        id.includes('thieb') ||
-        id.includes('yassa') ||
-        id.includes('attieke') ||
-        name.includes('doukounou') ||
+      matchesCat = Boolean(
+        it.isSpecialiteMaison ||
+        it.isSpécialitéMaison ||
+        cat === 'spécialité maison' ||
+        cat === 'signature' ||
         badge.includes('signature') ||
-        cat === 'signature'
+        badge.includes('spécialité')
       );
     } else if (selectedCat === 'flash') {
-      matchesCat = (
+      matchesCat = Boolean(
         id.includes('flash') ||
         badge.includes('flash') ||
-        Boolean(it.oldPrice && it.oldPrice > it.price)
+        it.isPromo ||
+        (it.oldPrice && it.oldPrice > it.price)
       );
     } else if (selectedCat === 'dejeuner') {
       matchesCat = (
+        cat === 'déjeuner' ||
         cat === 'dejeuner' ||
         id.includes('dejeuner') ||
+        id.includes('kit') ||
         name.includes('déjeuner') ||
-        desc.includes('déjeuner') ||
         name.includes('formule')
       );
+    } else if (selectedCat === 'plats') {
+      matchesCat = (
+        cat === 'plat africain' ||
+        cat === 'spécialité maison' ||
+        cat === 'plats' ||
+        cat === 'grillades'
+      );
+    } else if (selectedCat === 'sauces') {
+      matchesCat = cat === 'box sauce' || cat === 'sauces';
+    } else if (selectedCat === 'entrees') {
+      matchesCat = cat === 'entrée' || cat === 'entrees' || cat === 'petit-déjeuner';
+    } else if (selectedCat === 'boissons') {
+      matchesCat = cat === 'boisson naturelle' || cat === 'boissons' || cat === 'dessert';
+    } else if (selectedCat === 'traiteur') {
+      matchesCat = cat === 'pack-buffet' || cat === 'traiteur';
     } else {
       matchesCat = it.category === selectedCat;
     }
 
     const query = (search || '').toLowerCase().trim();
-    const matchesSearch = !query || name.includes(query) || desc.includes(query) || badge.includes(query);
+    const matchesSearch = !query || name.includes(query) || desc.includes(query) || badge.includes(query) || cat.includes(query);
     return matchesCat && matchesSearch;
+  });
+
+  const platDuJourItem = items.find(it => {
+    if (!it || it.available === false) return false;
+    if (isRestrictedFromDailyOrFeatured(it.name)) return false;
+    const badge = String(it.badge || '').toLowerCase();
+    return Boolean(it.isPlatDuJour || badge.includes('jour'));
+  });
+
+  const permanentSpecialties = items.filter(it => {
+    if (!it || it.available === false) return false;
+    const badge = String(it.badge || '').toLowerCase();
+    return (
+      it.id === 'douk-royal' ||
+      it.id === 'attieke-royal' ||
+      it.id === 'sp9' ||
+      badge.includes('permanente') ||
+      isRestrictedFromDailyOrFeatured(it.name)
+    );
   });
 
   return (
@@ -100,7 +141,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
               />
             </div>
             <a
-              href="https://wa.me/c/22774441621"
+              href={RESTAURANT_INFO.whatsappCatalogUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="px-3.5 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
@@ -132,22 +173,17 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
       {/* Section 1: Plat du Jour (si disponible et non filtré) */}
       {selectedCat === 'tous' && !search && (
         <div className="space-y-6">
-          {items.filter(it => {
-            if (!it) return false;
-            const badge = String(it.badge || '').toLowerCase();
-            const name = String(it.name || '').toLowerCase();
-            return badge.includes('jour') && !name.includes('doukounou') && !name.includes('attieke') && !name.includes('attiéké');
-          }).slice(0, 1).map(platJour => (
+          {platDuJourItem && (
             <div
-              key={platJour.id}
-              onClick={() => onSelectItem(platJour)}
+              key={platDuJourItem.id}
+              onClick={() => onSelectItem(platDuJourItem)}
               className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#2B1B14] via-[#201511] to-[#17100D] border-2 border-amber-500/50 p-5 sm:p-6 shadow-2xl cursor-pointer group hover:border-amber-400 transition-all"
             >
               <div className="flex flex-col lg:flex-row items-center gap-6">
                 <div className="relative w-full lg:w-72 h-52 rounded-2xl overflow-hidden flex-shrink-0 bg-stone-900">
                   <img
-                    src={platJour.image}
-                    alt={platJour.name}
+                    src={platDuJourItem.image}
+                    alt={platDuJourItem.name}
                     loading="lazy"
                     decoding="async"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -161,7 +197,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
                       ☀️ Plat du Jour
                     </span>
                     <span className="px-2.5 py-1 rounded-full bg-amber-400 text-stone-950 text-xs font-black uppercase tracking-wider shadow">
-                      Demain Midi
+                      Cuisiné Frais
                     </span>
                   </div>
                 </div>
@@ -169,21 +205,21 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
                 <div className="flex-1 w-full space-y-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xs uppercase font-bold text-amber-400 tracking-wider">
-                      ★ ÉDITION LIMITÉE DU CHEF
+                      ★ ÉDITION DU JOUR DU CHEF
                     </span>
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-white italic uppercase font-display">
-                    {platJour.name}
+                    {platDuJourItem.name}
                   </h2>
                   <p className="text-sm text-stone-300 leading-relaxed max-w-2xl">
-                    {platJour.description}
+                    {platDuJourItem.description}
                   </p>
 
                   <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-stone-800">
                     <div>
-                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Prix Spécial</span>
+                      <span className="text-[10px] text-stone-400 uppercase font-bold block">Tarif du Jour</span>
                       <span className="text-2xl font-black text-amber-400">
-                        {(platJour.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                        {(platDuJourItem.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
                       </span>
                     </div>
 
@@ -191,7 +227,7 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onQuickAdd(platJour, e);
+                          onQuickAdd(platDuJourItem, e);
                         }}
                         className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-wider shadow-lg hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
                       >
@@ -203,81 +239,79 @@ export const MenuView: React.FC<MenuProps> = ({ items, onSelectItem, onQuickAdd,
                 </div>
               </div>
             </div>
-          ))}
+          )}
 
-          {/* Section 2: Incontournables / Spécialités Permanentes (Doukounou, Attiéké, Dibi, etc.) */}
-          <div className="space-y-3 pt-4 w-full max-w-full min-w-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 w-full min-w-0">
-              <div className="min-w-0 max-w-full">
-                <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
-                  Coup de Cœur & Tradition
-                </span>
-                <h2 className="text-lg sm:text-2xl font-black text-white font-display uppercase italic break-words leading-tight">
-                  Nos Incontournables & Spécialités Permanentes
-                </h2>
-              </div>
-              <span className="text-xs text-stone-400 hidden sm:block flex-shrink-0">
-                Toujours disponibles à la commande
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full min-w-0">
-              {items.filter(it => {
-                if (!it) return false;
-                const badge = String(it.badge || '').toLowerCase();
-                return it.id === 'item-doukounou-khady' || it.id === 'item-attieke-royal' || it.id === 'item-dibi-agneau' || badge.includes('permanente');
-              }).map(spe => (
-                <div
-                  key={spe.id}
-                  onClick={() => onSelectItem(spe)}
-                  className="group cursor-pointer bg-[#1D1714] rounded-2xl border-2 border-amber-500/30 hover:border-amber-400 transition-all p-3.5 sm:p-4 flex flex-col justify-between hover:scale-[1.01] shadow-lg w-full max-w-full min-w-0"
-                >
-                  <div className="space-y-3">
-                    <div className="relative h-44 rounded-xl overflow-hidden bg-stone-900">
-                      <img
-                        src={spe.image}
-                        alt={spe.name}
-                        loading="lazy"
-                        decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=75";
-                        }}
-                      />
-                      <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-stone-950 shadow">
-                        Spécialité Permanente
-                      </span>
-                    </div>
-                    <div>
-                      <h3 className="font-black text-white text-base group-hover:text-amber-400 transition-colors">
-                        {spe.name}
-                      </h3>
-                      <p className="text-xs text-stone-400 line-clamp-2 mt-1 leading-relaxed">
-                        {spe.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 mt-3 border-t border-stone-800 flex items-center justify-between">
-                    <span className="text-base font-black text-amber-400">
-                      {(spe.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAdd(spe, e);
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/30 text-xs font-bold transition-all flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Ajouter</span>
-                    </button>
-                  </div>
+          {/* Section 2: Incontournables / Spécialités Permanentes (Doukounou, Attiéké, Dibiterie, etc.) */}
+          {permanentSpecialties.length > 0 && (
+            <div className="space-y-3 pt-4 w-full max-w-full min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 w-full min-w-0">
+                <div className="min-w-0 max-w-full">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
+                    Coup de Cœur & Tradition
+                  </span>
+                  <h2 className="text-lg sm:text-2xl font-black text-white font-display uppercase italic break-words leading-tight">
+                    Nos Incontournables & Spécialités Permanentes
+                  </h2>
                 </div>
-              ))}
+                <span className="text-xs text-stone-400 hidden sm:block flex-shrink-0">
+                  Toujours disponibles à la commande
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full min-w-0">
+                {permanentSpecialties.map(spe => (
+                  <div
+                    key={spe.id}
+                    onClick={() => onSelectItem(spe)}
+                    className="group cursor-pointer bg-[#1D1714] rounded-2xl border-2 border-amber-500/30 hover:border-amber-400 transition-all p-3.5 sm:p-4 flex flex-col justify-between hover:scale-[1.01] shadow-lg w-full max-w-full min-w-0"
+                  >
+                    <div className="space-y-3">
+                      <div className="relative h-44 rounded-xl overflow-hidden bg-stone-900">
+                        <img
+                          src={spe.image}
+                          alt={spe.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src =
+                              "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=75";
+                          }}
+                        />
+                        <span className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-stone-950 shadow">
+                          Spécialité Permanente
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="font-black text-white text-base group-hover:text-amber-400 transition-colors">
+                          {spe.name}
+                        </h3>
+                        <p className="text-xs text-stone-400 line-clamp-2 mt-1 leading-relaxed">
+                          {spe.description}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 mt-3 border-t border-stone-800 flex items-center justify-between">
+                      <span className="text-base font-black text-amber-400">
+                        {(spe.price || 0).toLocaleString()} <span className="text-xs text-orange-400">FCFA</span>
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onQuickAdd(spe, e);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white border border-orange-500/30 text-xs font-bold transition-all flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Ajouter</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="pt-6">
             <div className="w-full h-px bg-gradient-to-r from-transparent via-stone-700 to-transparent my-2" />

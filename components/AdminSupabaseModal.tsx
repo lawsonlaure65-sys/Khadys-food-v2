@@ -40,6 +40,7 @@ export const AdminSupabaseModal: React.FC<AdminSupabaseModalProps> = ({
   } | null>(null);
   const [copiedSQL, setCopiedSQL] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState<'config' | 'sql' | 'sync'>('config');
+  const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -86,16 +87,17 @@ export const AdminSupabaseModal: React.FC<AdminSupabaseModalProps> = ({
 
   const handleSyncToSupabase = async () => {
     setIsSyncing(true);
+    setSyncFeedback(null);
     try {
       const res = await syncAllMenuItemsToSupabase(currentItems);
       if (res.success) {
-        alert(`✅ ${res.count} plats synchronisés avec succès vers Supabase !`);
+        setSyncFeedback({ type: 'success', text: `${res.count} plats synchronisés avec succès vers Supabase !` });
         await handleTestConnection();
       } else {
-        alert(`❌ Erreur de synchronisation : ${res.error}`);
+        setSyncFeedback({ type: 'error', text: `Erreur de synchronisation : ${res.error}` });
       }
     } catch (err: any) {
-      alert(`❌ Erreur: ${err?.message || err}`);
+      setSyncFeedback({ type: 'error', text: `Erreur : ${err?.message || err}` });
     } finally {
       setIsSyncing(false);
     }
@@ -103,16 +105,17 @@ export const AdminSupabaseModal: React.FC<AdminSupabaseModalProps> = ({
 
   const handleImportFromSupabase = async () => {
     setIsImporting(true);
+    setSyncFeedback(null);
     try {
       const cloudItems = await fetchSupabaseMenuItems();
       if (cloudItems && cloudItems.length > 0) {
         onImportItemsFromSupabase(cloudItems);
-        alert(`✅ ${cloudItems.length} plats chargés depuis Supabase avec succès !`);
+        setSyncFeedback({ type: 'success', text: `${cloudItems.length} plats chargés depuis Supabase avec succès !` });
       } else {
-        alert("⚠️ Aucun plat trouvé dans la table 'menu_items' de Supabase.");
+        setSyncFeedback({ type: 'warning', text: "Aucun plat trouvé dans la table 'menu_items' de Supabase." });
       }
     } catch (err: any) {
-      alert(`❌ Erreur: ${err?.message || err}`);
+      setSyncFeedback({ type: 'error', text: `Erreur : ${err?.message || err}` });
     } finally {
       setIsImporting(false);
     }
@@ -230,9 +233,21 @@ export const AdminSupabaseModal: React.FC<AdminSupabaseModalProps> = ({
               className="px-3 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-200 text-xs font-bold flex items-center gap-1.5 flex-shrink-0 border border-stone-700"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-              <span>Tester</span>
+              <span>Vérifier</span>
             </button>
           </div>
+
+          {syncFeedback && (
+            <div className={`p-3.5 rounded-2xl border text-xs font-bold ${
+              syncFeedback.type === 'success'
+                ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300'
+                : syncFeedback.type === 'warning'
+                ? 'bg-amber-950/60 border-amber-500/50 text-amber-300'
+                : 'bg-red-950/60 border-red-500/50 text-red-300'
+            }`}>
+              {syncFeedback.text}
+            </div>
+          )}
 
           {/* TAB 1: CONFIG */}
           {activeSubTab === 'config' && (

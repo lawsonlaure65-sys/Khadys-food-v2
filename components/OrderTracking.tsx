@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Order } from '../types';
-import { CheckCircle2, Clock, ChefHat, Bike, Phone, MessageSquare, MapPin, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Clock, ChefHat, Bike, Phone, MessageSquare, MapPin, ArrowRight, XCircle } from 'lucide-react';
 import { RESTAURANT_INFO } from '../constants';
 
 interface TrackingProps {
@@ -8,20 +8,15 @@ interface TrackingProps {
   onNewOrder: () => void;
 }
 
+const STATUS_TO_STEP: Record<Order['status'], number> = {
+  received: 1,
+  preparing: 2,
+  on_delivery: 3,
+  delivered: 4,
+  cancelled: 0,
+};
+
 export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) => {
-  const [currentStep, setCurrentStep] = useState<number>(1);
-
-  // Progressive delivery simulation for delightful UX
-  useEffect(() => {
-    if (!order) return;
-    const t1 = setTimeout(() => setCurrentStep(2), 6000);
-    const t2 = setTimeout(() => setCurrentStep(3), 18000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
-  }, [order]);
-
   if (!order) {
     return (
       <div className="max-w-2xl mx-auto py-16 px-4 text-center">
@@ -43,12 +38,28 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
     );
   }
 
+  const currentStep = STATUS_TO_STEP[order.status] ?? 1;
+  const isCancelled = order.status === 'cancelled';
+
   const steps = [
-    { num: 1, title: "Commande Reçue", desc: "Validée par le restaurant", icon: <CheckCircle2 className="w-5 h-5" /> },
-    { num: 2, title: "En Préparation", desc: "Mijoté avec passion par Khady", icon: <ChefHat className="w-5 h-5" /> },
+    { num: 1, title: "Commande Reçue", desc: "Enregistrée & transmise", icon: <CheckCircle2 className="w-5 h-5" /> },
+    { num: 2, title: "En Préparation", desc: "Cuisinée avec soin par Khady", icon: <ChefHat className="w-5 h-5" /> },
     { num: 3, title: "En Route dans Niamey", desc: `Livraison vers ${order.district}`, icon: <Bike className="w-5 h-5" /> },
     { num: 4, title: "Livrée", desc: "Bon appétit !", icon: <CheckCircle2 className="w-5 h-5" /> },
   ];
+
+  const driverDisplay =
+    order.driverName && !order.driverName.includes('Moussa (Livreur')
+      ? order.driverName
+      : "Service Livraison Khady's Food";
+  const driverPhoneDisplay =
+    order.driverPhone && order.driverPhone !== '+227 90 12 34 56' && order.driverPhone !== '+22790123456'
+      ? order.driverPhone
+      : RESTAURANT_INFO.phoneClean;
+
+  const whatsappFollowUrl = `https://wa.me/${RESTAURANT_INFO.whatsappNumber}?text=${encodeURIComponent(
+    `Bonjour Khady's Food, je souhaite connaître l'avancement de ma commande #${order.id} (${order.customerName} - ${order.district}).`
+  )}`;
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-4 sm:px-6 space-y-6">
@@ -57,7 +68,7 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-orange-400 bg-orange-500/10 px-2.5 py-1 rounded-full border border-orange-500/20">
-              Suivi en direct
+              Suivi de commande
             </span>
             <h1 className="text-2xl font-bold text-white mt-2">
               Commande #{order.id}
@@ -67,41 +78,49 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
             </p>
           </div>
           <div className="text-left sm:text-right">
-            <span className="text-xs text-stone-400">Temps estimé d'arrivée</span>
-            <div className="text-2xl font-black text-amber-400">~25-35 min</div>
+            <span className="text-xs text-stone-400">Délai moyen estimé</span>
+            <div className="text-2xl font-black text-amber-400">
+              ~{order.estimatedDeliveryMinutes || 35} min
+            </div>
           </div>
         </div>
 
-        {/* Step tracker */}
-        <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {steps.map((st) => {
-            const isDone = currentStep >= st.num;
-            const isCurrent = currentStep === st.num;
+        {isCancelled ? (
+          <div className="mt-6 p-4 rounded-2xl bg-red-950/40 border border-red-500/40 flex items-center gap-3 text-red-200 text-sm">
+            <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <span>Cette commande a été annulée. Contactez le restaurant sur WhatsApp pour toute question.</span>
+          </div>
+        ) : (
+          <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {steps.map((st) => {
+              const isDone = currentStep >= st.num;
+              const isCurrent = currentStep === st.num;
 
-            return (
-              <div
-                key={st.num}
-                className={`p-3.5 rounded-2xl border transition-all ${
-                  isCurrent
-                    ? 'bg-orange-500/20 border-orange-500 text-orange-300 ring-2 ring-orange-500/20'
-                    : isDone
-                    ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
-                    : 'bg-stone-900/50 border-stone-800 text-stone-500'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold">Étape {st.num}</span>
-                  {st.icon}
+              return (
+                <div
+                  key={st.num}
+                  className={`p-3.5 rounded-2xl border transition-all ${
+                    isCurrent
+                      ? 'bg-orange-500/20 border-orange-500 text-orange-300 ring-2 ring-orange-500/20'
+                      : isDone
+                      ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-400'
+                      : 'bg-stone-900/50 border-stone-800 text-stone-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold">Étape {st.num}</span>
+                    {st.icon}
+                  </div>
+                  <h4 className="text-xs font-bold text-white truncate">{st.title}</h4>
+                  <p className="text-[10px] text-stone-400 mt-0.5">{st.desc}</p>
                 </div>
-                <h4 className="text-xs font-bold text-white truncate">{st.title}</h4>
-                <p className="text-[10px] text-stone-400 mt-0.5">{st.desc}</p>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Driver info & assistance */}
+      {/* Delivery & assistance */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl bg-[#181615] border border-stone-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -109,14 +128,14 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
               <Bike className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">{order.driverName || "Moussa (Livreur Khady)"}</h4>
-              <p className="text-xs text-stone-400">Livreur dédié Niamey</p>
+              <h4 className="text-sm font-bold text-white">{driverDisplay}</h4>
+              <p className="text-xs text-stone-400">{RESTAURANT_INFO.phone}</p>
             </div>
           </div>
           <a
-            href={`tel:${order.driverPhone || "+22790123456"}`}
+            href={`tel:${driverPhoneDisplay}`}
             className="p-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 transition-colors shadow-md"
-            title="Appeler le livreur"
+            title="Appeler le service livraison"
           >
             <Phone className="w-4 h-4" />
           </a>
@@ -128,15 +147,15 @@ export const OrderTracking: React.FC<TrackingProps> = ({ order, onNewOrder }) =>
               <MessageSquare className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-sm font-bold text-white">Service Client Khady</h4>
-              <p className="text-xs text-stone-400">Assistance WhatsApp 7j/7</p>
+              <h4 className="text-sm font-bold text-white">Suivi direct WhatsApp</h4>
+              <p className="text-xs text-stone-400">Confirmation & position en direct</p>
             </div>
           </div>
           <a
-            href={`https://wa.me/${RESTAURANT_INFO.whatsappNumber}`}
+            href={whatsappFollowUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="py-2 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-xs font-semibold text-white border border-stone-700"
+            className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition-colors"
           >
             WhatsApp
           </a>
